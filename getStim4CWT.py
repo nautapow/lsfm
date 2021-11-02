@@ -6,7 +6,7 @@ import TFTool
 import pandas as pd
 
 wdir = os.getcwd()
-mdir = Path('/Volumes/bcm-pedi-main-neuro-mcginley/Users/cwchiang/in_vivo_patch/')
+mdir = Path('/media/external5/Users/cwchiang/in_vivo_patch/')
 os.chdir(mdir)
 df = pd.read_csv('patch_list.csv', dtype = {'date':str, '#':str})
 if 'CWT' not in df:

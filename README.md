@@ -1,2 +1,2 @@
 # lsfm
-For analying log-spaced sinusoid frequency modulation.
+For analyzing in-vivo whole cell recording with log-spaced sinusoid frequency modulated stimuli.
