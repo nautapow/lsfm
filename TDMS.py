@@ -29,8 +29,12 @@ class Tdms():
         else:
             filename = self.path
             
-
-        str_s = filename[:-5] + '_Sound' + filename[-5:]
+    
+        if filename[-6] == '_':
+            str_s = filename[:-5] + 'Sound' + filename[-5:]
+        else:
+            str_s = filename[:-5] + '_Sound' + filename[-5:]
+        
         if os.path.isfile(str_s):
             sound_file = TdmsFile.open(str_s)
             sound = np.array(sound_file.groups()[0].channels()[0])
