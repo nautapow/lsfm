@@ -1,9 +1,8 @@
 import matplotlib.pyplot as plt
 from nptdms import TdmsFile
 from scipy.fft import fft
-import csv
 import numpy as np
-from scipy.io import savemat
+from scipy import signal
 import os
 
 
@@ -16,7 +15,7 @@ class Tdms():
         self.Sound = []
         self.misc = []
         
-    def loadtdms(self, path = '', protocol = 1):
+    def loadtdms(self, path = '', protocol = 1, prep=True):
         if path != '':
             self.path = path
         elif self.path == '':
@@ -56,6 +55,25 @@ class Tdms():
         _channel = 'Tone Parameters'
         n_epochs = len(stim_startT)
         
+        if prep:
+            b,a = signal.butter(1, 0.1, btype='high', fs=25000)
+            resp = signal.filtfilt(b,a,resp)
+            
+
+        '''
+        from scipy.optimize import curve_fit
+ 
+        _base = np.mean(resp[:10000])
+        
+        def func(x,a):
+            return a*x+_base
+        
+        _xdata = np.linspace(0,1,len(resp))
+        _popt, _pcov = curve_fit(func, _xdata, resp)
+        resp -= func(_xdata, *_popt)
+        plt.plot(resp)
+        '''
+            
         
         #   protocol = type of recording choose in LabView
         #   1 = 15.5 min lsfm
