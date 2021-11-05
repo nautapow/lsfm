@@ -4,6 +4,7 @@ from scipy.fft import fft
 import numpy as np
 from scipy import signal
 import os
+import pandas as pd
 
 
 class Tdms():
@@ -14,8 +15,9 @@ class Tdms():
         self.Para = {}
         self.Sound = []
         self.misc = []
+        self.Rdpk = []
         
-    def loadtdms(self, path = '', protocol = 1, prep=True):
+    def loadtdms(self, path = '', protocol = 1, prep=True, dePeak=True):
         if path != '':
             self.path = path
         elif self.path == '':
@@ -56,9 +58,39 @@ class Tdms():
         n_epochs = len(stim_startT)
         
         if prep:
+            #0.1Hz high pass butterworth filter to correct baseline drifting
             b,a = signal.butter(1, 0.1, btype='high', fs=25000)
             resp = signal.filtfilt(b,a,resp)
-            
+        
+        if dePeak:
+            #spikes removal
+            peaks,_ = signal.find_peaks(resp, prominence=0.2, height=[None, None], rel_height=0.1, width=[0,100])
+            base_left = []
+            base_right = []
+
+            for peak in peaks:
+                    _re = resp[peak-50:peak+200]
+                    _re_diff = np.convolve(np.diff(_re), np.ones(10)/10, mode='same') 
+                    index = [i for i in range(len(_re_diff)) if np.abs(_re_diff[i] - 0) > 0.001]
+                    
+                    if index[0] > 40:
+                        index[0] = 25
+                    if index[-1] < 100:
+                        index[-1] = 150
+                    
+                    base_left.append(peak-50+index[0])
+                    base_right.append(peak-50+index[-1])
+                    
+            m = np.zeros(len(resp), dtype=bool)
+            for i in range(len(base_left)):
+                m[base_left[i]:base_right[i]] = True
+                
+            nopeak = resp[:]
+            nopeak[m] = np.nan
+            nopeak = pd.Series(nopeak)
+            nopeak = list(nopeak.interpolate(limit_direction='both', kind='cubic'))
+        else:
+            nopeak = resp[:]
 
         '''
         from scipy.optimize import curve_fit
@@ -107,8 +139,10 @@ class Tdms():
                     lst = np.zeros(abs(x1))
                     ss = np.concatenate((lst,stim[:x2]), axis = 0)
                     rr = np.concatenate((lst,resp[:x2]), axis = 0)
+                    nop = np.concatenate((lst,nopeak[:x2]), axis = 0)
                     self.S.append(ss)
                     self.R.append(rr)
+                    self.Rdpk.append(nop)
                     try:
                         lst = np.zeros(abs(x1)*8)
                         so = np.concatenate((lst,sound[:x2*8]), axis = 0)
@@ -118,6 +152,7 @@ class Tdms():
                 else:
                     self.S.append(stim[x1:x2])
                     self.R.append(resp[x1:x2])
+                    self.Rdpk.append(nopeak[x1:x2])
                 try:
                     self.Sound.append(sound[x1*8:x2*8])
                 except UnboundLocalError:
@@ -147,8 +182,10 @@ class Tdms():
                     lst = np.zeros(abs(x1))
                     ss = np.concatenate((lst,stim[:x2]), axis = 0)
                     rr = np.concatenate((lst,resp[:x2]), axis = 0)
+                    nop = np.concatenate((lst,nopeak[:x2]), axis = 0)
                     self.S.append(ss)
                     self.R.append(rr)
+                    self.Rdpk.append(nop)
                     try:
                         lst = np.zeros(abs(x1)*8)
                         so = np.concatenate((lst,sound[:x2*8]), axis = 0)
@@ -158,6 +195,7 @@ class Tdms():
                 else:
                     self.S.append(stim[x1:x2])
                     self.R.append(resp[x1:x2])
+                    self.Rdpk.sppend(nopeak[x1:x2])
                 try:
                     self.Sound.append(sound[x1*8:x2*8])
                 except UnboundLocalError:
@@ -165,8 +203,9 @@ class Tdms():
                     break
                       
         del tdms_file
-        self.rawS = stim
-        self.rawR = resp
+        self.rawS = stim[:]
+        self.rawR = resp[:]
+        self.rawRdpk = nopeak[:]
 
     def get_misc(self):
         return self.misc
@@ -185,6 +224,9 @@ class Tdms():
     
     def get_raw(self):
         return self.rawS, self.rawR
+    
+    def get_dpk(self):
+        return self.Rdpk, self.rawRdpk
         
 
         

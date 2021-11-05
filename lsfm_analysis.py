@@ -35,9 +35,8 @@ for x in range(n_epochs):
 
 R = np.array(R)
 wt = np.array(wt)
-R = signal.decimate(R, q = 10)
-R = signal.decimate(R, q = 10)
-P = np.abs(wt)**2
+R = signal.resample(R, 500, axis=1)
+P = wt**2
 
 tmin = -0.1
 tmax = 0.4
