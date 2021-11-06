@@ -67,9 +67,10 @@ class Tdms():
             peaks,_ = signal.find_peaks(resp, prominence=0.2, height=[None, None], rel_height=0.1, width=[0,100])
             base_left = []
             base_right = []
-
+            res = resp[:]
+            
             for peak in peaks:
-                    _re = resp[peak-50:peak+200]
+                    _re = res[peak-50:peak+200]
                     _re_diff = np.convolve(np.diff(_re), np.ones(10)/10, mode='same') 
                     index = [i for i in range(len(_re_diff)) if np.abs(_re_diff[i] - 0) > 0.001]
                     
@@ -81,11 +82,11 @@ class Tdms():
                     base_left.append(peak-50+index[0])
                     base_right.append(peak-50+index[-1])
                     
-            m = np.zeros(len(resp), dtype=bool)
+            m = np.zeros(len(res), dtype=bool)
             for i in range(len(base_left)):
                 m[base_left[i]:base_right[i]] = True
                 
-            nopeak = resp[:]
+            nopeak = res[:]
             nopeak[m] = np.nan
             nopeak = pd.Series(nopeak)
             nopeak = list(nopeak.interpolate(limit_direction='both', kind='cubic'))
