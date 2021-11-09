@@ -17,7 +17,7 @@ class Tdms():
         self.misc = []
         self.Rdpk = []
         
-    def loadtdms(self, path = '', protocol = 1, prep=True, dePeak=True):
+    def loadtdms(self, path = '', protocol = 1, base_correct=True, dePeak=True):
         if path != '':
             self.path = path
         elif self.path == '':
@@ -46,7 +46,7 @@ class Tdms():
         fs = 25000
         sRate = int(fs/1000)
 
-        #load tdms file
+        """load tdms file"""
         groups = tdms_file['Untitled']
         stim = groups['Sound'][:]
         resp = groups['PatchPrimary'][:]
@@ -57,23 +57,25 @@ class Tdms():
         _channel = 'Tone Parameters'
         n_epochs = len(stim_startT)
         
-        if prep:
-            #0.1Hz high pass butterworth filter to correct baseline drifting
+        
+        """0.1Hz highpass butterworth filter to correct baseline drifting"""
+        if base_correct:
             b,a = signal.butter(1, 0.1, btype='high', fs=25000)
             resp = signal.filtfilt(b,a,resp)
         
+        
+        """remove spilkes for membrain potential anaylsis"""
         if dePeak:
-            #spikes removal
             peaks,_ = signal.find_peaks(resp, prominence=0.2, height=[None, None], rel_height=0.1, width=[0,100])
             base_left = []
             base_right = []
-            res = resp[:]
-            
+            m = np.zeros(len(resp), dtype=bool)
+            count = 0
             for peak in peaks:
-                    _re = res[peak-50:peak+200]
+                    _re = resp[peak-50:peak+200]
                     _re_diff = np.convolve(np.diff(_re), np.ones(10)/10, mode='same') 
                     index = [i for i in range(len(_re_diff)) if np.abs(_re_diff[i] - 0) > 0.001]
-                    
+                    print(count)
                     if index[0] > 40:
                         index[0] = 25
                     if index[-1] < 100:
@@ -81,19 +83,20 @@ class Tdms():
                     
                     base_left.append(peak-50+index[0])
                     base_right.append(peak-50+index[-1])
-                    
-            m = np.zeros(len(res), dtype=bool)
+                    count += 1
             for i in range(len(base_left)):
                 m[base_left[i]:base_right[i]] = True
                 
-            nopeak = res[:]
+            nopeak = resp[:]
             nopeak[m] = np.nan
             nopeak = pd.Series(nopeak)
             nopeak = list(nopeak.interpolate(limit_direction='both', kind='cubic'))
         else:
             nopeak = resp[:]
 
+        
         '''
+        """alternative baseline correction using linear fit"""
         from scipy.optimize import curve_fit
  
         _base = np.mean(resp[:10000])
@@ -153,7 +156,7 @@ class Tdms():
                 else:
                     self.S.append(stim[x1:x2])
                     self.R.append(resp[x1:x2])
-                    self.Rdpk.append(nopeak[x1:x2])
+                    #self.Rdpk.append(nopeak[x1:x2])
                 try:
                     self.Sound.append(sound[x1*8:x2*8])
                 except UnboundLocalError:
@@ -196,7 +199,7 @@ class Tdms():
                 else:
                     self.S.append(stim[x1:x2])
                     self.R.append(resp[x1:x2])
-                    self.Rdpk.sppend(nopeak[x1:x2])
+                    self.Rdpk.append(nopeak[x1:x2])
                 try:
                     self.Sound.append(sound[x1*8:x2*8])
                 except UnboundLocalError:
@@ -204,10 +207,10 @@ class Tdms():
                     break
                       
         del tdms_file
-        self.rawS = stim[:]
-        self.rawR = resp[:]
-        self.rawRdpk = nopeak[:]
-
+        self.rawS = stim
+        self.rawR = resp
+        self.rawRdpk = nopeak
+        
     def get_misc(self):
         return self.misc
        

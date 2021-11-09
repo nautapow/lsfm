@@ -9,7 +9,7 @@ import scipy.io
 t1 = Tdms(r'E:\Documents\PythonCoding\20210730_002_2021_07_30_13_53_09.tdms')
 t1.loadtdms()
 
-'''
+
 x1 = [base_left[0], base_right[0]]
 y1 = resp[452][x1]
 
@@ -26,7 +26,7 @@ for i in range(len(peak1s)):
     
     
 
-peaks,_ = signal.find_peaks(resp, prominence=0.2, height=0.2, rel_height=0.3, width=[50,150])
+peaks,_ = signal.find_peaks(resp, prominence=0.2, height=[None, None], rel_height=0.1, width=[0,100])
 base_left = []
 base_right = []
 
@@ -51,4 +51,3 @@ nopeak = resp[:]
 nopeak[m] = np.nan
 nopeak = pd.Series(nopeak)
 nopeak = list(nopeak.interpolate(limit_direction='both', kind='cubic'))
-'''
