@@ -132,7 +132,7 @@ if  __name__ == "__main__":
     t1.loadtdms(protocol=2)
     
     stim, para = t1.get_stim()
-    resp = t1.get_resp()
+    resp,_ = t1.get_dpk()
     sound = t1.get_sound()
     
     resp_80, sound_80 = sound4rf(para, resp, sound)
@@ -144,7 +144,7 @@ if  __name__ == "__main__":
     wt = []
     R = []
     for x in range(n_epochs):
-        R.append(resp[x])
+        R.append(resp_80[x])
         wt.append(cwt['wt'][0][:][x][:])
     
     R = np.array(R)
@@ -152,8 +152,8 @@ if  __name__ == "__main__":
     R = signal.resample(R, 100, axis=1)
     P = wt**2
         
-    tmin = -0.1
-    tmax = 0.4
+    tmin = 0
+    tmax = 0.25
     sfreq = 250
     freqs = f.T[:][0]
 
