@@ -46,8 +46,9 @@ def mat_out(filename, arr):
     stim = {'stim': arr}
     scipy.io.savemat(filename+'_4cwt.mat', stim)
     
-def mat_in():
-    cwt = scipy.io.loadmat('sound_cwt.mat')
+def mat_in(path):
+    path = Path(path)
+    cwt = scipy.io.loadmat(path)
     return cwt
 
 
