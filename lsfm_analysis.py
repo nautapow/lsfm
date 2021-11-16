@@ -12,14 +12,26 @@ from mne.decoding import ReceptiveField, TimeDelayingRidge
 #os.chdir('q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results')
 #path = os.getcwd()
 
-#t1 = Tdms('/Users/POW/Desktop/python_learning/20210730_002_2021_07_30_13_53_09.tdms')
+t1 = Tdms('/Users/POW/Documents/Python_Project/lsfm_analysis/20210730_002_2021_07_30_13_53_09.tdms')
 #t1 = Tdms('/home/cwchiang/repos/lsfm/lsfm.tdms)
-t1 = Tdms(r'E:\Documents\PythonCoding\20210730_002_2021_07_30_13_53_09.tdms')
+#t1 = Tdms(r'E:\Documents\PythonCoding\20210730_002_2021_07_30_13_53_09.tdms')
 t1.loadtdms()
 
 stim, para = t1.get_stim()
-resp = t1.get_resp()
+resp,_ = t1.get_dpk()
+fs = 25000
 
+for i in range(len(resp)):
+    fhat = np.fft.rfft(resp[i])
+    p = np.abs(fhat)**2
+    #f = np.abs(np.fft.fftfreq(len(resp[i]))*fs)
+    plt.plot(p)
+    plt.xlim(1,500)
+    ax = plt.subplot()
+    string = str(i) + '\n' + str(para[i][0:3])
+    ax.text(0.7,0.9,string,transform=ax.transAxes)
+    plt.show()
+    plt.clf()
 
 # =============================================================================
 # cwt = scipy.io.loadmat('/Users/POW/Desktop/python_learning/cwt_sound.mat')

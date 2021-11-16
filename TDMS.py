@@ -135,7 +135,7 @@ class Tdms():
             stim_startP = stim_startT*sRate + 9*sRate - 250*sRate
                 
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
-            for i in range(n_epochs): #np.arange(n_epochs):
+            for i in range(n_epochs):
                 x1 = int(stim_startP[i])
                 x2 = x1 + 2000*sRate
                 self.misc.append(x1)
@@ -156,7 +156,7 @@ class Tdms():
                 else:
                     self.S.append(stim[x1:x2])
                     self.R.append(resp[x1:x2])
-                    #self.Rdpk.append(nopeak[x1:x2])
+                    self.Rdpk.append(nopeak[x1:x2])
                 try:
                     self.Sound.append(sound[x1*8:x2*8])
                 except UnboundLocalError:
