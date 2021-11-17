@@ -3,8 +3,7 @@ from nptdms import TdmsFile
 import pandas as pd
 from pathlib import Path
 
-mdir = Path('/Volumes/bcm-pedi-main-neuro-mcginley/Users/cwchiang/in_vivo_patch/')
-#mdir = "Q:\\[Project] 2020 in-vivo patch with behavior animal\\Raw Results\\"
+mdir = Path(r'Q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results')
 os.chdir(mdir)
 
 folder = os.listdir(mdir)
@@ -13,7 +12,7 @@ folder.sort()
 try:
     df = pd.read_csv('patch_list.csv')
 except:
-    df = pd.DataFrame(columns = ['date', '#', 'path', 'type'])
+    df = pd.DataFrame(columns = ['date', '#', 'path', 'type'])  
     
     
 frame = []
@@ -32,13 +31,13 @@ for i in range(len(folder)):
                     rtype = tdms_meta['Settings'].\
                         properties['Sound Configuration.Run Config.Tone Type']
                     
-                    fdict = {'date' : folder[i], '#' : str(path[85:88]), 'path' : 
+                    fdict = {'date' : folder[i], '#' : str(path[83:86]), 'path' : 
                              path, 'type' : rtype}
                     frame.append(fdict)
     else:
         continue
 
-df = df.append(frame, ignore_index = True)          
-df.to_csv('new_patch_list.csv', index=False)
+df = df.append(frame, ignore_index = True)  
+#df.to_csv('new_patch_list.csv', index=False)
 
     

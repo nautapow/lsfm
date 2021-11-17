@@ -70,12 +70,10 @@ class Tdms():
             base_left = []
             base_right = []
             m = np.zeros(len(resp), dtype=bool)
-            count = 0
             for peak in peaks:
                     _re = resp[peak-50:peak+200]
                     _re_diff = np.convolve(np.diff(_re), np.ones(10)/10, mode='same') 
                     index = [i for i in range(len(_re_diff)) if np.abs(_re_diff[i] - 0) > 0.001]
-                    print(count)
                     if index[0] > 40:
                         index[0] = 25
                     if index[-1] < 100:
@@ -83,7 +81,6 @@ class Tdms():
                     
                     base_left.append(peak-50+index[0])
                     base_right.append(peak-50+index[-1])
-                    count += 1
             for i in range(len(base_left)):
                 m[base_left[i]:base_right[i]] = True
                 

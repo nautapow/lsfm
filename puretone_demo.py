@@ -8,8 +8,9 @@ import scipy.io
 import TFTool
 import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
+import pandas as pd
 
-def mem_V(stim, para, resp):
+def mem_V(stim, para, resp, filename=''):
     on_r, off_r = [],[]
     sum_on, sum_off = [],[]
     on_p, on_m, off_p, off_m = [],[],[],[]
@@ -38,7 +39,7 @@ def mem_V(stim, para, resp):
             
         
         
-    file_name = file_dir[file_dir.find('2021', -40):file_dir.find('2021', -40)+12]
+    filename = filename
     
     #plot charcter frequency
     #for membrane potential at stimulus onset
@@ -61,7 +62,7 @@ def mem_V(stim, para, resp):
     sca2 = ax.scatter(freq[on_m], loud[on_m], s=np.abs(_sum[on_m]),
                 c=_sum[on_m], cmap = 'Blues_r')
     #plt.colorbar(sca2)
-    ax.text(0.05, 0.018, file_name, fontsize=10, transform=ax.transAxes)
+    ax.text(0.05, 0.018, filename, fontsize=10, transform=ax.transAxes)
     ax.text(0.2,0.018, 'on', fontsize=10, transform=ax.transAxes)
     plt.show()
     plt.clf()
@@ -78,7 +79,7 @@ def mem_V(stim, para, resp):
     sca2 = ax.scatter(freq[off_m], loud[off_m], s=np.abs(_sum[off_m]),
                 c=_sum[off_m], cmap = 'Blues_r')
     #plt.colorbar(sca2)
-    ax.text(0.05, 0.018, file_name, fontsize=10, transform=ax.transAxes)
+    ax.text(0.05, 0.018, filename, fontsize=10, transform=ax.transAxes)
     ax.text(0.2,0.018, 'off', fontsize=10, transform=ax.transAxes)
     plt.show()
     plt.clf()
@@ -125,81 +126,91 @@ def sound4rf(para, resp, sound):
 
 if  __name__ == "__main__":
     #file_dir = r'/Users/POW/Desktop/python_learning/puretone_0622.tdms'
-    file_dir =r'E:\Documents\PythonCoding\puretone_0622.tdms'
+    #file_dir =r'E:\Documents\PythonCoding\puretone_0622.tdms'
     #file_dir =r'Q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results\20210812\20210812_004_2021_08_12_12_58_23.tdms'
     #file_dir='/Volumes/BASASLO/in-vivo_patch_result/20211018/20211018_001_2021_10_18_11_52_22.tdms'
-    t1= Tdms(file_dir)
-    t1.loadtdms(protocol=2)
+    df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
+    index = df.index[df['type']=='Pure Tones']
+    for i in index:
+        path = df['path'][i]
+        filename = df['date'][i]+'_'+df['#'][i]
+        try:
+            t = Tdms()
+            t.loadtdms(path, protocol=2)
+            stim,para = t.get_stim()
+            resp,_ = t.get_dpk()
+            mem_V(stim, para, resp, filename)
+        except KeyError:
+            pass
     
-    stim, para = t1.get_stim()
-    resp,_ = t1.get_dpk()
-    sound = t1.get_sound()
+# =============================================================================
+#     resp_80, sound_80 = sound4rf(para, resp, sound)
+#     
+#     cwt = scipy.io.loadmat(r'E:\Documents\PythonCoding\sound80.mat')
+#     f = cwt['f']
+# 
+#     n_epochs = len(resp_80)
+#     wt = []
+#     R = []
+#     for x in range(n_epochs):
+#         R.append(resp_80[x])
+#         wt.append(cwt['wt'][0][:][x][:])
+#     
+#     R = np.array(R)
+#     wt = np.array(wt)
+#     R = signal.resample(R, 100, axis=1)
+#     P = wt**2
+#         
+#     tmin = 0
+#     tmax = 0.25
+#     sfreq = 250
+#     freqs = f.T[:][0]
+# 
+#     train, test = np.arange(n_epochs - 1), n_epochs - 1
+#     X_train, X_test, y_train, y_test = P[train], P[test], R[train], R[test]
+#     X_train, X_test, y_train, y_test = [np.rollaxis(ii, -1, 0) for ii in
+#                                         (X_train, X_test, y_train, y_test)]
+#     # Model the simulated data as a function of the spectrogram input
+#     alphas = np.logspace(-3, 3, 7)
+#     scores = np.zeros_like(alphas)
+#     models = []
+#     for ii, alpha in enumerate(alphas):
+#         rf = ReceptiveField(tmin, tmax, sfreq, freqs, estimator=alpha)
+#         rf.fit(X_train, y_train)
+# 
+#         # Now make predictions about the model output, given input stimuli.
+#         scores[ii] = rf.score(X_test, y_test)
+#         models.append(rf)
+# 
+#     times = rf.delays_ / float(rf.sfreq)
+# 
+#     # Choose the model that performed best on the held out data
+#     ix_best_alpha = np.argmax(scores)
+#     best_mod = models[ix_best_alpha]
+#     coefs = best_mod.coef_[0]
+#     best_pred = best_mod.predict(X_test)[:, 0]
+# 
+#     # Plot the original STRF, and the one that we recovered with modeling.
+# 
+#     plt.pcolormesh(times, rf.feature_names, coefs, shading='auto')
+#     #plt.set_title('Best Reconstructed STRF')
+#     #plt.autoscale(tight=True)
+#     strf_o = {'time' : times, 'feature' : rf.feature_names, 
+#               'coef' : coefs}
+#     plt.yscale('log')
+#     plt.ylim(1000,100000)
+#     plt.savefig('strf.png', dpi=300)
+#     #scipy.io.savemat('strf_out.mat', strf_o)
+# =============================================================================
     
-    resp_80, sound_80 = sound4rf(para, resp, sound)
-    
-    cwt = scipy.io.loadmat(r'E:\Documents\PythonCoding\sound80.mat')
-    f = cwt['f']
-
-    n_epochs = len(resp_80)
-    wt = []
-    R = []
-    for x in range(n_epochs):
-        R.append(resp_80[x])
-        wt.append(cwt['wt'][0][:][x][:])
-    
-    R = np.array(R)
-    wt = np.array(wt)
-    R = signal.resample(R, 100, axis=1)
-    P = wt**2
-        
-    tmin = 0
-    tmax = 0.25
-    sfreq = 250
-    freqs = f.T[:][0]
-
-    train, test = np.arange(n_epochs - 1), n_epochs - 1
-    X_train, X_test, y_train, y_test = P[train], P[test], R[train], R[test]
-    X_train, X_test, y_train, y_test = [np.rollaxis(ii, -1, 0) for ii in
-                                        (X_train, X_test, y_train, y_test)]
-    # Model the simulated data as a function of the spectrogram input
-    alphas = np.logspace(-3, 3, 7)
-    scores = np.zeros_like(alphas)
-    models = []
-    for ii, alpha in enumerate(alphas):
-        rf = ReceptiveField(tmin, tmax, sfreq, freqs, estimator=alpha)
-        rf.fit(X_train, y_train)
-
-        # Now make predictions about the model output, given input stimuli.
-        scores[ii] = rf.score(X_test, y_test)
-        models.append(rf)
-
-    times = rf.delays_ / float(rf.sfreq)
-
-    # Choose the model that performed best on the held out data
-    ix_best_alpha = np.argmax(scores)
-    best_mod = models[ix_best_alpha]
-    coefs = best_mod.coef_[0]
-    best_pred = best_mod.predict(X_test)[:, 0]
-
-    # Plot the original STRF, and the one that we recovered with modeling.
-
-    plt.pcolormesh(times, rf.feature_names, coefs, shading='auto')
-    #plt.set_title('Best Reconstructed STRF')
-    #plt.autoscale(tight=True)
-    strf_o = {'time' : times, 'feature' : rf.feature_names, 
-              'coef' : coefs}
-    plt.yscale('log')
-    plt.ylim(1000,100000)
-    plt.savefig('strf.png', dpi=300)
-    #scipy.io.savemat('strf_out.mat', strf_o)
-    
-    
-    """ALIGN AVERAGE RESPONSE FROM DIFFERENT LOUDNESS
+    '''
+    """ALIGN AVERAGE RESPONSE FROM DIFFERENT LOUDNESS"""
     mem_V(stim, para, resp)
     mem_V(*avg_freq(stim, para, resp))
     _,_para_avg,_resp_avg = avg_freq(stim, para, resp)
+    '''
     
-    #plot average resoonse of same frequency
+    """plot average resoonse of same frequency
     fig = plt.figure()
     ax1 = plt.subplot()
     legend = str(range(30,100,10))
@@ -214,4 +225,5 @@ if  __name__ == "__main__":
         plt.savefig('tone_resp_%s.png' %i, dpi=300)
         plt.clf()
     """
+    
     

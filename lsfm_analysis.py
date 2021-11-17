@@ -7,31 +7,71 @@ from scipy import signal
 import scipy.io
 import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
+import pandas as pd
+
+def para_merge(para, resp, axis=0):
+    """
+    return mean response with reduced parameter
+    
+    Parameters
+    ----------
+    axis: int
+        the axis to take average, default 0    
+        
+        0 for modulation rate
+        1 for center frequency
+        2 for bandwidth
+    """
+    cf, bd, mod, _ = zip(*para)
+    
+    if axis == 0:
+        obj = mod
+        s = 'Modulation Rate'
+    elif axis == 1:
+        obj = cf
+        s = 'Center Frequency'
+    elif axis == 2:
+        obj = bd
+        s = 'Bandwidth'
+    else:
+        raise KeyError('Please enter the correct axis code')
+        
+    value_set = sorted(set(obj))
+    mean_resp = []
+    for value in value_set:
+        index = [i for i, a in enumerate(obj) if a == value]
+        res=[]
+        for i in index:
+            res.append(resp[i])
+        
+        mean_resp.append(np.mean(res, axis=0))
+    
+    properties = {'axis': s, 'set': value_set}
+    return mean_resp, properties
 
 
-#os.chdir('q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results')
-#path = os.getcwd()
 
-t1 = Tdms('/Users/POW/Documents/Python_Project/lsfm_analysis/20210730_002_2021_07_30_13_53_09.tdms')
-#t1 = Tdms('/home/cwchiang/repos/lsfm/lsfm.tdms)
-#t1 = Tdms(r'E:\Documents\PythonCoding\20210730_002_2021_07_30_13_53_09.tdms')
-t1.loadtdms()
 
-stim, para = t1.get_stim()
-resp,_ = t1.get_dpk()
-fs = 25000
+if  __name__ == "__main__":
+    #os.chdir('q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results')
+    #path = os.getcwd()
+    
+    #t1 = Tdms('/Users/POW/Documents/Python_Project/lsfm_analysis/20210730_002_2021_07_30_13_53_09.tdms')
+    #t1 = Tdms('/home/cwchiang/repos/lsfm/lsfm.tdms)
+    #t1 = Tdms(r'E:\Documents\PythonCoding\20210730_002_2021_07_30_13_53_09.tdms')
+    df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
+    index = df.index[df['type']=='Log sFM']
+    path = df['path'][35]
+    t = Tdms()
+    t.loadtdms(path)
+    stim, para = t.get_stim()
+    resp,_ = t.get_dpk()
+    mean, prop = para_merge(para, resp)
+    fs = 25000
+    
 
-for i in range(len(resp)):
-    fhat = np.fft.rfft(resp[i])
-    p = np.abs(fhat)**2
-    #f = np.abs(np.fft.fftfreq(len(resp[i]))*fs)
-    plt.plot(p)
-    plt.xlim(1,500)
-    ax = plt.subplot()
-    string = str(i) + '\n' + str(para[i][0:3])
-    ax.text(0.7,0.9,string,transform=ax.transAxes)
-    plt.show()
-    plt.clf()
+
+
 
 # =============================================================================
 # cwt = scipy.io.loadmat('/Users/POW/Desktop/python_learning/cwt_sound.mat')
