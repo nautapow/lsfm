@@ -59,15 +59,48 @@ if  __name__ == "__main__":
     #t1 = Tdms('/Users/POW/Documents/Python_Project/lsfm_analysis/20210730_002_2021_07_30_13_53_09.tdms')
     #t1 = Tdms('/home/cwchiang/repos/lsfm/lsfm.tdms)
     #t1 = Tdms(r'E:\Documents\PythonCoding\20210730_002_2021_07_30_13_53_09.tdms')
-    df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
+    df = pd.read_csv('patch_list_USBMAC.csv', dtype = {'date':str, '#':str})
     index = df.index[df['type']=='Log sFM']
-    path = df['path'][35]
-    t = Tdms()
-    t.loadtdms(path)
-    stim, para = t.get_stim()
-    resp,_ = t.get_dpk()
-    mean, prop = para_merge(para, resp)
-    fs = 25000
+    for i in index:
+        try:
+            path = df['path'][i]
+            t = Tdms()
+            t.loadtdms(path, load_sound=False)
+            stim, para = t.get_stim()
+            resp,_ = t.get_dpk()
+            
+            mean, prop = para_merge(para, resp, axis=0)
+            for idx, res in enumerate(mean):
+                plt.plot(res)
+                ax = plt.subplot()
+                txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
+                    prop['axis']+' '+str(prop['set'][idx])
+                ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
+                plt.show()
+                plt.clf()
+            
+            mean, prop = para_merge(para, resp, axis=1)
+            for idx, res in enumerate(mean):
+                plt.plot(res)
+                ax = plt.subplot()
+                txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
+                    prop['axis']+' '+str(prop['set'][idx])
+                ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
+                plt.show()
+                plt.clf()
+            
+            mean, prop = para_merge(para, resp, axis=2)
+            for idx, res in enumerate(mean):
+                plt.plot(res)
+                ax = plt.subplot()
+                txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
+                    prop['axis']+' '+str(prop['set'][idx])
+                ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
+                plt.show()
+                plt.clf()
+                
+        except:
+            pass
     
 
 

@@ -3,8 +3,9 @@ from nptdms import TdmsFile
 import pandas as pd
 from pathlib import Path
 
-mdir = Path(r'Q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results')
-os.chdir(mdir)
+mdir = Path('/Volumes/BASASLO/in-vivo_patch' 
+)
+#os.chdir(mdir)
 
 folder = os.listdir(mdir)
 folder.sort()
@@ -30,14 +31,14 @@ for i in range(len(folder)):
                     tdms_meta = TdmsFile.read_metadata(Path(path))
                     rtype = tdms_meta['Settings'].\
                         properties['Sound Configuration.Run Config.Tone Type']
-                    
-                    fdict = {'date' : folder[i], '#' : str(path[83:86]), 'path' : 
+                    n = path.find('_00')
+                    fdict = {'date' : folder[i], '#' : str(path[n+1:n+4]), 'path' : 
                              path, 'type' : rtype}
                     frame.append(fdict)
     else:
         continue
 
 df = df.append(frame, ignore_index = True)  
-#df.to_csv('new_patch_list.csv', index=False)
+df.to_csv('new_patch_list.csv', index=False)
 
     

@@ -51,11 +51,18 @@ def mat_in(path):
     cwt = scipy.io.loadmat(path)
     return cwt
 
+def plot(arr):
+    plt.plot(arr)
+    ax = plt.subplot()
+    txt = ''
+    ax.text(0.1,0.1,txt,transform=ax.transAxes,fontsize=10)
+    plt.show()
+    plt.clf()
 
-def csv_list():
-    mdir = Path('/Volumes/bcm-pedi-main-neuro-mcginley/Users/cwchiang/in_vivo_patch/')
+
+def csv_list(path):
+    mdir = Path('path')
     #mdir = "Q:\\[Project] 2020 in-vivo patch with behavior animal\\Raw Results\\"
-    os.chdir(mdir)
     
     folder = os.listdir(mdir)
     folder.sort()
@@ -81,8 +88,8 @@ def csv_list():
                         tdms_meta = TdmsFile.read_metadata(Path(path))
                         rtype = tdms_meta['Settings'].\
                             properties['Sound Configuration.Run Config.Tone Type']
-                        
-                        fdict = {'date' : folder[i], '#' : path[85:88], 'path' : 
+                        n = path.find('_00')
+                        fdict = {'date' : folder[i], '#' : str(path[n+1:n+4]), 'path' : 
                                  path, 'type' : rtype}
                         frame.append(fdict)
     
