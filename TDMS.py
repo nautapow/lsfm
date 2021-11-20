@@ -233,7 +233,7 @@ class Tdms():
                       
         
         del tdms_file
-        self.rawS = stim
+        self.rawS = sound
         self.rawR = resp
         self.rawRdpk = nopeak
         

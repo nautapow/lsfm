@@ -15,10 +15,11 @@ def mem_V(stim, para, resp, filename=''):
     sum_on, sum_off = [],[]
     on_p, on_m, off_p, off_m = [],[],[],[]
     
-    #use the sum of PSP amplitude to plot character frequency
+    """use the sum of PSP amplitude to plot character frequency
     #use 20ms at begining to get baseline for substraction
     #on = from onset of sound stimulus to 94ms later
     #off = offset of sound with 100ms duration
+    """
     for i in range(len(resp)):
         base = np.mean(resp[i][:500])
         on_r.append(resp[i][800:3150]-base)
@@ -105,7 +106,7 @@ def avg_freq(stimulus, parameter, response):
 
 
 
-def sound4rf(para, resp, sound):
+def sound4strf(para, resp, sound):
     loud,_,_ = zip(*para)
     index = [i for i, a in enumerate(loud) if a==80]
     sound_80 = sound[min(index):max(index)]
@@ -144,7 +145,7 @@ if  __name__ == "__main__":
             pass
     
 # =============================================================================
-#     resp_80, sound_80 = sound4rf(para, resp, sound)
+#     resp_80, sound_80 = sound4strf(para, resp, sound)
 #     
 #     cwt = scipy.io.loadmat(r'E:\Documents\PythonCoding\sound80.mat')
 #     f = cwt['f']

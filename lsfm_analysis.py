@@ -85,17 +85,28 @@ def para_merge2(para, resp, axis=1):
     else:
         raise KeyError('Please enter the correct axis code')
     
-    res=[]
-    for idx, par in enumerate(para):
-        if par[obj1] in value_set1 and par[obj2] in value_set2:
-            res.append(resp[idx])
-        
-        mean_resp = np.mean(res, axis=0)
     
-    properties = {'axis': s, 'set1': value_set1, 'set2' :value_set2}
+    mean_resp=[]
+    set1,set2 = [],[]
+    for value1 in value_set1:
+        for value2 in value_set2:
+            res=[]
+            for idx, par in enumerate(para):
+                if par[obj1] == value1 and par[obj2] == value2:
+                    res.append(resp[idx])
+            
+            '''exclude combineation with no value'''
+            if np.shape(res)[0]==0:
+                pass
+            else:
+                mean_resp.append(np.mean(res, axis=0))
+                set1.append(value1)
+                set2.append(value2)
+    
+    properties = {'axis': axis, 'parameter': s, 'set1': set1, 'set2' :set2}
     return mean_resp, properties
 
-
+'''
 if  __name__ == "__main__":
     #os.chdir('q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results')
     #path = os.getcwd()
@@ -103,7 +114,7 @@ if  __name__ == "__main__":
     #t1 = Tdms('/Users/POW/Documents/Python_Project/lsfm_analysis/20210730_002_2021_07_30_13_53_09.tdms')
     #t1 = Tdms('/home/cwchiang/repos/lsfm/lsfm.tdms)
     #t1 = Tdms(r'E:\Documents\PythonCoding\20210730_002_2021_07_30_13_53_09.tdms')
-    df = pd.read_csv('patch_list_USBMAC.csv', dtype = {'date':str, '#':str})
+    df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
     index = df.index[df['type']=='Log sFM']
     for i in index:
         try:
@@ -146,7 +157,7 @@ if  __name__ == "__main__":
         except:
             pass
     
-
+'''
 
 
 

@@ -60,6 +60,9 @@ def plot(arr):
     plt.clf()
 
 
+
+
+
 def csv_list(path):
     mdir = Path('path')
     #mdir = "Q:\\[Project] 2020 in-vivo patch with behavior animal\\Raw Results\\"

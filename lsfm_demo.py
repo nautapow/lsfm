@@ -11,40 +11,50 @@ import matplotlib.pyplot as plt
 from ssqueezepy import cwt, ssq_cwt, ssq_stft
 import TFTool
 import pandas as pd
+import lsfm_analysis
 
-wdir = os.getcwd()
-mdir = Path('/Volumes/bcm-pedi-main-neuro-mcginley/Users/cwchiang/in_vivo_patch/')
-os.chdir(mdir)
-df = pd.read_csv('patch_list.csv', dtype = {'date':str, '#':str})
-df_tdms = df.loc[df['type'] == 'Log sFM'].reset_index()
-#os.chdir(wdir)
-if 'CWT' not in df:
-    df['CWT'] = 'no'
+if  __name__ == "__main__":
+    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
+    ilsfm = df.index[df['type']=='Log sFM']
+    fdir = df['path'][28]
+    t = Tdms()
+    t.loadtdms(fdir, load_sound=False)
+    _,para = t.get_stim()
+    resp,_ = t.get_dpk()
+    res, prop = lsfm_analysis.para_merge2(para, resp, axis=2)
+    power = []
+    n = len(res[0])
+    freq = np.fft.fftfreq(n, d=1/25000)
+    target_freq = np.arange(1.0,257.0)
+    #label_freq = [0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
+    label_freq = [0.0, 1.0, 2.0, 8.0, 16.0, 64.0, 128.0]
+    oct_freq = [4.0, 32.0, 256.0]
+    idx_freq = [i for i,a in enumerate(freq) if a in target_freq]
+    mask = freq>=0
 
-for i in range(len(df_tdms)):
-    t = Tdms(str(Path(df_tdms.iloc[i]['path'])))
-    t.loadtdms()
-    sound = np.array(t.get_sound(), dtype=object)
-    name = Path(str(mdir)+'/for_cwt/'+df_tdms.iloc[i]['date']+'_'+\
-                df_tdms.iloc[i]['#'])
-    TFTool.mat_out(name, sound)
-    df['CWT'].iloc[df_tdms['index'].iloc[i]] = 'yes'
-    
-    #t = Tdms(Path(path))
-    #t.loadtdms()
-    
+    for r in res:
+        f = np.fft.fft(r)
+        p = np.abs(f)**2
+        power.append(p)
 
+    power_at_freq=[]
+    for pp in power:
+        power_at_freq.append(pp[idx_freq])
 
-'''
-t1 = Tdms('/Users/POW/Desktop/python_learning/20210812_003_2021_08_12_12_41_26.tdms')
-t1.loadtdms()
-stim, para = t1.get_stim()
-resp = t1.get_resp()
-sound = t1.get_sound()
-'''
+    for i,a in enumerate(power_at_freq):
+        plt.scatter(target_freq, a, s=12)
+        plt.xscale('log')
+        ax = plt.subplot()
+        if prop['axis'] == 0:
+            txt = prop['parameter'] + '\n %.1f kHz' % prop['set1'][i] + '\n %.5f octave' % prop['set2'][i]
+        elif prop['axis'] == 1:
+            txt = prop['parameter'] + '\n %i Hz' % prop['set1'][i] + '\n %.5f octave' % prop['set2'][i]
+        else:
+            txt = prop['parameter'] + '\n %i Hz' % prop['set1'][i] + '\n %.1f kHz' % prop['set2'][i]
+        ax.text(0.95,0.85, txt, transform=ax.transAxes, horizontalalignment='right')
+        for xc in label_freq:
+            plt.axvline(x=xc, color='k', linestyle='--', alpha=0.3)
+        for xc in oct_freq:
+            plt.axvline(x=xc, color='r', linestyle='--', alpha=0.3)
+        plt.show()
 
-'''
-Wx, scale, *_ = cwt(sound[245], fs=200000)
-plt.imshow(np.abs(Wx), aspect='auto', cmap='jet')
-plt.show()
-'''    
