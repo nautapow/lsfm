@@ -88,19 +88,19 @@ def mem_V(stim, para, resp, filename=''):
 
 def avg_freq(stimulus, parameter, response):
     _r = response[:]
-    del _r[::71]
+    #del _r[::71]
     _r = np.array(_r)
-    resp_avg = np.mean(_r.reshape(-1, 7, 10000), axis = 1)
+    resp_avg = np.mean(_r.reshape(-1,7,10000), axis = 1)
     
     _p = parameter[:]
-    del _p[::71]
+    #del _p[::71]
     _p = np.array(_p)
     para_avg = np.mean(_p.reshape(-1,7,3), axis = 1, dtype=np.int32)
     
     _s = stimulus[:]
-    del _s[::71]
+    #del _s[::71]
     _s = np.array(_s)
-    stim_avg = np.mean(_s.reshape(-1, 7, 10000), axis = 1)
+    stim_avg = np.mean(_s.reshape(-1,7,10000), axis = 1)
     
     return stim_avg, para_avg, resp_avg
 
@@ -126,21 +126,20 @@ def sound4strf(para, resp, sound):
 
 
 if  __name__ == "__main__":
-    #file_dir = r'/Users/POW/Desktop/python_learning/puretone_0622.tdms'
-    #file_dir =r'E:\Documents\PythonCoding\puretone_0622.tdms'
-    #file_dir =r'Q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results\20210812\20210812_004_2021_08_12_12_58_23.tdms'
-    #file_dir='/Volumes/BASASLO/in-vivo_patch_result/20211018/20211018_001_2021_10_18_11_52_22.tdms'
-    df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
+    df = pd.read_csv('patch_list_USBMAC.csv', dtype = {'date':str, '#':str})
     index = df.index[df['type']=='Pure Tones']
-    for i in index:
+    i=29
+    #for i in index:
+    if i == 29:
         path = df['path'][i]
         filename = df['date'][i]+'_'+df['#'][i]
         try:
             t = Tdms()
-            t.loadtdms(path, protocol=2)
+            t.loadtdms(path, protocol=1, precise_timing=True)
             stim,para = t.get_stim()
             resp,_ = t.get_dpk()
             mem_V(stim, para, resp, filename)
+            mem_V(*avg_freq(stim, para, resp), filename)
         except KeyError:
             pass
     
@@ -211,7 +210,7 @@ if  __name__ == "__main__":
     _,_para_avg,_resp_avg = avg_freq(stim, para, resp)
     '''
     
-    """plot average resoonse of same frequency
+    """plot average response of same frequency
     fig = plt.figure()
     ax1 = plt.subplot()
     legend = str(range(30,100,10))

@@ -17,7 +17,7 @@ class Tdms():
         self.misc = []
         self.Rdpk = []
         
-    def loadtdms(self, path = '', protocol = 0, load_sound = True, base_correct=True, dePeak=True):
+    def loadtdms(self, path = '', protocol = 0, load_sound = True, base_correct=True, dePeak=True, precise_timing=False):
         """
         load .tdms file
     
@@ -107,7 +107,7 @@ class Tdms():
             
         
         """load high-resolution sound file if exist"""
-        if load_sound:
+        if load_sound or precise_timing:
             filename = str(self.path)
             if filename[-6] == '_':
                 sound_path = filename[:-5] + 'Sound' + filename[-5:]
@@ -142,7 +142,6 @@ class Tdms():
         #   1 = 15.5 min lsfm
         #   2 = 3.6 min pure tone
         #   3 = 2.5 min SAM
-        protocol = protocol
 
         
         #depend on protocol, load parameters stored in toneparameters
@@ -195,9 +194,27 @@ class Tdms():
             freq = groups[_channel][::2]
             loudness = groups[_channel][1::2]
             
-            self.Para = sorted(zip(loudness, freq, stim_startT), key=lambda x:x[0:3])
-            loudness, freq, stim_startT = zip(*self.Para)
-            stim_startT = np.array(stim_startT)
+            para = sorted(zip(loudness, freq, stim_startT), key=lambda x:x[0:3])
+            
+            """delete all stimuli with frequency lower than 3k Hz"""
+            para[:] = [x for x in para if x[1]>=3000]
+            loudness, freq, stim_startT = zip(*para)
+            
+            if precise_timing:
+                sound = sound - np.mean(sound)
+                hil = signal.hilbert(sound)
+                b,a = signal.butter(1, 300, btype='low', fs=200000)
+                hil = signal.filtfilt(b,a,np.abs(hil))
+                peaks, prop = signal.find_peaks(hil, width=16000)
+                x = prop['left_ips']
+                stim_startT = np.array(stim_startT)
+                times = stim_startT*200
+                for idx, time in enumerate(times):
+                    a = np.abs(x - time)
+                    if a.min() < 5000:
+                        i = np.where(a == a.min())[0][0]
+                        stim_startT[idx] = x[i]/200
+                    
             
             #start time ms in tdms is not accurately capture the onset time of stimuli
             #it is approximately 9ms prior to the actual onset time
@@ -205,7 +222,7 @@ class Tdms():
             stim_startP = stim_startT*sRate - 20*sRate
                 
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
-            for i in range(n_epochs): #np.arange(n_epochs):
+            for i in range(len(para)): #np.arange(n_epochs):
                 x1 = int(stim_startP[i])
                 x2 = x1 + 400*sRate
                 self.misc.append(x1)
@@ -233,6 +250,7 @@ class Tdms():
                       
         
         del tdms_file
+        self.Para = para
         self.rawS = sound
         self.rawR = resp
         self.rawRdpk = nopeak
