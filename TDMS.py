@@ -154,6 +154,7 @@ class Tdms():
             
             self.Para = sorted(zip(fc, bdwidth, mod_rate, stim_startT), key=lambda x:x[0:3])
             fc, bdwidth, mod_rate, stim_startT = zip(*self.Para)
+            para = self.Para
             stim_startT = np.array(stim_startT)
             #start time ms in tdms is not accurately capture the onset time of stimuli
             #it is approximately 9ms prior to the actual onset time
@@ -186,6 +187,8 @@ class Tdms():
                         self.Sound.append(so)
                     else:
                         self.Sound.append(sound[x1*8:x2*8])
+                else:
+                    sound = self.S
 
 
                 
@@ -247,6 +250,8 @@ class Tdms():
                         self.Sound.append(so)
                     else:
                         self.Sound.append(sound[x1*8:x2*8])
+                else:
+                    sound = self.S
                       
         
         del tdms_file

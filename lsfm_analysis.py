@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import signal
+from scipy import stats
 import scipy.io
 import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
@@ -46,7 +47,7 @@ def para_merge(para, resp, axis=0):
         
         mean_resp.append(np.mean(res, axis=0))
     
-    properties = {'axis': s, 'set': value_set}
+    properties = {'axis': axis, 'parameter': s, 'set': value_set}
     return mean_resp, properties
 
 def para_merge2(para, resp, axis=1):
@@ -106,15 +107,9 @@ def para_merge2(para, resp, axis=1):
     properties = {'axis': axis, 'parameter': s, 'set1': set1, 'set2' :set2}
     return mean_resp, properties
 
-'''
+
 if  __name__ == "__main__":
-    #os.chdir('q:\[Project] 2020 in-vivo patch with behavior animal\Raw Results')
-    #path = os.getcwd()
-    
-    #t1 = Tdms('/Users/POW/Documents/Python_Project/lsfm_analysis/20210730_002_2021_07_30_13_53_09.tdms')
-    #t1 = Tdms('/home/cwchiang/repos/lsfm/lsfm.tdms)
-    #t1 = Tdms(r'E:\Documents\PythonCoding\20210730_002_2021_07_30_13_53_09.tdms')
-    df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
+    df = pd.read_csv('patch_list_USBMAC.csv', dtype = {'date':str, '#':str})
     index = df.index[df['type']=='Log sFM']
     for i in index:
         try:
@@ -123,8 +118,10 @@ if  __name__ == "__main__":
             t.loadtdms(path, load_sound=False)
             stim, para = t.get_stim()
             resp,_ = t.get_dpk()
+            resp_z = stats.zscore(resp)
+            resp_fft = np.abs(np.fft.fft(resp_z)**2)
             
-            mean, prop = para_merge(para, resp, axis=0)
+            mean, prop = para_merge(para, resp_z, axis=0)
             for idx, res in enumerate(mean):
                 plt.plot(res)
                 ax = plt.subplot()
@@ -134,7 +131,7 @@ if  __name__ == "__main__":
                 plt.show()
                 plt.clf()
             
-            mean, prop = para_merge(para, resp, axis=1)
+            mean, prop = para_merge(para, resp_z, axis=1)
             for idx, res in enumerate(mean):
                 plt.plot(res)
                 ax = plt.subplot()
@@ -144,7 +141,7 @@ if  __name__ == "__main__":
                 plt.show()
                 plt.clf()
             
-            mean, prop = para_merge(para, resp, axis=2)
+            mean, prop = para_merge(para, resp_z, axis=2)
             for idx, res in enumerate(mean):
                 plt.plot(res)
                 ax = plt.subplot()
