@@ -18,7 +18,14 @@ rng = np.random.RandomState(1337)
 with open('FIR.txt', 'r') as f:
     fir = np.array(f.read().split('\n')[:-1], dtype='float64')
 
-
+cwt = scipy.io.loadmat(r'E:\Documents\PythonCoding\cwt_sound\20210617_001_cwt')
+freq = cwt['f']
+wt = cwt['wt'].T[:,0]
+wt_a = []
+for w in wt:
+    wt_a.append(w)
+wt_a = np.array(wt_a)
+wt_mean = wt_a.mean(axis=(0,2))
 
 
 

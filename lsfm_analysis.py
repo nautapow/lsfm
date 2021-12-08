@@ -96,7 +96,7 @@ def para_merge2(para, resp, axis=1):
                 if par[obj1] == value1 and par[obj2] == value2:
                     res.append(resp[idx])
             
-            '''exclude combineation with no value'''
+            '''exclude combination with no value'''
             if np.shape(res)[0]==0:
                 pass
             else:

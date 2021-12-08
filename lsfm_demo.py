@@ -6,20 +6,18 @@ from pathlib import Path
 from scipy import signal
 from scipy import stats
 import scipy.io
-from ssqueezepy import ssq_cwt, ssq_stft
 import numpy as np
 import matplotlib.pyplot as plt
-from ssqueezepy import cwt, ssq_cwt, ssq_stft
 import TFTool
 import pandas as pd
 import lsfm_analysis
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_USBMAC.csv', dtype={'date':str, '#':str})
+    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
     ilsfm = df.index[df['type']=='Log sFM']
-    fdir = df['path'][28]
+    fdir = df['path'][45]
     t = Tdms()
-    t.loadtdms(fdir, load_sound=False)
+    t.loadtdms(fdir, load_sound=True)
     _,para = t.get_stim()
     resp,_ = t.get_dpk()
     n = len(resp[0])
@@ -28,7 +26,7 @@ if  __name__ == "__main__":
     resp_z = stats.zscore(resp)
     resp_fft = np.abs(np.fft.fft(resp_z)**2)
     
-    
+    """Merge 1"""
     res, prop = lsfm_analysis.para_merge(para, resp_fft, axis=0)
     power = []
     target_freq = np.arange(1.0,257.0)
@@ -57,6 +55,7 @@ if  __name__ == "__main__":
         for xc in oct_freq:
             plt.axvline(x=xc, color='r', linestyle='--', alpha=0.3)
         plt.show()
+        
     
     """merge 2
     res, prop = lsfm_analysis.para_merge2(para, resp_fft, axis=2)
@@ -87,4 +86,4 @@ if  __name__ == "__main__":
         for xc in oct_freq:
             plt.axvline(x=xc, color='r', linestyle='--', alpha=0.3)
         plt.show()
-    """
+        """
