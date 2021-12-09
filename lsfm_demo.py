@@ -13,11 +13,11 @@ import pandas as pd
 import lsfm_analysis
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
+    df = pd.read_csv('patch_list_USBMAC.csv', dtype={'date':str, '#':str})
     ilsfm = df.index[df['type']=='Log sFM']
     fdir = df['path'][45]
     t = Tdms()
-    t.loadtdms(fdir, load_sound=True)
+    t.loadtdms(fdir, load_sound=False)
     _,para = t.get_stim()
     resp,_ = t.get_dpk()
     n = len(resp[0])
@@ -26,7 +26,7 @@ if  __name__ == "__main__":
     resp_z = stats.zscore(resp)
     resp_fft = np.abs(np.fft.fft(resp_z)**2)
     
-    """Merge 1"""
+    """Merge 1
     res, prop = lsfm_analysis.para_merge(para, resp_fft, axis=0)
     power = []
     target_freq = np.arange(1.0,257.0)
@@ -42,6 +42,7 @@ if  __name__ == "__main__":
     for i,a in enumerate(power_at_freq):
         plt.scatter(target_freq, a, s=12)
         plt.xscale('log')
+        plt.yscale('log')
         ax = plt.subplot()
         if prop['axis'] == 1:
             txt = prop['parameter'] + '\n %.1f kHz' % prop['set'][i]
@@ -55,9 +56,9 @@ if  __name__ == "__main__":
         for xc in oct_freq:
             plt.axvline(x=xc, color='r', linestyle='--', alpha=0.3)
         plt.show()
-        
+       """
     
-    """merge 2
+    """merge 2"""
     res, prop = lsfm_analysis.para_merge2(para, resp_fft, axis=2)
     power = []
     target_freq = np.arange(1.0,257.0)
@@ -73,6 +74,7 @@ if  __name__ == "__main__":
     for i,a in enumerate(power_at_freq):
         plt.scatter(target_freq, a, s=12)
         plt.xscale('log')
+        plt.yscale('log')
         ax = plt.subplot()
         if prop['axis'] == 0:
             txt = prop['parameter'] + '\n %.1f kHz' % prop['set1'][i] + '\n %.5f octave' % prop['set2'][i]
@@ -86,4 +88,4 @@ if  __name__ == "__main__":
         for xc in oct_freq:
             plt.axvline(x=xc, color='r', linestyle='--', alpha=0.3)
         plt.show()
-        """
+        
