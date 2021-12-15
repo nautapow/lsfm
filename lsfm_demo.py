@@ -12,11 +12,12 @@ import matplotlib.pyplot as plt
 import TFTool
 import pandas as pd
 import lsfm_analysis
+from scipy.signal.windows import dpss
 
 
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
+    df = pd.read_csv('patch_list_USBMAC.csv', dtype={'date':str, '#':str})
     ilsfm = df.index[df['type']=='Log sFM']
     fdir = df['path'][45]
     t = Tdms()
@@ -77,7 +78,7 @@ if  __name__ == "__main__":
     
     for pp in res:
         #diff = (3*pp[idx_freq] - pp[idx_freq-1] - pp[idx_freq-2] - pp[idx_freq+2])/pp[idx_freq]
-        diff = pp[idx_freq]**2 / (pp[idx_freq-2]*pp[idx_freq+2])
+        diff = pp[idx_freq]/pp[idx_freq-2] + pp[idx_freq]/pp[idx_freq+2]
         for i, a in enumerate(diff):
             if a >= 0:
                 diff[i] = np.log(diff[i])
@@ -96,10 +97,16 @@ if  __name__ == "__main__":
             x.append(pow_diff[i,:])
         for k in range(13):
             plt.scatter(oct_freq, y[k], c=100*x[k], s=10*np.abs(x[k]), cmap='bwr')      
+        ax = plt.subplot()
+        txt = (f'Modulation: {mod_rate[j]} Hz')
+        ax.text(80,0.45, txt, horizontalalignment='left')
         plt.xscale('log')
         plt.yscale('log')
+        plt.xlabel('Resp Freq (Hz)')
+        plt.ylabel('Center Freq (KHz)')
+        plt.colorbar()
         for xc in multi_freq:
-            plt.axvline(x=xc, color='r', linestyle='--', alpha=0.7)
+            plt.axvline(x=xc, color='r', linestyle='--', alpha=0.5)
         plt.show()
 
             

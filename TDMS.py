@@ -222,7 +222,8 @@ class Tdms():
             #start time ms in tdms is not accurately capture the onset time of stimuli
             #it is approximately 9ms prior to the actual onset time
             #-250ms, +500ms for covering ISI
-            stim_startP = stim_startT*sRate - 20*sRate
+            #stim_startP = stim_startT*sRate - 20*sRate
+            stim_startP = stim_startT*sRate +9*sRate - 250*sRate
                 
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
             for i in range(len(para)): #np.arange(n_epochs):
