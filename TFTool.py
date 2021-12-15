@@ -59,10 +59,6 @@ def plot(arr):
     plt.show()
     plt.clf()
 
-
-
-
-
 def csv_list(path):
     mdir = Path('path')
     #mdir = "Q:\\[Project] 2020 in-vivo patch with behavior animal\\Raw Results\\"
@@ -98,4 +94,18 @@ def csv_list(path):
     
     df = df.append(frame, ignore_index = True)           
     df.to_csv('new_patch_list.csv', index=False)
+    
+def pmtm(arr, tapers):
+    n = tapers.shape[1]
+    mtm = []
+    for i in range(n):
+        mtm.append(np.multiply(arr, tapers[:,i]))
+    mtm = np.abs(np.fft.fft(mtm)**2)
+    mtm = np.mean(mtm, axis = 0)
+    
+    return mtm
+    
+    
+    
+    
         
