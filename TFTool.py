@@ -105,6 +105,17 @@ def pmtm(arr, tapers):
     
     return mtm
     
+def find_closest(val, arr):
+    if isinstance(val, np.ndarray):
+        idx = []
+        for i in val:
+            idx.append((np.abs(i - arr)).argmin())
+   
+    else:
+        arr = np.asarray(arr)
+        idx = (np.abs(val - arr)).argmin()
+    
+    return idx
     
     
     
