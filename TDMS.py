@@ -159,8 +159,7 @@ class Tdms():
             #start time ms in tdms is not accurately capture the onset time of stimuli
             #it is approximately 9ms prior to the actual onset time
             #-250ms, +500ms for covering ISI
-            stim_startP = stim_startT*sRate + 9*sRate - 50*sRate
-                
+            stim_startP = stim_startT*sRate + 9*sRate - 50*sRate  
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
             for i in range(n_epochs):
                 x1 = int(stim_startP[i])
@@ -189,6 +188,7 @@ class Tdms():
                         self.Sound.append(sound[x1*8:x2*8])
                 else:
                     sound = self.S
+                
 
 
                 
@@ -261,6 +261,31 @@ class Tdms():
         self.rawR = resp
         self.rawRdpk = nopeak
         
+
+    def loadsound(self):
+        filename = str(self.path)
+        if filename[-6] == '_':
+            sound_path = filename[:-5] + 'Sound' + filename[-5:]
+        else:
+            sound_path = filename[:-5] + '_Sound' + filename[-5:]
+        
+        if os.path.isfile(sound_path):
+            sound_file = TdmsFile.open(sound_path)
+            sound = np.array(sound_file.groups()[0].channels()[0])
+        else:
+            raise FileNotFoundError('No sound file in the directory')
+        
+        for x1 in self.misc:
+            if x1<0:
+                lst = np.zeros(abs(x1)*8)
+                so = np.concatenate((lst,sound[:x2*8]), axis = 0)
+                self.Sound.append(so)
+            else:
+                self.Sound.append(sound[x1*8:x2*8])
+        
+        return self.Sound
+            
+
 
     def get_misc(self):
         return self.misc

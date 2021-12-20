@@ -10,102 +10,6 @@ import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 
-def para_merge(para, resp, axis=0):
-    """
-    return mean response with reduced parameter
-    
-    Parameters
-    ----------
-    axis: int
-        the axis to reduce to, default 0    
-        
-        0 for modulation rate
-        1 for center frequency
-        2 for bandwidth
-    """
-    cf, bd, mod, _ = zip(*para)
-    
-    if axis == 0:
-        obj = mod
-        s = 'Modulation Rate'
-    elif axis == 1:
-        obj = cf
-        s = 'Center Frequency'
-    elif axis == 2:
-        obj = bd
-        s = 'Bandwidth'
-    else:
-        raise KeyError('Please enter the correct axis code')
-        
-    value_set = sorted(set(obj))
-    mean_resp = []
-    for value in value_set:
-        index = [i for i, a in enumerate(obj) if a == value]
-        res=[]
-        for i in index:
-            res.append(resp[i])
-        
-        mean_resp.append(np.mean(res, axis=0))
-    
-    properties = {'axis': axis, 'parameter': s, 'set': value_set}
-    return mean_resp, properties
-
-def para_merge2(para, resp, axis=1):
-    """
-    return mean response with reduced parameter
-    
-    Parameters
-    ----------
-    axis: int
-        the axis to take average, default 0    
-        
-        0 for modulation rate
-        1 for center frequency
-        2 for bandwidth
-    """
-    cf, bd, mod, _ = zip(*para)
-    
-    if axis == 0:
-        value_set1 = sorted(set(cf))
-        value_set2 = sorted(set(bd))
-        obj1 = 0
-        obj2 = 1
-        s = 'Center Frequency+Bandwidth'
-    elif axis == 1:
-        value_set1 = sorted(set(mod))
-        value_set2 = sorted(set(bd))
-        obj1 = 2
-        obj2 = 1
-        s = 'Modulation Rate+Bandwidth'
-    elif axis == 2:
-        value_set1 = sorted(set(mod))
-        value_set2 = sorted(set(cf))
-        obj1 = 2
-        obj2 = 0
-        s = 'Modulation Rate+Center Frequency'
-    else:
-        raise KeyError('Please enter the correct axis code')
-    
-    
-    mean_resp=[]
-    set1,set2 = [],[]
-    for value1 in value_set1:
-        for value2 in value_set2:
-            res=[]
-            for idx, par in enumerate(para):
-                if par[obj1] == value1 and par[obj2] == value2:
-                    res.append(resp[idx])
-            
-            '''exclude combination with no value'''
-            if np.shape(res)[0]==0:
-                pass
-            else:
-                mean_resp.append(np.mean(res, axis=0))
-                set1.append(value1)
-                set2.append(value2)
-    
-    properties = {'axis': axis, 'parameter': s, 'set1': set1, 'set2' :set2}
-    return mean_resp, properties
 
 
 if  __name__ == "__main__":
@@ -118,38 +22,7 @@ if  __name__ == "__main__":
             t.loadtdms(path, load_sound=False)
             stim, para = t.get_stim()
             resp,_ = t.get_dpk()
-            resp_z = stats.zscore(resp)
-            resp_fft = np.abs(np.fft.fft(resp_z)**2)
-            
-            mean, prop = para_merge(para, resp_z, axis=0)
-            for idx, res in enumerate(mean):
-                plt.plot(res)
-                ax = plt.subplot()
-                txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
-                    prop['axis']+' '+str(prop['set'][idx])
-                ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
-                plt.show()
-                plt.clf()
-            
-            mean, prop = para_merge(para, resp_z, axis=1)
-            for idx, res in enumerate(mean):
-                plt.plot(res)
-                ax = plt.subplot()
-                txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
-                    prop['axis']+' '+str(prop['set'][idx])
-                ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
-                plt.show()
-                plt.clf()
-            
-            mean, prop = para_merge(para, resp_z, axis=2)
-            for idx, res in enumerate(mean):
-                plt.plot(res)
-                ax = plt.subplot()
-                txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
-                    prop['axis']+' '+str(prop['set'][idx])
-                ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
-                plt.show()
-                plt.clf()
+
                 
         except:
             pass

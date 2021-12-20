@@ -24,9 +24,8 @@ if  __name__ == "__main__":
     t.loadtdms(fdir, load_sound=False)
     _,para = t.get_stim()
     resp,_ = t.get_dpk()
-    resp_r = signal.resample(resp, 500, axis=1)
-    resp_z = stats.zscore(resp_r)
-    
+    #resp_r = signal.resample(resp, 500, axis=1)
+    #resp_z = stats.zscore(resp_r)
     cwt = scipy.io.loadmat('/Volumes/BASASLO/in-vivo_patch/cwt_sound/20210617_001_cwt.mat')
     f = cwt['f']
     f = f[:,0]
@@ -36,7 +35,6 @@ if  __name__ == "__main__":
         wt_a.append(w)
     wt_a = np.array(wt_a)
     wt_mean = wt_a.mean(axis=(0,2))
-
     
     """reverse FIR filter"""
     with open('FIR_07_27_2021.txt', 'r') as file:
@@ -48,31 +46,6 @@ if  __name__ == "__main__":
     rfilt = np.fft.ifft(filt[0]/filt)
     filt_freq = np.linspace(-100000,100000,1025)
     f_idx = TFTool.find_closest(f, filt_freq)
-        
-    """construct STRF"""
-    t_for,t_lag = 0.1,0.4
-    fs = 250
-    wt_p = np.pad(wt_a, [(0,0), (0,0), (int(t_lag*fs),int(t_for*fs))], 'constant')
-    
-    epochs = len(wt_p)
-    n_cwt = len(f)
-    coeff = []
-    for epoch in range(epochs):
-        _cwt_coef = []
-        for i in range(n_cwt):
-            _corr = np.correlate(wt_p[epoch,i,:],resp_r[epoch,:],mode='valid')
-            _cwt_coef.append(_corr)
-        coeff.append(_cwt_coef)
-    
-    coeff = np.array(coeff)
-    strf = np.mean(coeff, axis=0)
-    delays_samp = np.arange(np.round(t_for * -1*fs),
-                        np.round(t_lag * fs) + 1).astype(int)
-    delays_sec = -1* delays_samp[::-1] / fs
-    plt.pcolormesh(delays_sec, f, strf, shading='nearest')
-    plt.yscale('log')
-    plt.ylim(2000,100000)
-    plt.show()
     
 #wt_con = np.apply_along_axis(lambda x: np.convolve(x, rfilt, mode='same'), 2, wt_p)
 
