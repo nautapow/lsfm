@@ -50,8 +50,7 @@ if  __name__ == "__main__":
     theta = np.angle(np.fft.fft(fir), deg=True)
     inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
     inv_filt = np.fft.ifft(inv_filt)
-    
-    sound_re = np.concolve(sound, inv_filt, 'same')
+    #sound_re = np.convolve(sound, inv_filt, 'same')
     
 #wt_con = np.apply_along_axis(lambda x: np.convolve(x, rfilt, mode='same'), 2, wt_p)
 

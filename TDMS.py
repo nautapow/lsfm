@@ -275,12 +275,15 @@ class Tdms():
             self.rawS = sound
         else:
             raise FileNotFoundError('No sound file in the directory')
+      
+        self.Sound = []
         
         for x1 in self.misc:
             if protocol == 0:
                 x2 = x1 + 2000*self.sRate
             elif protocol == 1:
                 x2 = x1 + 400*self.sRate
+            
             if x1<0:
                 lst = np.zeros(abs(x1)*8)
                 so = np.concatenate((lst,sound[:x2*8]), axis = 0)
@@ -290,7 +293,23 @@ class Tdms():
         
         return self.Sound
             
-
+    def cut(self, arr, protocol=0):
+        cutted = []        
+        for x1 in self.misc:
+            if protocol == 0:
+                x2 = x1 + 2000*self.sRate
+            elif protocol == 1:
+                x2 = x1 + 400*self.sRate
+            
+            if x1<0:
+                lst = np.zeros(abs(x1)*8)
+                _c = np.concatenate((lst,arr[:x2*8]), axis = 0)
+                cutted.append(_c)
+            else:
+                cutted.append(arr[x1*8:x2*8])
+        
+        return cutted
+        
 
     def get_misc(self):
         return self.misc
