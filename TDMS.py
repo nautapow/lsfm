@@ -260,9 +260,9 @@ class Tdms():
         self.rawS = sound
         self.rawR = resp
         self.rawRdpk = nopeak
-        
+        self.sRate = sRate
 
-    def loadsound(self):
+    def loadsound(self, protocol=0):
         filename = str(self.path)
         if filename[-6] == '_':
             sound_path = filename[:-5] + 'Sound' + filename[-5:]
@@ -272,10 +272,15 @@ class Tdms():
         if os.path.isfile(sound_path):
             sound_file = TdmsFile.open(sound_path)
             sound = np.array(sound_file.groups()[0].channels()[0])
+            self.rawS = sound
         else:
             raise FileNotFoundError('No sound file in the directory')
         
         for x1 in self.misc:
+            if protocol == 0:
+                x2 = x1 + 2000*self.sRate
+            elif protocol == 1:
+                x2 = x1 + 400*self.sRate
             if x1<0:
                 lst = np.zeros(abs(x1)*8)
                 so = np.concatenate((lst,sound[:x2*8]), axis = 0)

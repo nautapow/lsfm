@@ -17,24 +17,27 @@ rng = np.random.RandomState(1337)
 
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_USBMAC.csv', dtype={'date':str, '#':str})
+    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
     ilsfm = df.index[df['type']=='Log sFM']
-    fdir = df['path'][45]
+    fdir = df['path'][35]
     t = Tdms()
-    t.loadtdms(fdir, load_sound=False)
-    _,para = t.get_stim()
-    resp,_ = t.get_dpk()
+    t.loadtdms(fdir, load_sound=True)
+    #_,para = t.get_stim()
+    #resp,_ = t.get_dpk()
+    sound,_ = t.get_raw()
     #resp_r = signal.resample(resp, 500, axis=1)
     #resp_z = stats.zscore(resp_r)
-    cwt = scipy.io.loadmat('/Volumes/BASASLO/in-vivo_patch/cwt_sound/20210617_001_cwt.mat')
-    f = cwt['f']
-    f = f[:,0]
-    wt = cwt['wt'].T[:,0]
-    wt_a = []
-    for w in wt:
-        wt_a.append(w)
-    wt_a = np.array(wt_a)
-    wt_mean = wt_a.mean(axis=(0,2))
+# =============================================================================
+#     cwt = scipy.io.loadmat(r'R:\Python_Coding\20210730_002_cwt.mat')
+#     f = cwt['f']
+#     f = f[:,0]
+#     wt = cwt['wt'].T[:,0]
+#     wt_a = []
+#     for w in wt:
+#         wt_a.append(w)
+#     wt_a = np.array(wt_a)
+#     wt_mean = wt_a.mean(axis=(0,2))
+# =============================================================================
     
     """reverse FIR filter"""
     with open('FIR_07_27_2021.txt', 'r') as file:
@@ -43,9 +46,12 @@ if  __name__ == "__main__":
     filt[:20] = filt[20]
     filt[1005:] = filt[1004]
     #filt = filt[512:1012]
-    rfilt = np.fft.ifft(filt[0]/filt)
-    filt_freq = np.linspace(-100000,100000,1025)
-    f_idx = TFTool.find_closest(f, filt_freq)
+    r = filt[len(filt)//2]/filt
+    theta = np.angle(np.fft.fft(fir), deg=True)
+    inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
+    inv_filt = np.fft.ifft(inv_filt)
+    
+    sound_re = np.concolve(sound, inv_filt, 'same')
     
 #wt_con = np.apply_along_axis(lambda x: np.convolve(x, rfilt, mode='same'), 2, wt_p)
 
