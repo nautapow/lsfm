@@ -223,9 +223,8 @@ class Tdms():
             #it is approximately 9ms prior to the actual onset time
             #-250ms, +500ms for covering ISI
             #stim_startP = stim_startT*sRate - 20*sRate
-            stim_startP = stim_startT*sRate +9*sRate - 250*sRate
-                
-            #stim_endP = stim_startP + 1500*sRate + 500*sRate
+            stim_startP = stim_startT*sRate - 500 #20ms for baseline
+            
             for i in range(len(para)): #np.arange(n_epochs):
                 x1 = int(stim_startP[i])
                 x2 = x1 + 400*sRate
@@ -263,6 +262,27 @@ class Tdms():
         self.sRate = sRate
 
     def loadsound(self, protocol=0):
+        """
+        to load cooresponding high-resolution sound file after loading the TDMS file
+
+        Parameters
+        ----------
+        protocol : TYPE, optional
+            0 for lsfm
+            1 for pure tone
+            The default is 0.
+
+        Raises
+        ------
+        FileNotFoundError
+            no sound file match the loaded TDMS file
+
+        Returns
+        -------
+        list
+            list of array
+
+        """
         filename = str(self.path)
         if filename[-6] == '_':
             sound_path = filename[:-5] + 'Sound' + filename[-5:]

@@ -17,17 +17,17 @@ rng = np.random.RandomState(1337)
 
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
-    ilsfm = df.index[df['type']=='Log sFM']
-    fdir = df['path'][35]
-    t = Tdms()
-    t.loadtdms(fdir, load_sound=True)
-    #_,para = t.get_stim()
-    #resp,_ = t.get_dpk()
-    sound,_ = t.get_raw()
-    #resp_r = signal.resample(resp, 500, axis=1)
-    #resp_z = stats.zscore(resp_r)
 # =============================================================================
+#     df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
+#     ilsfm = df.index[df['type']=='Log sFM']
+#     fdir = df['path'][35]
+#     t = Tdms()
+#     t.loadtdms(fdir, load_sound=True)
+#     _,para = t.get_stim()
+#     resp,_ = t.get_dpk()
+#     sound,_ = t.get_raw()
+#     #resp_r = signal.resample(resp, 500, axis=1)
+#     #resp_z = stats.zscore(resp_r)
 #     cwt = scipy.io.loadmat(r'R:\Python_Coding\20210730_002_cwt.mat')
 #     f = cwt['f']
 #     f = f[:,0]

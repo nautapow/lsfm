@@ -22,8 +22,8 @@ def mem_V(stim, para, resp, filename=''):
     """
     for i in range(len(resp)):
         base = np.mean(resp[i][:500])
-        on_r.append(resp[i][800:3150]-base)
-        off_r.append(resp[i][3150:5650]-base)
+        on_r.append(resp[i][500:3000]-base)
+        off_r.append(resp[i][3000:5500]-base)
         sum_on.append(sum(on_r[i]))
         sum_off.append(sum(off_r[i]))
         
@@ -37,10 +37,6 @@ def mem_V(stim, para, resp, filename=''):
             off_p.append(i)
         else:
             off_m.append(i)
-            
-        
-        
-    filename = filename
     
     #plot charcter frequency
     #for membrane potential at stimulus onset
@@ -63,9 +59,14 @@ def mem_V(stim, para, resp, filename=''):
     sca2 = ax.scatter(freq[on_m], loud[on_m], s=np.abs(_sum[on_m]),
                 c=_sum[on_m], cmap = 'Blues_r')
     #plt.colorbar(sca2)
-    ax.text(0.05, 0.018, filename, fontsize=10, transform=ax.transAxes)
-    ax.text(0.2,0.018, 'on', fontsize=10, transform=ax.transAxes)
-    plt.show()
+    ax.text(0.05, 1.02, filename, fontsize=16, transform=ax.transAxes)
+    ax.text(0.3, 1.02, 'On', fontsize=16, transform=ax.transAxes)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.xlabel('Frequency Hz', fontsize=16)
+    plt.ylabel('Loudness dB-SPL', fontsize=16)
+    plt.savefig(f'{filename}_on', dpi=500)
+    #plt.show()
     plt.clf()
     
     
@@ -80,32 +81,82 @@ def mem_V(stim, para, resp, filename=''):
     sca2 = ax.scatter(freq[off_m], loud[off_m], s=np.abs(_sum[off_m]),
                 c=_sum[off_m], cmap = 'Blues_r')
     #plt.colorbar(sca2)
-    ax.text(0.05, 0.018, filename, fontsize=10, transform=ax.transAxes)
-    ax.text(0.2,0.018, 'off', fontsize=10, transform=ax.transAxes)
-    plt.show()
+    ax.text(0.05, 1.02, filename, fontsize=16, transform=ax.transAxes)
+    ax.text(0.3, 1.02, 'Off', fontsize=16, transform=ax.transAxes)
+    plt.xticks(fontsize=14)
+    plt.yticks(fontsize=14)
+    plt.xlabel('Frequency Hz', fontsize=16)
+    plt.ylabel('Loudness dB-SPL', fontsize=16)
+    plt.savefig(f'{filename}_off', dpi=500)
+    #plt.show()
     plt.clf()
     
 
-def avg_freq(stimulus, parameter, response):
-    _r = response[:]
-    #del _r[::71]
-    _r = np.array(_r)
-    resp_avg = np.mean(_r.reshape(-1,7,10000), axis = 1)
+def avg_freq(stim, para, resp):
+    # delet 3200Hz to match averaging every 5 frequencies
+    idx = np.arange(0,357,51)
     
-    _p = parameter[:]
-    #del _p[::71]
-    _p = np.array(_p)
-    para_avg = np.mean(_p.reshape(-1,7,3), axis = 1, dtype=np.int32)
+    _r = np.array(resp[:])
+    _r = np.delete(_r,idx,axis=0)
+    resp_avg = _r.reshape(-1,5,10000).mean(axis=1)
     
-    _s = stimulus[:]
-    #del _s[::71]
-    _s = np.array(_s)
-    stim_avg = np.mean(_s.reshape(-1,7,10000), axis = 1)
+    _p = np.array(para[:])
+    _p = np.delete(_p,idx,axis=0)
+    para_avg = _p.reshape(-1,5,3).mean(axis=1, dtype=np.int32)
+    
+    _s = np.array(stim[:])
+    _s = np.delete(_s,idx,axis=0)
+    stim_avg = _s.reshape(-1,5,10000).mean(axis=1)
     
     return stim_avg, para_avg, resp_avg
+# =============================================================================
+# def avg_freq(stim, para, resp):
+#     _r = resp[:]
+#     #del _r[::71]
+#     _r = np.array(_r)
+#     resp_avg = np.mean(_r.reshape(-1,7,10000), axis = 1)
+#     
+#     _p = para[:]
+#     #del _p[::71]
+#     _p = np.array(_p)
+#     para_avg = np.mean(_p.reshape(-1,7,3), axis = 1, dtype=np.int32)
+#     
+#     _s = stim[:]
+#     #del _s[::71]
+#     _s = np.array(_s)
+#     stim_avg = np.mean(_s.reshape(-1,7,10000), axis = 1)
+#     
+#     return stim_avg, para_avg, resp_avg
+# =============================================================================
 
 
-
+def plot_avg_resp(stim, para, resp, filename=''):
+    """ALIGN AVERAGE RESPONSE FROM DIFFERENT LOUDNESS"""
+    #mem_V(stim, para, resp)
+    #mem_V(*avg_freq(stim, para, resp))
+    _,_para_avg,_resp_avg = avg_freq(stim, para, resp)
+    
+    """plot average response of same frequency"""
+    fig = plt.figure()
+    ax1 = plt.subplot()
+    legend = str(range(30,100,10))
+    x = np.linspace(0,10000,6)
+    xticks = np.linspace(0,400,6, dtype='int')
+    for i in range(10):
+        for j in range(i,70,10):
+            plt.plot(_resp_avg[j]-_resp_avg[j][0], label = '%s'
+                     %_para_avg[j][0])
+            
+        plt.legend()
+        ax2 = plt.subplot()
+        ax2.text(0.1,1.02,f'{filename}_{_para_avg[j][1]} Hz', transform=ax2.transAxes, fontsize=14)
+        plt.xlabel('Response (ms)', fontsize=12)
+        plt.xticks(x,xticks)
+        plt.savefig(f'{filename}_{i}.png', dpi=500)
+        #plt.show()
+        plt.clf()
+        
+        
 def sound4strf(para, resp, sound):
     loud,_,_ = zip(*para)
     index = [i for i, a in enumerate(loud) if a==80]
@@ -126,11 +177,10 @@ def sound4strf(para, resp, sound):
 
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_USBMAC.csv', dtype = {'date':str, '#':str})
+    df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
     index = df.index[df['type']=='Pure Tones']
-    i=29
-    #for i in index:
-    if i == 29:
+    for i in index:
+    #if i == 34:
         path = df['path'][i]
         filename = df['date'][i]+'_'+df['#'][i]
         try:
@@ -139,8 +189,9 @@ if  __name__ == "__main__":
             stim,para = t.get_stim()
             resp,_ = t.get_dpk()
             mem_V(stim, para, resp, filename)
-            mem_V(*avg_freq(stim, para, resp), filename)
-        except KeyError:
+            plot_avg_resp(stim, para, resp, filename)
+            #mem_V(*avg_freq(stim, para, resp), filename)
+        except:
             pass
     
 # =============================================================================
@@ -203,27 +254,7 @@ if  __name__ == "__main__":
 #     #scipy.io.savemat('strf_out.mat', strf_o)
 # =============================================================================
     
-    '''
-    """ALIGN AVERAGE RESPONSE FROM DIFFERENT LOUDNESS"""
-    mem_V(stim, para, resp)
-    mem_V(*avg_freq(stim, para, resp))
-    _,_para_avg,_resp_avg = avg_freq(stim, para, resp)
-    '''
-    
-    """plot average response of same frequency
-    fig = plt.figure()
-    ax1 = plt.subplot()
-    legend = str(range(30,100,10))
-    for i in range(10):
-        for j in range(i,70,10):
-            plt.plot(_resp_avg[j]-_resp_avg[j][0], label = '%s'
-                     %_para_avg[j][0])
-            
-        ax1.legend() 
-        ax2 = plt.subplot()
-        ax2.text(0.9,1,_para_avg[j][1], transform=ax2.transAxes,)
-        plt.savefig('tone_resp_%s.png' %i, dpi=300)
-        plt.clf()
-    """
+
+
     
     
