@@ -44,17 +44,11 @@ def morlet(arr, fs, width):
 def mat_out(filename, arr):
     filename = str(filename)
     scipy.io.savemat(filename+'_4cwt.mat', {'stim': arr})
-    
-def mat_in(path):
-    path = Path(path)
-    cwt = scipy.io.loadmat(path)
-    return cwt
 
-def plot(arr):
+def plot(arr, name):
     plt.plot(arr)
     ax = plt.subplot()
-    txt = ''
-    ax.text(0.1,0.1,txt,transform=ax.transAxes,fontsize=10)
+    ax.text(0.02,1.03,{name},transform=ax.transAxes,fontsize=13)
     plt.show()
     plt.clf()
 

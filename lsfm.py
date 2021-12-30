@@ -13,29 +13,8 @@ import pandas as pd
 import lsfm_analysis
 from scipy.signal.windows import dpss
 
-
-
-if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_USBMAC.csv', dtype={'date':str, '#':str})
-    idx_lsfm = df.index[df['type']=='Log sFM']
+       
     
-    df_loc = 45
-    fdir = df['path'][df_loc]
-    filename = df['date'][df_loc]+'_'+df['#'][df_loc]
-    t = Tdms()
-    t.loadtdms(fdir, load_sound=False)
-    _,para = t.get_stim()
-    resp,_ = t.get_dpk()
-    fs = 25000
-    resp_z = stats.zscore(resp)
-    resp_z = signal.resample(resp_z, 1200, axis=1)
-    resp_pad = np.pad(resp_z, [(0,0), (0,len(resp_z[0]))], 'constant')
-    resp_fft = np.abs(np.fft.fft(resp_pad)**2)
-    freq = np.fft.fftfreq(len(resp_pad[0]), d=1/600)
-    mask = freq >= 0
-    
-    cwt = scipy.io.loadmat('/Volumes/BASASLO/in-vivo_patch/cwt_sound/20210617_001_cwt.mat')     
-
 def pow_diff(filename, resp):
     resp_z = stats.zscore(resp)
     resp_z = signal.resample(resp_z, 1200, axis=1)
@@ -197,7 +176,22 @@ def plot_avg(df, resp, para):
         plt.clf()
 
 
-def strf(resp, cwt):
+def inv_fir(sound, fir):
+    """reverse FIR filter"""
+    #eliminate fft at zero (DC component)
+    _fir_fft = np.delete(np.fft.fft(fir),0)
+    filt = np.abs(_fir_fft)
+    filt[:20] = filt[20]
+    filt[-21:] = filt[-21]
+    filt = np.around(filt, decimals = 12)
+    r = filt[len(filt)//2]/filt
+    theta = np.angle(_fir_fft, deg=False)
+    inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
+    inv_filt = np.fft.ifft(inv_filt)
+    return np.convolve(sound, np.abs(inv_filt), 'same')
+
+
+def strf(resp, cwt, filename, plot=True):
     resp_r = signal.resample(resp, 500, axis=1)
     
     f = cwt['f']
@@ -229,7 +223,111 @@ def strf(resp, cwt):
     delays_samp = np.arange(np.round(t_for * -1*fs),
                         np.round(t_lag * fs) + 1).astype(int)
     delays_sec = -1* delays_samp[::-1] / fs
-    plt.pcolormesh(delays_sec, f, strf, shading='nearest')
-    plt.yscale('log')
-    plt.ylim(2000,100000)
-    plt.show() 
+    
+    if plot:
+        plt.pcolormesh(delays_sec, f, strf, shading='nearest')
+        plt.xlabel('delay time (min)', fontsize=13)
+        plt.ylabel('frequency (Hz)', fontsize=13)
+        plt.yscale('log')
+        plt.ylim(2000,100000)
+        ax = plt.subplot()
+        ax.text(0.02,1.03, f'{filename}', horizontalalignment='left', transform=ax.transAxes, fontsize=13)
+        plt.savefig(f'{filename}_strf.png', dpi=500)
+        #plt.show()
+    
+    return coeff,strf
+
+
+def coeff(tdms, df, loc1, loc2):
+    """
+    Find correlation between repeat recordings
+
+    Parameters
+    ----------
+    tdms : object
+        Tdms object from TDMS module
+    df : Data Frame
+        Pandas data frame.
+    loc1 : int
+        index of first recording
+    loc2 : int
+        index of second recording.
+
+    Returns
+    -------
+    None.
+
+    """
+    t=tdms
+    df_loc = loc1
+    fdir = df['path'][df_loc]
+    filename1 = df['date'][df_loc]+'_'+df['#'][df_loc]
+    t = Tdms()
+    t.loadtdms(fdir, load_sound=False)
+    resp1,_ = t.get_dpk()
+    
+    df_loc = loc2
+    fdir = df['path'][df_loc]
+    filename2 = df['date'][df_loc]+'_'+df['#'][df_loc]
+    t = Tdms()
+    t.loadtdms(fdir, load_sound=False)
+    resp2,_ = t.get_dpk()
+    filename = df['date'][loc1]+'v'+df['date'][loc2]
+    
+    r = np.corrcoef(resp1, resp2)
+    plt.imshow(r)
+    plt.xlim(0,453)
+    plt.ylim(0,453)
+    ax = plt.subplot()
+    ax.text(0.02, 1.03, f'{filename1}.vs.{filename2}', transform=ax.transAxes, fontsize=13,
+            horizontalalignment='left')
+    plt.savefig(f'{filename}_corr', dpi=500)
+    plt.clf()
+    
+    R = []
+    for x in np.arange(len(resp1)):
+        try:
+            r = np.corrcoef(resp1[x], resp2[x])
+        except ValueError:
+            print(x)
+        else:
+            R.append(r[0,1])
+            
+
+    for i,a in enumerate(R):
+        plt.scatter(i, a, c='black', s=5)
+
+    plt.ylabel('Pearson Coefficient', fontsize=12)    
+    ax = plt.subplot()
+    ax.text(0.02, 1.03, f'{filename1}.vs.{filename2}', transform=ax.transAxes, fontsize=13,
+            horizontalalignment='left')
+    plt.savefig(f'{filename}_corr2', dpi=500)
+    plt.clf()
+    
+    
+def rank(resp):
+    """
+    Rank response for strf
+
+    Parameters
+    ----------
+    resp : TYPE
+        DESCRIPTION.
+    filename : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    resp_rank=[]
+    for r in resp:
+        pds = pd.Series(r)
+        i = pds.index[(pds == pds.abs().min()) | (pds == -1*pds.abs().min())]
+        pds = pds.rank()
+        pds -= pds[i[0]]
+        pds = pds.to_numpy()
+        resp_rank.append(pds)
+        
+    return resp_rank

@@ -9,28 +9,43 @@ import scipy.io
 import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
+import lsfm
 
 
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_USBMAC.csv', dtype = {'date':str, '#':str})
-    index = df.index[df['type']=='Log sFM']
-    for i in index:
-        try:
-            path = df['path'][i]
-            t = Tdms()
-            t.loadtdms(path, load_sound=False)
-            stim, para = t.get_stim()
-            resp,_ = t.get_dpk()
-
-                
-        except:
-            pass
+    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
+    idx_lsfm = df.index[df['type']=='Log sFM']
     
-'''
+    df_loc = 35
+    fdir = df['path'][df_loc]
+    filename = df['date'][df_loc]+'_'+df['#'][df_loc]
+    t = Tdms()
+    t.loadtdms(fdir, load_sound=False)
+    
+    _,para = t.get_stim()
+    resp1,_ = t.get_dpk()
 
+        
+# =============================================================================
+#     with open('FIR_07_27_2021.txt', 'r') as file:
+#         fir = np.array(file.read().split('\n')[:-1], dtype='float64')
+#     sound, _ = t.get_raw()
+#     sound_re = lsfm.inv_fir(sound, fir)
+#     sound_re = t.cut(sound_re)
+#     scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
+# =============================================================================
+    
+    cwt = scipy.io.loadmat('0809_fir_CWT.mat')
 
-
+    
+    df_loc = 37
+    fdir = df['path'][df_loc]
+    t = Tdms()
+    t.loadtdms(fdir, load_sound=False)
+    resp2,_ = t.get_dpk()
+    
+    
 # =============================================================================
 # cwt = scipy.io.loadmat('/Users/POW/Desktop/python_learning/cwt_sound.mat')
 # f = cwt['f']
@@ -89,32 +104,8 @@ if  __name__ == "__main__":
 # plt.ylim(2000,90000)
 # plt.savefig('strf.png', dpi=300)
 # scipy.io.savemat('strf_out.mat', strf_o)
-# 
-# 
-# '''
-# #for corrilation
-# t2 = Tdms(path)
-# t2.loadtdms()
-# 
-# R = []
-# for x in np.arange(len(t1.get_res())):
-#     try:
-#         r = np.corrcoef(t1.get_res()[x], t2.get_res()[x])
-#     except ValueError:
-#         print(x)
-#     else:
-#         R.append(r[0,1])
-#         
-# folder1 = os.path.dirname(t1.get_path())[-8:]
-# folder2 = os.path.dirname(t2.get_path())[-8:]
-# 
-# for x in np.arange(len(R)):
-#     plt.scatter(x, R[x], c='black', s=5)
-# 
-# ax = plt.subplot()
-# txtstr = folder1 + ' vs ' + folder2
-# ax.text(0.98, 0.06, txtstr, transform=ax.transAxes, fontsize=12,
-#         verticalalignment='top', horizontalalignment='right', color='red')
-# plt.savefig(txtstr, dpi=300)
-# '''
 # =============================================================================
+
+
+
+

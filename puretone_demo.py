@@ -179,17 +179,19 @@ def sound4strf(para, resp, sound):
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
     index = df.index[df['type']=='Pure Tones']
-    for i in index:
-    #if i == 34:
+    #for i in index:
+    i=26
+    if i == 26:
         path = df['path'][i]
         filename = df['date'][i]+'_'+df['#'][i]
         try:
             t = Tdms()
-            t.loadtdms(path, protocol=1, precise_timing=True)
+            t.loadtdms(path, protocol=1, dePeak=False, precise_timing=True)
             stim,para = t.get_stim()
             resp,_ = t.get_dpk()
-            mem_V(stim, para, resp, filename)
-            plot_avg_resp(stim, para, resp, filename)
+            
+            #mem_V(stim, para, resp, filename)
+            #plot_avg_resp(stim, para, resp, filename)
             #mem_V(*avg_freq(stim, para, resp), filename)
         except:
             pass

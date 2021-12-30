@@ -88,6 +88,7 @@ class Tdms():
                     _re = resp[peak-50:peak+200]
                     _re_diff = np.convolve(np.diff(_re), np.ones(10)/10, mode='same') 
                     index = [i for i in range(len(_re_diff)) if np.abs(_re_diff[i] - 0) > 0.001]
+                    #boundary for extrime value
                     if index[0] > 40:
                         index[0] = 25
                     if index[-1] < 100:
