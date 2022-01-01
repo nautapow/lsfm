@@ -27,16 +27,14 @@ if  __name__ == "__main__":
     resp1,_ = t.get_dpk()
 
         
-# =============================================================================
-#     with open('FIR_07_27_2021.txt', 'r') as file:
-#         fir = np.array(file.read().split('\n')[:-1], dtype='float64')
-#     sound, _ = t.get_raw()
-#     sound_re = lsfm.inv_fir(sound, fir)
-#     sound_re = t.cut(sound_re)
-#     scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
-# =============================================================================
+    with open('FIR_07_27_2021.txt', 'r') as file:
+        fir = np.array(file.read().split('\n')[:-1], dtype='float64')
+    sound, _ = t.get_raw()
+    sound_re = lsfm.inv_fir(sound, fir)
+    sound_re = t.cut(sound_re)
+    scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
     
-    cwt = scipy.io.loadmat('0809_fir_CWT.mat')
+    cwt = scipy.io.loadmat('0730_fir_cwt.mat')
 
     
     df_loc = 37

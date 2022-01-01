@@ -13,37 +13,66 @@ import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 from scipy.stats import multivariate_normal
 from sklearn.preprocessing import scale
-rng = np.random.RandomState(1337)
-
+import lsfm
 
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     
-    df_loc1 = 45
+    df_loc = 28
     fdir = df['path'][df_loc]
     filename = df['date'][df_loc]+'_'+df['#'][df_loc]
     t = Tdms()
     t.loadtdms(fdir, load_sound=False)
     #_,para = t.get_stim()
     resp,_ = t.get_dpk()
+  
+# =============================================================================
+#     with open('FIR_07_27_2021.txt', 'r') as file:
+#         fir = np.array(file.read().split('\n')[:-1], dtype='float64')
+#     sound, _ = t.get_raw()
+#     sound_re = lsfm.inv_fir(sound, fir)
+#     sound_re = t.cut(sound_re)
+#     scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
+# =============================================================================
+    
+    cwt = scipy.io.loadmat('0730_new_cwt.mat')
+    #cwt = scipy.io.loadmat(r'R:\Python_Coding\20210730_002_cwt')
     #resp_r = signal.resample(resp, 500, axis=1)
     #resp_z = stats.zscore(resp_r)
+    f = cwt['f']
+    f = f[:,0]
+    wt = cwt['wt'].T[:,0]
+    wt_a = []
+    for w in wt:
+        wt_a.append(w)
+    wt_a = np.array(wt_a)
+    wt_mean = wt_a.mean(axis=(0,2))
+    _,_ = lsfm.strf(resp, cwt, filename)
+    
+# =============================================================================
+#     #plotting resp versus stimulus
+#     r = signal.resample(resp[157], 500)
+#     w = wt[157]
+#     fig = plt.figure()
+#     fig.tight_layout()
+#     ax1 = plt.subplot2grid(shape=(3, 1), loc=(0, 0), rowspan=2)
+#     ax2 = plt.subplot2grid(shape=(3, 1), loc=(2, 0), rowspan=1)
+#     plt.subplots_adjust(hspace=0.3)
+#     x = np.linspace(0,500,500)
+#     ax1.pcolormesh(x, f, w, shading='nearest')
+#     ax1.set_ylim(2000,10000)
+#     ax1.set_xlim(0,500)
+#     ax1.set_yscale('log')
+#     ax2.plot(r)
+#     ax2.set_xlim(0,500)
+#     ax2.text(0.02, 1.03, f'{para[157]}', transform=ax1.transAxes, fontsize=13,
+#         horizontalalignment='left')
+#     plt.savefig('powerspec_analysis.png', dpi=500)
+# =============================================================================
+    
     
 
-        
-    
-# =============================================================================
-#     cwt = scipy.io.loadmat(r'R:\Python_Coding\20210730_002_cwt.mat')
-#     f = cwt['f']
-#     f = f[:,0]
-#     wt = cwt['wt'].T[:,0]
-#     wt_a = []
-#     for w in wt:
-#         wt_a.append(w)
-#     wt_a = np.array(wt_a)
-#     wt_mean = wt_a.mean(axis=(0,2))
-# =============================================================================
     
 
 
@@ -140,15 +169,3 @@ if  __name__ == "__main__":
 # mne.viz.tight_layout()
 # =============================================================================
 
-
-
-"""
-df = pd.read_csv('patch_list_USBMAC.csv', dtype={'date':str, '#':str})
-ilsfm = df.index[df['type']=='Pure Tones']
-fdir = df['path'][29]
-t = Tdms()
-t.loadtdms(fdir, protocol=1, precise_timing=True)
-stim,para = t.get_stim()
-resp,_ = t.get_dpk()
-sound = t.get_sound()
-"""

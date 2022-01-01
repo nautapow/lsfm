@@ -15,7 +15,7 @@ from scipy.signal.windows import dpss
 
        
     
-def pow_diff(filename, resp):
+def pow_diff(filename, resp, para):
     resp_z = stats.zscore(resp)
     resp_z = signal.resample(resp_z, 1200, axis=1)
     resp_pad = np.pad(resp_z, [(0,0), (0,len(resp_z[0]))], 'constant')
@@ -74,13 +74,20 @@ def pow_diff(filename, resp):
         plt.clf()
         
 
-def pow_at_freq1(resp):
+def pow_at_freq1(resp, para, filename):
+    resp_z = stats.zscore(resp)
+    resp_z = signal.resample(resp_z, 1200, axis=1)
+    resp_pad = np.pad(resp_z, [(0,0), (0,len(resp_z[0]))], 'constant')
+    resp_fft = np.abs(np.fft.fft(resp_pad)**2)
+    freq = np.fft.fftfreq(len(resp_pad[0]), d=1/600)
+    mask = freq >= 0
+    
     res, prop = TFTool.para_merge(para, resp_fft, axis=0)
     power = []
     target_freq = np.arange(1.0,257.0)
-    ext_freq = [0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
-    label_freq = [0.0, 1.0, 2.0, 8.0, 16.0, 64.0, 128.0]
-    oct_freq = [4.0, 32.0, 256.0]
+    oct_freq = [0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
+    label_freq = [1.0, 2.0, 8.0, 16.0, 64.0, 128.0]
+    milti_freq = [4.0, 32.0, 256.0]
     idx_freq = [i for i, a in enumerate(freq) if a in target_freq]
 
     power_at_freq=[]
@@ -100,21 +107,28 @@ def pow_at_freq1(resp):
             txt = prop['parameter'] + '\n %.5f octave' % prop['set'][i]
         ax.text(0.95,0.85, txt, transform=ax.transAxes, horizontalalignment='right')
         for xc in label_freq:
-            plt.axvline(x=xc, color='k', linestyle='--', alpha=0.3)
-        for xc in oct_freq:
-            plt.axvline(x=xc, color='r', linestyle='--', alpha=0.3)
+            plt.axvline(x=xc, color='k', linestyle='--', alpha=0.5)
+        for xc in multi_freq:
+            plt.axvline(x=xc, color='r', linestyle='--', alpha=0.5)
         plt.show()
         
         
-def pow_at_freq2(resp):
+def pow_at_freq2(resp, para, filename):
     """
     plot power at target frequency from fft_response
     
     """
+    resp_z = stats.zscore(resp)
+    resp_z = signal.resample(resp_z, 1200, axis=1)
+    resp_pad = np.pad(resp_z, [(0,0), (0,len(resp_z[0]))], 'constant')
+    resp_fft = np.abs(np.fft.fft(resp_pad)**2)
+    freq = np.fft.fftfreq(len(resp_pad[0]), d=1/600)
+    mask = freq >= 0
+    
     res, prop = TFTool.para_merge2(para, resp_fft, axis=2)
     target_freq = np.arange(1.0,257.0,0.5)
-    oct_freq = [1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
-    label_freq = [0.0, 1.0, 2.0, 8.0, 16.0, 64.0, 128.0]
+    oct_freq = [0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
+    label_freq = [1.0, 2.0, 8.0, 16.0, 64.0, 128.0]
     multi_freq = [4.0, 32.0, 256.0]
     idx_freq = [i for i,a in enumerate(freq) if a in target_freq]
 
@@ -128,17 +142,23 @@ def pow_at_freq2(resp):
         plt.yscale('log')
         ax = plt.subplot()
         if prop['axis'] == 0:
-            txt = prop['parameter'] + '\n %.1f kHz' % prop['set1'][i] + '\n %.5f octave' % prop['set2'][i]
+            txt = prop['parameter1'] + '\n %.1f kHz' % prop['set1'][i] \
+                + '\n'+prop['parameter2']+'\n %.5f octave' % prop['set2'][i]
         elif prop['axis'] == 1:
-            txt = prop['parameter'] + '\n %i Hz' % prop['set1'][i] + '\n %.5f octave' % prop['set2'][i]
+            txt = prop['parameter1'] + '\n %i Hz' % prop['set1'][i] \
+                + '\n'+prop['parameter2'] + '\n %.5f octave' % prop['set2'][i]
         else:
-            txt = prop['parameter'] + '\n %i Hz' % prop['set1'][i] + '\n %.1f kHz' % prop['set2'][i]
-        ax.text(0.95,0.85, txt, transform=ax.transAxes, horizontalalignment='right')
+            txt = prop['parameter1'] + '\n %i Hz' % prop['set1'][i] \
+                + '\n'+prop['parameter2'] +'\n %.1f kHz' % prop['set2'][i]
+        ax.text(0.95,0.95, txt, transform=ax.transAxes, \
+                va='top', ha='right')
         for xc in label_freq:
-            plt.axvline(x=xc, color='k', linestyle='--', alpha=0.3)
-        for xc in oct_freq:
-            plt.axvline(x=xc, color='r', linestyle='--', alpha=0.3)
-        plt.show()
+            plt.axvline(x=xc, color='k', linestyle='--', alpha=0.5)
+        for xc in multi_freq:
+            plt.axvline(x=xc, color='r', linestyle='--', alpha=0.5)
+        plt.savefig(f'{filename}_{i}.png', dpi=500)
+        #plt.show()
+        plt.clf()
         
 
 def plot_avg(df, resp, para):
@@ -179,15 +199,18 @@ def plot_avg(df, resp, para):
 def inv_fir(sound, fir):
     """reverse FIR filter"""
     #eliminate fft at zero (DC component)
-    _fir_fft = np.delete(np.fft.fft(fir),0)
+    #_fir_fft = np.delete(np.fft.fft(fir),0)
+    _fir_fft = np.fft.fft(fir)
+    theta = np.angle(_fir_fft, deg=False)
+    dc = _fir_fft[0]
     filt = np.abs(_fir_fft)
     filt[:20] = filt[20]
-    filt[-21:] = filt[-21]
+    filt[-19:] = filt[-20]
     filt = np.around(filt, decimals = 12)
     r = filt[len(filt)//2]/filt
-    theta = np.angle(_fir_fft, deg=False)
+    #theta = np.angle(_fir_fft, deg=False)
     inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
-    inv_filt = np.fft.ifft(inv_filt)
+    inv_filt = np.real(np.fft.ifft(inv_filt))
     return np.convolve(sound, np.abs(inv_filt), 'same')
 
 
