@@ -38,11 +38,14 @@ def pow_diff(filename, resp, para):
     pow_diff = []
     for pp in res:
         diff = pp[idx_freq]/pp[idx_freq-2] + pp[idx_freq]/pp[idx_freq+2]
-        for i, a in enumerate(diff):
-            if a >= 0:
-                diff[i] = np.log(diff[i])
-            elif a < 0:
-                diff[i] = -1*np.log(-1*diff[i])
+        diff = diff/2
+# =============================================================================
+#         for i, a in enumerate(diff):
+#             if a >= 0:
+#                 diff[i] = np.log(diff[i])
+#             elif a < 0:
+#                 diff[i] = -1*np.log(-1*diff[i])
+# =============================================================================
         pow_diff.append(diff)
     pow_diff = np.array(pow_diff)
         
@@ -69,8 +72,8 @@ def pow_diff(filename, resp, para):
         #plt.colorbar()
         for xc in multi_freq:
             plt.axvline(x=xc, color='r', linestyle='--', alpha=0.5)
-        #plt.savefig(f'{filename}_{mod_rate[j]}.png', dpi=500)
-        plt.show()
+        plt.savefig(f'{filename}_{mod_rate[j]}.png', dpi=500)
+        #plt.show()
         plt.clf()
         
 
@@ -87,7 +90,7 @@ def pow_at_freq1(resp, para, filename):
     target_freq = np.arange(1.0,257.0)
     oct_freq = [0.0, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0, 128.0, 256.0]
     label_freq = [1.0, 2.0, 8.0, 16.0, 64.0, 128.0]
-    milti_freq = [4.0, 32.0, 256.0]
+    multi_freq = [4.0, 32.0, 256.0]
     idx_freq = [i for i, a in enumerate(freq) if a in target_freq]
 
     power_at_freq=[]
@@ -163,33 +166,33 @@ def pow_at_freq2(resp, para, filename):
 
 def plot_avg(df, resp, para):
     resp_z = stats.zscore(resp)
-    resp_fft = np.abs(np.fft.fft(resp_z)**2)
+    #resp_fft = np.abs(np.fft.fft(resp_z)**2)
     
     mean, prop = TFTool.para_merge(para, resp_z, axis=0)
     for idx, res in enumerate(mean):
         plt.plot(res)
         ax = plt.subplot()
-        txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
+        txt = df['date'][idx]+'_'+df['#'][idx] + '\n ' + \
             prop['axis']+' '+str(prop['set'][idx])
         ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
         plt.show()
         plt.clf()
     
-    mean, prop = para_merge(para, resp_z, axis=1)
+    mean, prop = TFTool.para_merge(para, resp_z, axis=1)
     for idx, res in enumerate(mean):
         plt.plot(res)
         ax = plt.subplot()
-        txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
+        txt = df['date'][idx]+'_'+df['#'][idx] + '\n ' + \
             prop['axis']+' '+str(prop['set'][idx])
         ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
         plt.show()
         plt.clf()
     
-    mean, prop = para_merge(para, resp_z, axis=2)
+    mean, prop = TFTool.para_merge(para, resp_z, axis=2)
     for idx, res in enumerate(mean):
         plt.plot(res)
         ax = plt.subplot()
-        txt = df['date'][i]+'_'+df['#'][i] + '\n ' + \
+        txt = df['date'][idx]+'_'+df['#'][idx] + '\n ' + \
             prop['axis']+' '+str(prop['set'][idx])
         ax.text(0.05,0.9,txt,transform=ax.transAxes, fontsize=10)
         plt.show()
@@ -261,7 +264,7 @@ def strf(resp, cwt, filename, plot=True):
     return coeff,strf
 
 
-def coeff(tdms, df, loc1, loc2):
+def coeff(df, loc1, loc2):
     """
     Find correlation between repeat recordings
 
@@ -281,7 +284,7 @@ def coeff(tdms, df, loc1, loc2):
     None.
 
     """
-    t=tdms
+
     df_loc = loc1
     fdir = df['path'][df_loc]
     filename1 = df['date'][df_loc]+'_'+df['#'][df_loc]
@@ -319,11 +322,16 @@ def coeff(tdms, df, loc1, loc2):
 
     for i,a in enumerate(R):
         plt.scatter(i, a, c='black', s=5)
-
+    
+    avg = np.around(np.mean(R), decimals=4) 
+        
     plt.ylabel('Pearson Coefficient', fontsize=12)    
-    ax = plt.subplot()
-    ax.text(0.02, 1.03, f'{filename1}.vs.{filename2}', transform=ax.transAxes, fontsize=13,
+    ax1 = plt.subplot()
+    ax1.text(0.02, 1.03, f'{filename1}.vs.{filename2}', transform=ax1.transAxes, fontsize=13,
             horizontalalignment='left')
+    ax2 = plt.subplot()
+    ax2.text(0.95, 0.95, f'average: {avg}', transform=ax2.transAxes, fontsize=12,
+            horizontalalignment='right')
     plt.savefig(f'{filename}_corr2', dpi=500)
     plt.clf()
     

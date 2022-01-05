@@ -17,31 +17,32 @@ if  __name__ == "__main__":
     df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     
-    df_loc = 35
+    df_loc = 40
     fdir = df['path'][df_loc]
     filename = df['date'][df_loc]+'_'+df['#'][df_loc]
     t = Tdms()
     t.loadtdms(fdir, load_sound=False)
     
     _,para = t.get_stim()
-    resp1,_ = t.get_dpk()
-
-        
-    with open('FIR_07_27_2021.txt', 'r') as file:
-        fir = np.array(file.read().split('\n')[:-1], dtype='float64')
-    sound, _ = t.get_raw()
-    sound_re = lsfm.inv_fir(sound, fir)
-    sound_re = t.cut(sound_re)
-    scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
+    resp,_ = t.get_dpk()
     
-    cwt = scipy.io.loadmat('0730_fir_cwt.mat')
+    lsfm.pow_diff(filename, resp, para)
+
 
     
-    df_loc = 37
-    fdir = df['path'][df_loc]
-    t = Tdms()
-    t.loadtdms(fdir, load_sound=False)
-    resp2,_ = t.get_dpk()
+    
+
+# =============================================================================
+#     with open('FIR_07_27_2021.txt', 'r') as file:
+#         fir = np.array(file.read().split('\n')[:-1], dtype='float64')
+#     sound, _ = t.get_raw()
+#     sound_re = lsfm.inv_fir(sound, fir)
+#     sound_re = t.cut(sound_re)
+#     scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
+#     
+#     cwt = scipy.io.loadmat('0730_fir_cwt.mat')
+# =============================================================================
+
     
     
 # =============================================================================

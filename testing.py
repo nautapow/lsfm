@@ -19,14 +19,15 @@ if  __name__ == "__main__":
     df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     
-    df_loc = 28
+    df_loc = 35
     fdir = df['path'][df_loc]
     filename = df['date'][df_loc]+'_'+df['#'][df_loc]
     t = Tdms()
     t.loadtdms(fdir, load_sound=False)
-    #_,para = t.get_stim()
+    stim,para = t.get_stim()
     resp,_ = t.get_dpk()
-  
+
+    
 # =============================================================================
 #     with open('FIR_07_27_2021.txt', 'r') as file:
 #         fir = np.array(file.read().split('\n')[:-1], dtype='float64')
@@ -34,6 +35,18 @@ if  __name__ == "__main__":
 #     sound_re = lsfm.inv_fir(sound, fir)
 #     sound_re = t.cut(sound_re)
 #     scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
+# =============================================================================
+    
+# =============================================================================
+#     cf,bd,mod,_ = zip(*para)
+#     i=422
+#     plt.plot(stim[i])
+#     plt.plot(resp[i])
+#     ax = plt.subplot()
+#     txt = f'{i}, fc:{cf[i]}, Bw:{bd[i]}, Mod:{mod[i]}'
+#     ax.text(0.02, 1.03, txt, transform=ax.transAxes, fontsize=12,
+#             horizontalalignment='left')
+#     plt.savefig(f'stim-resp_{filename}_{i}', dpi=500)
 # =============================================================================
     
     cwt = scipy.io.loadmat('0730_new_cwt.mat')
@@ -48,10 +61,10 @@ if  __name__ == "__main__":
         wt_a.append(w)
     wt_a = np.array(wt_a)
     wt_mean = wt_a.mean(axis=(0,2))
-    _,_ = lsfm.strf(resp, cwt, filename)
+    
     
 # =============================================================================
-#     #plotting resp versus stimulus
+#     #plotting resp versus CWT stimulus
 #     r = signal.resample(resp[157], 500)
 #     w = wt[157]
 #     fig = plt.figure()
