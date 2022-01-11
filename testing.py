@@ -23,19 +23,26 @@ if  __name__ == "__main__":
     fdir = df['path'][df_loc]
     filename = df['date'][df_loc]+'_'+df['#'][df_loc]
     t = Tdms()
-    t.loadtdms(fdir, load_sound=False)
-    stim,para = t.get_stim()
+    t.loadtdms(fdir, load_sound=True)
+    _,para = t.get_stim()
     resp,_ = t.get_dpk()
-
+    sound,_ = t.get_raw()
     
-# =============================================================================
-#     with open('FIR_07_27_2021.txt', 'r') as file:
-#         fir = np.array(file.read().split('\n')[:-1], dtype='float64')
-#     sound, _ = t.get_raw()
-#     sound_re = lsfm.inv_fir(sound, fir)
-#     sound_re = t.cut(sound_re)
-#     scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
-# =============================================================================
+    with open('FIR_07_27_2021.txt', 'r') as file:
+        fir = np.array(file.read().split('\n')[:-1], dtype='float64')
+    _fir_fft = np.fft.fft(fir)
+    theta = np.angle(_fir_fft, deg=False)
+    dc = _fir_fft[0]
+    filt = np.abs(_fir_fft)
+    filt[:20] = filt[20]
+    filt[-19:] = filt[-20]
+    filt = np.around(filt, decimals = 12)
+    r = filt[len(filt)//2]/filt
+    theta = np.angle(_fir_fft, deg=False)
+    inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
+    inv_filt = np.fft.ifft(inv_filt)
+    sound_re = np.convolve(sound, inv_filt, 'same')
+    stim = t.cut(sound_re)
     
 # =============================================================================
 #     cf,bd,mod,_ = zip(*para)
@@ -49,7 +56,7 @@ if  __name__ == "__main__":
 #     plt.savefig(f'stim-resp_{filename}_{i}', dpi=500)
 # =============================================================================
     
-    cwt = scipy.io.loadmat('0730_new_cwt.mat')
+    cwt = scipy.io.loadmat(r'E:\Documents\PythonCoding\0730_new_cwt.mat')
     #cwt = scipy.io.loadmat(r'R:\Python_Coding\20210730_002_cwt')
     #resp_r = signal.resample(resp, 500, axis=1)
     #resp_z = stats.zscore(resp_r)
@@ -58,9 +65,11 @@ if  __name__ == "__main__":
     wt = cwt['wt'].T[:,0]
     wt_a = []
     for w in wt:
-        wt_a.append(w)
+        wt_a.append(w[:,:500])
     wt_a = np.array(wt_a)
     wt_mean = wt_a.mean(axis=(0,2))
+    plt.plot(wt_mean)
+    plt.savefig('fir_complex.png', dpi=500)
     
     
 # =============================================================================
