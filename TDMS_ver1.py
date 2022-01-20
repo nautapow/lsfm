@@ -66,7 +66,6 @@ class Tdms():
         resp = groups['PatchPrimary'][:]
         trial_startT = groups['AI Start ms'][:]
         stim_startT = groups['Stimulus Start ms'][:]
-        timing = groups['StimStart'][:]
         stim = np.array(stim)
         stim_startT = stim_startT - trial_startT
         _channel = 'Tone Parameters'
@@ -157,13 +156,15 @@ class Tdms():
             self.Para = sorted(zip(fc, bdwidth, mod_rate, stim_startT), key=lambda x:x[0:3])
             fc, bdwidth, mod_rate, stim_startT = zip(*self.Para)
             para = self.Para
-            stim_time = [i for i, a in enumerate(np.diff(timing, prepend=0)) if a > 3]
-            stim_time = np.array(stim_time)
-            stim_startP = stim_time - 50*sRate
+            stim_startT = np.array(stim_startT)
+            #start time ms in tdms is not accurately capture the onset time of stimuli
+            #it is approximately 9ms prior to the actual onset time
+            #-250ms, +500ms for covering ISI
+            stim_startP = stim_startT*sRate + 9*sRate - 50*sRate  
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
             for i in range(n_epochs):
                 x1 = int(stim_startP[i])
-                x2 = x1 + 1500*sRate
+                x2 = x1 + 2000*sRate
                 self.misc.append(x1)
                 if x1 < 0:
                     lst = np.zeros(abs(x1))
