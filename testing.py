@@ -31,18 +31,23 @@ if  __name__ == "__main__":
     with open('FIR_07_27_2021.txt', 'r') as file:
         fir = np.array(file.read().split('\n')[:-1], dtype='float64')
     _fir_fft = np.fft.fft(fir)
-    theta = np.angle(_fir_fft, deg=False)
-    dc = _fir_fft[0]
-    filt = np.abs(_fir_fft)
-    filt[:20] = filt[20]
-    filt[-19:] = filt[-20]
-    filt = np.around(filt, decimals = 12)
-    r = filt[len(filt)//2]/filt
-    theta = np.angle(_fir_fft, deg=False)
-    inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
-    inv_filt = np.fft.ifft(inv_filt)
-    sound_re = np.convolve(sound, inv_filt, 'same')
-    stim = t.cut(sound_re)
+# =============================================================================
+#     dc = _fir_fft[0]
+#     _fir_fft[-19:] = _fir_fft[-20]
+#     fir_R = _fir_fft[513:]
+#     fir_R = np.around(fir_R, decimals = 12)
+#     fir_L = np.conj(np.flip(fir_R))
+#     fir_flip = np.hstack((fir_L, fir_R))
+#     theta = np.angle(fir_flip, deg=False)
+#     filt = np.abs(fir_flip)
+#     r = filt[len(filt)//2]/filt
+#     inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
+#     inv_filt = np.hstack((0, inv_filt))
+#     inv_ifilt = np.fft.ifft(inv_filt)
+#     sound_re = np.convolve(sound, np.real(inv_ifilt), 'same')
+#     stim = t.cut(sound_re)
+#     scipy.io.savemat('4cwt_fir_flip_round_real.mat', {'stim':stim})
+# =============================================================================
     
 # =============================================================================
 #     cf,bd,mod,_ = zip(*para)
@@ -56,20 +61,22 @@ if  __name__ == "__main__":
 #     plt.savefig(f'stim-resp_{filename}_{i}', dpi=500)
 # =============================================================================
     
-    cwt = scipy.io.loadmat(r'E:\Documents\PythonCoding\0730_new_cwt.mat')
-    #cwt = scipy.io.loadmat(r'R:\Python_Coding\20210730_002_cwt')
-    #resp_r = signal.resample(resp, 500, axis=1)
-    #resp_z = stats.zscore(resp_r)
-    f = cwt['f']
-    f = f[:,0]
-    wt = cwt['wt'].T[:,0]
-    wt_a = []
-    for w in wt:
-        wt_a.append(w[:,:500])
-    wt_a = np.array(wt_a)
-    wt_mean = wt_a.mean(axis=(0,2))
-    plt.plot(wt_mean)
-    plt.savefig('fir_complex.png', dpi=500)
+# =============================================================================
+#     #cwt = scipy.io.loadmat(r'E:\Documents\PythonCoding\test_invFIR\fir_theta0pi.mat')
+#     cwt = scipy.io.loadmat('cwt_fir_flip_0dc.mat')
+#     #resp_r = signal.resample(resp, 500, axis=1)
+#     #resp_z = stats.zscore(resp_r)
+#     f = cwt['f']
+#     f = f[:,0]
+#     wt = cwt['wt'].T[:,0]
+#     wt_a = []
+#     for w in wt:
+#         wt_a.append(w)
+#     wt_a = np.array(wt_a)
+#     wt_mean = wt_a.mean(axis=(0,2))
+#     plt.plot(wt_mean)
+#     plt.savefig('fir_flip_real.png', dpi=500)
+# =============================================================================
     
     
 # =============================================================================

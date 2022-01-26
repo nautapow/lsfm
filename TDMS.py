@@ -152,13 +152,14 @@ class Tdms():
             fc = groups[_channel][::3]
             bdwidth = groups[_channel][1::3]
             mod_rate = groups[_channel][2::3]
-            
-            
-            self.Para = sorted(zip(fc, bdwidth, mod_rate, stim_startT), key=lambda x:x[0:3])
-            fc, bdwidth, mod_rate, stim_startT = zip(*self.Para)
-            para = self.Para
             stim_time = [i for i, a in enumerate(np.diff(timing, prepend=0)) if a > 3]
+                 
+            _para_sort = sorted(zip(fc, bdwidth, mod_rate, stim_time), key=lambda x:x[0:3])
+            fc, bdwidth, mod_rate, stim_time = zip(*_para_sort)
             stim_time = np.array(stim_time)
+            para = {'fc':fc, 'bdwidth':bdwidth, 'mod_rate':mod_rate, 'stim_time':stim_time}
+            
+            
             stim_startP = stim_time - 50*sRate
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
             for i in range(n_epochs):
@@ -196,34 +197,19 @@ class Tdms():
         elif protocol == 1:
             freq = groups[_channel][::2]
             loudness = groups[_channel][1::2]
+            stim_time = [i for i, a in enumerate(np.diff(timing, prepend=0)) if a > 3]
             
-            para = sorted(zip(loudness, freq, stim_startT), key=lambda x:x[0:3])
-            
-            """delete all stimuli with frequency lower than 3k Hz"""
-            para[:] = [x for x in para if x[1]>=3000]
-            loudness, freq, stim_startT = zip(*para)
-            
-            if precise_timing:
-                sound = sound - np.mean(sound)
-                hil = signal.hilbert(sound)
-                b,a = signal.butter(1, 300, btype='low', fs=200000)
-                hil = signal.filtfilt(b,a,np.abs(hil))
-                peaks, prop = signal.find_peaks(hil, width=16000)
-                x = prop['left_ips']
-                stim_startT = np.array(stim_startT)
-                times = stim_startT*200
-                for idx, time in enumerate(times):
-                    a = np.abs(x - time)
-                    if a.min() < 5000:
-                        i = np.where(a == a.min())[0][0]
-                        stim_startT[idx] = x[i]/200
+            _para_sor = sorted(zip(loudness, freq, stim_time), key=lambda x:x[0:2])
+            loudness, freq, stim_time = zip(*para)
+            stim_time = np.array(stim_time)
+            para = {'loudness':loudness, 'freq':freq, 'stim_time':stim_time}
                     
             
             #start time ms in tdms is not accurately capture the onset time of stimuli
             #it is approximately 9ms prior to the actual onset time
             #-250ms, +500ms for covering ISI
             #stim_startP = stim_startT*sRate - 20*sRate
-            stim_startP = stim_startT*sRate - 500 #20ms for baseline
+            stim_startP = stim_time - 20*sRate
             
             for i in range(len(para)): #np.arange(n_epochs):
                 x1 = int(stim_startP[i])
@@ -255,7 +241,7 @@ class Tdms():
                       
         
         del tdms_file
-        self.Para = para
+        self.Para = _para_sort
         self.rawS = sound
         self.rawR = resp
         self.rawRdpk = nopeak
