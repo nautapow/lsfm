@@ -1,4 +1,4 @@
-from TDMS import Tdms
+from TDMS_ver1 import Tdms
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -10,7 +10,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import TFTool
 import pandas as pd
-import lsfm_analysis
 from scipy.signal.windows import dpss
 
        
