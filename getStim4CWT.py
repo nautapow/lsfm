@@ -3,27 +3,29 @@ import numpy as np
 import os
 from pathlib import Path
 import TFTool
+import lsfm
 import pandas as pd
 
-wdir = os.getcwd()
-mdir = Path('/media/external5/Users/cwchiang/in_vivo_patch/')
-os.chdir(mdir)
-df = pd.read_csv('patch_list.csv', dtype = {'date':str, '#':str})
-if 'CWT' not in df:
-    df['CWT'] = 'no'
-df_tdms = df.loc[df['type'] == 'Log sFM'].reset_index()
-#os.chdir(wdir)
+mdir = r'Z:\Users\cwchiang\in_vivo_patch'
+df = pd.read_csv('patch_list_Z.csv', dtype={'date':str, '#':str})
+idx_lsfm = df.index[df['type']=='Log sFM']
 
-
-for i in range(len(df_tdms)):
+for i in idx_lsfm:
     if df_tdms['CWT'].iloc[i] == 'no':
-        t = Tdms(str(Path(df_tdms.iloc[i]['path'])))
-        t.loadtdms()
-        sound = np.array(t.get_sound(), dtype=object)
-        name = Path(str(mdir)+'/for_cwt/'+df_tdms.iloc[i]['date']+'_'+\
-                    df_tdms.iloc[i]['#'])
+        t = Tdms()
+        t.loadtdms(df['path'][i], protocol=0)
+        sound,_ = t.get_raw()
+        fir_dir = f'{mdir}/fir_list/{'df['fir'][i]'}.txt'
+        with open(fir_dir, 'r') as file:
+            fir = np.array(file.read().split('\n')[:-1], dtype='float64')
+        
+        sound = lsfm.inv_fir(sound, fir)
+        sound = np.array(t.cut(sound), dtype=object)
+        
+        name = mdir+'/for_cwt/'+df['date'][i]+'_'+\
+                    df['#'][i])
         TFTool.mat_out(name, sound)
-        df['CWT'].iloc[df_tdms['index'].iloc[i]] = 'yes'
+        df['CWT'][i] = 'yes'
     else:
         continue
     

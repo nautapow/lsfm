@@ -18,7 +18,7 @@ def asign_fir(df, date):
 
 
 
-mdir = Path(r'E:\in-vivo_patch')
+mdir = Path(r'Z:\Users\cwchiang\in_vivo_patch')
 
 folder = os.listdir(mdir)
 folder.sort()
@@ -50,6 +50,7 @@ for i in range(len(folder)):
                     frame.append(fdict)
     else:
         continue
+
 df = pd.DataFrame.from_dict(frame)
 #df = df.append(frame, ignore_index = True)  
 df.to_csv('patch_list_new.csv', index=False)
