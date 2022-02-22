@@ -38,12 +38,12 @@ if  __name__ == "__main__":
     theta = np.angle(fir_fft, deg=False)
     filt = np.abs(fir_fft)
     r = filt[len(filt)//2]/filt
-    inv_filt = r*np.cos(-1*theta) + r*np.sin(-1*theta)*1j
+    inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
     inv_filt = np.hstack((0, inv_filt))
     inv_ifilt = np.fft.ifft(inv_filt)
     sound_re = np.convolve(sound, np.real(inv_ifilt), 'same')
     stim = t.cut(sound_re)
-    scipy.io.savemat('4cwt_fir_minus_theta_real.mat', {'stim':stim})
+    scipy.io.savemat('4cwt_fir_real.mat', {'stim':stim})
     
 # =============================================================================
 #     #current setting with flip and conjugate
@@ -77,7 +77,7 @@ if  __name__ == "__main__":
 # =============================================================================
     
     #cwt = scipy.io.loadmat(r'E:\Documents\PythonCoding\test_invFIR\fir_theta0pi.mat')
-    cwt = scipy.io.loadmat('cwt_fir_minus_theta_real')
+    cwt = scipy.io.loadmat('cwt_fir_real.mat')
     #resp_r = signal.resample(resp, 500, axis=1)
     #resp_z = stats.zscore(resp_r)
     f = cwt['f']
@@ -87,6 +87,7 @@ if  __name__ == "__main__":
     for w in wt:
         wt_a.append(w)
     wt_a = np.array(wt_a)
+    wt_swap = np.swapaxes(wt_a, 0,1)
     wt_mean = wt_a.mean(axis=(0,2))
     plt.plot(wt_mean)
     #plt.savefig('fir_flip_real.png', dpi=500)
