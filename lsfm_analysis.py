@@ -1,4 +1,4 @@
-from TDMS import Tdms
+from TDMS_ver1 import Tdms
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -14,23 +14,64 @@ import lsfm
 
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
+    df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     
-    df_loc = 40
+    df_loc = 28
     fdir = df['path'][df_loc]
     filename = df['date'][df_loc]+'_'+df['#'][df_loc]
     t = Tdms()
-    t.loadtdms(fdir, load_sound=False)
+    t.loadtdms(fdir, load_sound=True)
     
     _,para = t.get_stim()
     resp,_ = t.get_dpk()
+    sound,_ = t.get_raw()
+   
+    cwt = scipy.io.loadmat(r'R:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
+    resp_r = signal.resample(resp, 500, axis=1)
+    #resp_z = stats.zscore(resp_r)
+    f = cwt['f']
+    f = f[:,0]
+    wt = cwt['wt'].T[:,0]
+    wt_a = []
+    for w in wt:
+        wt_a.append(w)
+    wt_a = np.array(wt_a)
     
-    lsfm.pow_diff(filename, resp, para)
+    
+    _, _, mod, _ = zip(*para)
+    #use mod_rate at 1.0, 2.0, 8.0, 16.0 to avoid response contamination
+    slow = [i for i, a in enumerate(mod) if a >=1.0 and a <= 16.0]
+    para_s, wt_s, resp_s = [],[],[]
+    for i in slow:
+        para_s.append(para[i])
+        wt_s.append(wt[i])
+        resp_s.append(resp[i])
+    
+    resp_s = np.array(resp_s)
+    #f[42]~=5K Hz
+    windows = []
+    for i,w in enumerate(wt_s):
+        peaks,pp = signal.find_peaks(w[42], prominence=0.3)
+        peaks = peaks*100
+        if len(peaks) != 0:
+            for x in peaks:
+                windows.append(resp_s[i][x-1250:x+2500])
+    
+    plt.plot(np.mean(windows, axis=0))
+    
+    
+    
+# =============================================================================
+#     wt_swap = np.swapaxes(wt_a, 0,1)
+#     fband = []
+#     for w in wt_swap:
+#         fband.append(w.max())
+#         
+#     plt.plot(fband)
+#     #plt.savefig('fir_flip_real.png', dpi=500)
+# =============================================================================
 
-
-    
-    
 
 # =============================================================================
 #     with open('FIR_07_27_2021.txt', 'r') as file:
