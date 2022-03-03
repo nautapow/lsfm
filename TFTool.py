@@ -101,7 +101,7 @@ def pmtm(arr, tapers):
     return mtm
 
     
-def find_closest(val, arr):
+def find_nearest(val, arr):
     if isinstance(val, np.ndarray):
         idx = []
         for i in val:

@@ -7,6 +7,7 @@ from scipy import signal
 from scipy import stats
 import scipy.io
 import mne
+import TFTool
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import lsfm
@@ -49,16 +50,33 @@ if  __name__ == "__main__":
         resp_s.append(resp[i])
     
     resp_s = np.array(resp_s)
-    #f[42]~=5K Hz
+    
+    target_freq = 90000
+    i_freq = TFTool.find_nearest(target_freq, f)
+    if i_freq == 0:
+        i_freq += 1
+    elif i_freq == len(f)-1:
+        i_freq -= 1
+    
+    peak_store = []
+    peak_pre, peak_post = [],[]
     windows = []
     for i,w in enumerate(wt_s):
-        peaks,pp = signal.find_peaks(w[42], prominence=0.3)
+        peaks,pp = signal.find_peaks(w[i_freq], prominence=0.3)
+        p1,_ = signal.find_peaks(w[i_freq-1], prominence=0.3)
+        p2,_ = signal.find_peaks(w[i_freq+1], prominence=0.3)
+        peak_store.append(peaks)
+        peak_pre.append(p1)
+        peak_post.append(p2)
+        
         peaks = peaks*100
         if len(peaks) != 0:
             for x in peaks:
-                windows.append(resp_s[i][x-1250:x+2500])
-    
+                windows.append(resp_s[i][x-1250:x+3750])
+    windows_mean = np.mean(windows, axis=0)
+    delay_peak = (np.argmax(windows_mean) - 1250)/25
     plt.plot(np.mean(windows, axis=0))
+    plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
     
     
     
