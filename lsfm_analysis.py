@@ -28,7 +28,7 @@ if  __name__ == "__main__":
     resp,_ = t.get_dpk()
     sound,_ = t.get_raw()
    
-    cwt = scipy.io.loadmat(r'R:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
+    cwt = scipy.io.loadmat(r'E:\in-vivo _patch_analysis\cwt_fir_real.mat')
     resp_r = signal.resample(resp, 500, axis=1)
     #resp_z = stats.zscore(resp_r)
     f = cwt['f']
@@ -51,33 +51,44 @@ if  __name__ == "__main__":
     
     resp_s = np.array(resp_s)
     
-    target_freq = 90000
-    i_freq = TFTool.find_nearest(target_freq, f)
-    if i_freq == 0:
-        i_freq += 1
-    elif i_freq == len(f)-1:
-        i_freq -= 1
+    target_freq = [3,6,12,24,36,48,60,72]
+    target_freq = [i*1000 for i in target_freq]
     
-    peak_store = []
-    peak_pre, peak_post = [],[]
-    windows = []
-    for i,w in enumerate(wt_s):
-        peaks,pp = signal.find_peaks(w[i_freq], prominence=0.3)
-        p1,_ = signal.find_peaks(w[i_freq-1], prominence=0.3)
-        p2,_ = signal.find_peaks(w[i_freq+1], prominence=0.3)
-        peak_store.append(peaks)
-        peak_pre.append(p1)
-        peak_post.append(p2)
-        
-        peaks = peaks*100
-        if len(peaks) != 0:
-            for x in peaks:
-                windows.append(resp_s[i][x-1250:x+3750])
-    windows_mean = np.mean(windows, axis=0)
-    delay_peak = (np.argmax(windows_mean) - 1250)/25
-    plt.plot(np.mean(windows, axis=0))
-    plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+    for freq in target_freq:
+        i_freq = TFTool.find_nearest(freq, f)       
+        peak_store = []
+        peak_pre, peak_post = [],[]
+        windows = []
+        slopes = []
+        for idx,spectrum in enumerate(wt_s):
+            peaks,peak_paras = signal.find_peaks(spectrum[i_freq], prominence=0.3)
+            p1,_ = signal.find_peaks(spectrum[i_freq-1], prominence=0.3)
+            p2,_ = signal.find_peaks(spectrum[i_freq+1], prominence=0.3)
+            if i_freq == 0:
+                p1 = []
+            peak_store.append(peaks*100)
+            peak_pre.append(p1*100)
+            peak_post.append(p2*100)
+
+            if len(peaks) != 0:
+                for i,x in enumerate(peaks):
+                    windows.append(resp_s[idx][x-1250:x+3750])
+                    print(find_slope(i_freq, i))
+                    
+                
+        windows_mean = np.mean(windows, axis=0)
+        delay_peak = (np.argmax(windows_mean) - 1250)/25
+        plt.plot(np.mean(windows, axis=0))
+        plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+        ax = plt.subplot()
+        txt = (f'{freq} Hz. Averaged from {len(windows)}')
+        ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
+        plt.show()
     
+def find_slope(i_freq, i_peak):
+    #previous point (higher frequency)
+    if len(p1) == len(p2) == len(peaks):
+        return (f[i_freq-1] - f[i_freq]) / (peaks[i_peak] - p1[i_peak])
     
     
 # =============================================================================
