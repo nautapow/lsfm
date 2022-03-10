@@ -12,6 +12,12 @@ from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import lsfm
 
+def find_slope(i_freq, i_peak):
+    #previous point (higher frequency)
+    if len(p1) == len(p2) == len(peaks):
+        slope_pre =  (f[i_freq-1] - f[i_freq]) / ((p1[i_peak] - peaks[i_peak])*4)
+        slope_post = (f[i_freq+1] - f[i_freq]) / ((p2[i_peak] - peaks[i_peak])*-4)
+        return (slope_pre + slope_post)/2
 
 
 if  __name__ == "__main__":
@@ -61,23 +67,21 @@ if  __name__ == "__main__":
         windows = []
         slopes = []
         for idx,spectrum in enumerate(wt_s):
-            peaks,peak_paras = signal.find_peaks(spectrum[i_freq], prominence=0.3)
-            p1,_ = signal.find_peaks(spectrum[i_freq-1], prominence=0.3)
-            p2,_ = signal.find_peaks(spectrum[i_freq+1], prominence=0.3)
-            if i_freq == 0:
-                p1 = []
+            peaks,peak_paras = signal.find_peaks(spectrum[i_freq], prominence=0.2)
+            p1,_ = signal.find_peaks(spectrum[i_freq-1], prominence=0.2)
+            p2,_ = signal.find_peaks(spectrum[i_freq+1], prominence=0.2)
             peak_store.append(peaks*100)
             peak_pre.append(p1*100)
             peak_post.append(p2*100)
 
+
+            peaks = [i*100 for i in peaks]
             if len(peaks) != 0:
                 for i,x in enumerate(peaks):
                     windows.append(resp_s[idx][x-1250:x+3750])
-                    print(find_slope(i_freq, i))
                     
                 
         windows_mean = np.mean(windows, axis=0)
-        delay_peak = (np.argmax(windows_mean) - 1250)/25
         plt.plot(np.mean(windows, axis=0))
         plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
         ax = plt.subplot()
@@ -85,10 +89,7 @@ if  __name__ == "__main__":
         ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
         plt.show()
     
-def find_slope(i_freq, i_peak):
-    #previous point (higher frequency)
-    if len(p1) == len(p2) == len(peaks):
-        return (f[i_freq-1] - f[i_freq]) / (peaks[i_peak] - p1[i_peak])
+
     
     
 # =============================================================================
