@@ -12,13 +12,29 @@ from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import lsfm
 
-def find_slope(i_freq, i_peak):
+def find_slope(spectrum, peak_loc):
     #previous point (higher frequency)
-    if len(p1) == len(p2) == len(peaks):
-        slope_pre =  (f[i_freq-1] - f[i_freq]) / ((p1[i_peak] - peaks[i_peak])*4)
-        slope_post = (f[i_freq+1] - f[i_freq]) / ((p2[i_peak] - peaks[i_peak])*-4)
-        return (slope_pre + slope_post)/2
-
+# =============================================================================
+#     if len(p1) == len(p2) == len(peaks):
+#         slope_pre =  (f[i_freq-1] - f[i_freq]) / ((p1[i_peak] - peaks[i_peak])*4)
+#         slope_post = (f[i_freq+1] - f[i_freq]) / ((p2[i_peak] - peaks[i_peak])*-4)
+#         return (slope_pre + slope_post)/2
+# =============================================================================
+    
+    spectrum = wt_s[250]
+    max_pow = []
+    spec = np.swapaxes(spectrum,0,1)
+    for i in spec:
+        max_pow.append(f[np.argmax(i)])
+    
+    slope1 = (max_pow[peak_loc] - max_pow[peak_loc-1])/(peak_loc - (peak_loc-1))
+    slope2 = (max_pow[peak_loc+1] - max_pow[peak_loc])/((peak_loc + 1) - peak_loc)
+    return (slope1+slope2)/2/250     
+        
+            
+            
+    
+    
 
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
@@ -75,9 +91,10 @@ if  __name__ == "__main__":
             peak_post.append(p2*100)
 
 
-            peaks = [i*100 for i in peaks]
             if len(peaks) != 0:
                 for i,x in enumerate(peaks):
+                    slopes.append(find_slope(spectrum, x))
+                    x = x*100
                     windows.append(resp_s[idx][x-1250:x+3750])
                     
                 
