@@ -361,3 +361,78 @@ def rank(resp):
         resp_rank.append(pds)
         
     return resp_rank
+
+def nth_resp(resp, para, cwt):
+    def nth_cross(peaks):    
+        crossing = [0,1,2,3,4,5]
+        while len(crossing) > len(peaks):
+            crossing.pop()
+        return crossing
+    
+    f = cwt['f']
+    f = f[:,0]
+    wt = cwt['wt'].T[:,0]
+    wt_a = []
+    for w in wt:
+        wt_a.append(w)
+    wt_a = np.array(wt_a)
+    
+    
+    _, _, mod, _ = zip(*para)
+    #use mod_rate at 1.0, 2.0, 8.0, 16.0 to avoid response contamination
+    slow = [i for i, a in enumerate(mod) if a >=1.0 and a <= 16.0]
+    para_s, wt_s, resp_s = [],[],[]
+    for i in slow:
+        para_s.append(para[i])
+        wt_s.append(wt[i])
+        resp_s.append(resp[i])
+    
+    resp_s = np.array(resp_s)
+    
+    target_freq = [3,6,12,24,36,48,60,72]
+    target_freq = [i*1000 for i in target_freq]
+    
+    for freq in target_freq:
+        i_freq = TFTool.find_nearest(freq, f)       
+        peak_store = []
+        peak_pre, peak_post = [],[]
+        windows = []
+        windows_nth = [[],[],[],[],[],[]]
+        slopes = []
+        for idx,spectrum in enumerate(wt_s):
+            peaks,peak_paras = signal.find_peaks(spectrum[i_freq], prominence=0.2)
+            p1,_ = signal.find_peaks(spectrum[i_freq-1], prominence=0.2)
+            p2,_ = signal.find_peaks(spectrum[i_freq+1], prominence=0.2)
+            peak_store.append(peaks*100)
+            peak_pre.append(p1*100)
+            peak_post.append(p2*100)
+
+
+            if len(peaks) != 0:
+                for i,x in enumerate(peaks):
+                    #slopes.append(find_slope(spectrum, x))
+                    x = x*100
+                    window = resp_s[idx][x-1250:x+3750]
+                    windows.append(window)
+                    
+                    crossing = nth_cross(peaks)
+                    for n in crossing:
+                        if n == i:
+                            windows_nth[n].append(window)
+        
+        plt.plot(np.mean(windows, axis=0))
+        plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+        ax = plt.subplot()
+        txt = (f'{freq} Hz. Averaged from {len(windows)}')
+        ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
+        plt.show()
+        
+        colors = plt.cm.OrRd(np.linspace(1,0.3,len(windows_nth)))
+        for n in range(len(windows_nth)):
+            plt.plot(np.mean(windows_nth[n], axis=0), c=colors[n], label='%s th' %str(n+1))
+            
+        plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)    
+        ax = plt.subplot()
+        txt = (f'{freq} Hz.')
+        ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)    
+        plt.show()
