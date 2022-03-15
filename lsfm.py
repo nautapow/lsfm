@@ -395,7 +395,10 @@ class RespAtFreq():
                 crossing.pop()
             return crossing
                 
-        _target_freq = [3,6,12,24,36,48,60,72]
+        """
+        set frequencies of interest
+        """
+        _target_freq = [3,6,12,24,36,48,60,72,96]
         self.target_freq = [i*1000 for i in _target_freq]
         
         for freq in self.target_freq:

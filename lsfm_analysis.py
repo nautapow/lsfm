@@ -29,13 +29,9 @@ def find_slope(spectrum, peak_loc):
     
     slope1 = (max_pow[peak_loc] - max_pow[peak_loc-1])/(peak_loc - (peak_loc-1))
     slope2 = (max_pow[peak_loc+1] - max_pow[peak_loc])/((peak_loc + 1) - peak_loc)
-    return (slope1+slope2)/2/250     
-        
-            
-            
+    return (slope1+slope2)/2/250
+       
     
-    
-
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
@@ -49,7 +45,8 @@ if  __name__ == "__main__":
     _,para = t.get_stim()
     resp,_ = t.get_dpk()
     sound,_ = t.get_raw()
-   
+    stim = t.get_sound()
+    
     cwt = scipy.io.loadmat(r'E:\in-vivo _patch_analysis\cwt_fir_real.mat')
     resp_r = signal.resample(resp, 500, axis=1)
     #resp_z = stats.zscore(resp_r)
@@ -61,50 +58,32 @@ if  __name__ == "__main__":
         wt_a.append(w)
     wt_a = np.array(wt_a)
     
-    
     _, _, mod, _ = zip(*para)
     #use mod_rate at 1.0, 2.0, 8.0, 16.0 to avoid response contamination
     slow = [i for i, a in enumerate(mod) if a >=1.0 and a <= 16.0]
-    para_s, wt_s, resp_s = [],[],[]
+    para_s, wt_s, resp_s, stim_s = [],[],[],[]
     for i in slow:
         para_s.append(para[i])
         wt_s.append(wt[i])
         resp_s.append(resp[i])
+        stim_s.append(stim[i])
     
     resp_s = np.array(resp_s)
     
-    target_freq = [3,6,12,24,36,48,60,72]
-    target_freq = [i*1000 for i in target_freq]
     
-    for freq in target_freq:
-        i_freq = TFTool.find_nearest(freq, f)       
-        peak_store = []
-        peak_pre, peak_post = [],[]
-        windows = []
-        slopes = []
-        for idx,spectrum in enumerate(wt_s):
-            peaks,peak_paras = signal.find_peaks(spectrum[i_freq], prominence=0.2)
-            p1,_ = signal.find_peaks(spectrum[i_freq-1], prominence=0.2)
-            p2,_ = signal.find_peaks(spectrum[i_freq+1], prominence=0.2)
-            peak_store.append(peaks*100)
-            peak_pre.append(p1*100)
-            peak_post.append(p2*100)
+    #lsfm.nth_resp(resp,para,cwt)
+    
+    fs = 200000
+    
+    inst_freqs = []
+    for stim in stim_s:
+        h = signal.hilbert(stim)
+        phase = np.unwrap(np.angle(h))
+        inst_freqs.append(np.diff(phase) / (2*np.pi) * fs)
+        
+    b,a = signal.butter(1, 3000, btype='low', fs=fs)
+    test = signal.filtfilt(b,a,inst_freqs[1])
 
-
-            if len(peaks) != 0:
-                for i,x in enumerate(peaks):
-                    slopes.append(find_slope(spectrum, x))
-                    x = x*100
-                    windows.append(resp_s[idx][x-1250:x+3750])
-                    
-                
-        windows_mean = np.mean(windows, axis=0)
-        plt.plot(np.mean(windows, axis=0))
-        plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-        ax = plt.subplot()
-        txt = (f'{freq} Hz. Averaged from {len(windows)}')
-        ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
-        plt.show()
     
 
     
