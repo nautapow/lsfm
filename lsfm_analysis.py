@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import signal
 from scipy import stats
+from scipy import interpolate
 import scipy.io
 import mne
 import TFTool
@@ -12,31 +13,13 @@ from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import lsfm
 
-def find_slope(spectrum, peak_loc):
-    #previous point (higher frequency)
-# =============================================================================
-#     if len(p1) == len(p2) == len(peaks):
-#         slope_pre =  (f[i_freq-1] - f[i_freq]) / ((p1[i_peak] - peaks[i_peak])*4)
-#         slope_post = (f[i_freq+1] - f[i_freq]) / ((p2[i_peak] - peaks[i_peak])*-4)
-#         return (slope_pre + slope_post)/2
-# =============================================================================
     
-    spectrum = wt_s[250]
-    max_pow = []
-    spec = np.swapaxes(spectrum,0,1)
-    for i in spec:
-        max_pow.append(f[np.argmax(i)])
-    
-    slope1 = (max_pow[peak_loc] - max_pow[peak_loc-1])/(peak_loc - (peak_loc-1))
-    slope2 = (max_pow[peak_loc+1] - max_pow[peak_loc])/((peak_loc + 1) - peak_loc)
-    return (slope1+slope2)/2/250
-       
     
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     
-    df_loc = 28
+    df_loc = 45
     fdir = df['path'][df_loc]
     filename = df['date'][df_loc]+'_'+df['#'][df_loc]
     t = Tdms()
@@ -48,45 +31,65 @@ if  __name__ == "__main__":
     stim = t.get_sound()
     
     cwt = scipy.io.loadmat(r'E:\in-vivo _patch_analysis\cwt_fir_real.mat')
-    resp_r = signal.resample(resp, 500, axis=1)
-    #resp_z = stats.zscore(resp_r)
-    f = cwt['f']
-    f = f[:,0]
-    wt = cwt['wt'].T[:,0]
-    wt_a = []
-    for w in wt:
-        wt_a.append(w)
-    wt_a = np.array(wt_a)
+    atf = lsfm.RespAtFreq()
+    atf.mod_reduction(stim, resp, para, df, df_loc, cwt)
+    atf.resp_at_freq(nth_freq=True)
     
-    _, _, mod, _ = zip(*para)
-    #use mod_rate at 1.0, 2.0, 8.0, 16.0 to avoid response contamination
-    slow = [i for i, a in enumerate(mod) if a >=1.0 and a <= 16.0]
-    para_s, wt_s, resp_s, stim_s = [],[],[],[]
-    for i in slow:
-        para_s.append(para[i])
-        wt_s.append(wt[i])
-        resp_s.append(resp[i])
-        stim_s.append(stim[i])
-    
-    resp_s = np.array(resp_s)
-    
-    
-    #lsfm.nth_resp(resp,para,cwt)
-    
-    fs = 200000
-    
-    inst_freqs = []
-    for stim in stim_s:
-        h = signal.hilbert(stim)
-        phase = np.unwrap(np.angle(h))
-        inst_freqs.append(np.diff(phase) / (2*np.pi) * fs)
+    for tf in range(len(atf.target_freq)):   
+        post, neg = [],[]
+        for i,a in enumerate(atf.slopes[tf]):
+            if a > 0:
+                post.append(atf.windows[tf][i])
+            else:
+                neg.append(atf.windows[tf][i])
         
-    b,a = signal.butter(1, 3000, btype='low', fs=fs)
-    test = signal.filtfilt(b,a,inst_freqs[1])
-
+        plt.plot(np.mean(post, axis=0))
+        plt.plot(np.mean(neg, axis=0))
+        ax = plt.subplot()
+        txt = (f'{atf.target_freq[tf]} Hz.')
+        ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)    
+        plt.show()
     
-
+# =============================================================================
+#     resp_r = signal.resample(resp, 500, axis=1)
+#     #resp_z = stats.zscore(resp_r)
+#     f = cwt['f']
+#     f = f[:,0]
+#     wt = cwt['wt'].T[:,0]
+#     wt_a = []
+#     for w in wt:
+#         wt_a.append(w)
+#     wt_a = np.array(wt_a)
+#     
+#     _, _, mod, _ = zip(*para)
+#     #use mod_rate at 1.0, 2.0, 8.0, 16.0 to avoid response contamination
+#     slow = [i for i, a in enumerate(mod) if a >=1.0 and a <= 16.0]
+#     para_s, wt_s, resp_s, stim_s = [],[],[],[]
+#     for i in slow:
+#         para_s.append(para[i])
+#         wt_s.append(wt[i])
+#         resp_s.append(resp[i])
+#         stim_s.append(stim[i])
+#     
+#     resp_s = np.array(resp_s)
+#     
+#     
+#     #lsfm.nth_resp(resp,para,cwt)
+#     
+#     fs = 200000
+#     
+#     inst_freqs = []
+#     b,a = signal.butter(2, 6000, btype='low', fs=fs)
+#     for stim in stim_s:
+#         h = signal.hilbert(stim)
+#         phase = np.unwrap(np.angle(h))
+#         insfreq = np.diff(phase) / (2*np.pi) * fs
+#         insfreq = signal.filtfilt(b,a,insfreq)
+#         inst_freqs.append(np.diff(insfreq))
+# =============================================================================
+        
     
+   
     
 # =============================================================================
 #     wt_swap = np.swapaxes(wt_a, 0,1)
