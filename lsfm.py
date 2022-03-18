@@ -465,17 +465,21 @@ class RespAtFreq():
                 plt.plot(np.mean(windows, axis=0))
                 plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
                 ax = plt.subplot()
-                txt = (f'{atf.filename}-{freq} Hz. Averaged from {len(windows)}')
+                txt = (f'{self.filename}-{freq} Hz. Averaged from {len(windows)}')
                 ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
-                plt.show()
+                plt.savefig(f'resp_at_freq-{self.filename}-{freq}.png', dpi=500)
+                plt.clf()
             
             if nth_freq and plot:
                 colors = plt.cm.OrRd(np.linspace(1,0.3,len(windows_nth)))
                 for n in range(len(windows_nth)):
-                    plt.plot(np.mean(windows_nth[n], axis=0), c=colors[n], label='%s th' %str(n+1))
+                    nth_mean = np.mean(windows_nth[n], axis=0)
+                    nth_mean = nth_mean - nth_mean[1250]
+                    plt.plot(nth_mean, c=colors[n], label='%s th' %str(n+1))
                     
-                plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)    
+                plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)  
                 ax = plt.subplot()
-                txt = (f'{atf.filename}-{freq} Hz.')
+                txt = (f'{self.filename}-{freq} Hz.')
                 ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)    
-                plt.show()
+                plt.savefig(f'nth_cross-{self.filename}-{freq}.png', dpi=500)
+                plt.clf()
