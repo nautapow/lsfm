@@ -213,4 +213,8 @@ def para_merge2(para, resp, axis=1):
                 set2.append(value2)
     
     properties = {'axis': axis, 'parameter1': s1, 'parameter2': s2, 'set1': set1, 'set2': set2}
-    return mean_resp, properties      
+    return mean_resp, properties
+
+def butter(arr, order, cutoff, filtertype, fs):
+    b,a = signal.butter(order, cutoff, btype=filtertype, fs=fs)
+    return signal.filtfilt(b,a, arr)

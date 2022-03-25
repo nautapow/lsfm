@@ -403,7 +403,7 @@ class RespAtFreq():
             fs = 200000
             """cwt decimation rate is 800 to 250Hz"""
             x = x*8
-            b,a = signal.butter(2, 6000, btype='low', fs=fs)
+            b,a = signal.butter(3, 150, btype='low', fs=fs)
             h = signal.hilbert(self.stim_s[idx])
             phase = np.unwrap(np.angle(h))
             inst_freq = np.diff(phase) / (2*np.pi) * fs

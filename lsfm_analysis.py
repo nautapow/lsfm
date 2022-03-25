@@ -18,7 +18,7 @@ import lsfm
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    tlsfm = [23,24,28,30,35,37,49]
+    tlsfm = [35]
     for df_loc in tlsfm:
         try:
             fdir = df['path'][df_loc]
@@ -34,7 +34,7 @@ if  __name__ == "__main__":
             cwt = scipy.io.loadmat(r'E:\in-vivo _patch_analysis\cwt_fir_real.mat')
             atf = lsfm.RespAtFreq()
             atf.mod_reduction(stim, resp, para, df, df_loc, cwt)
-            atf.resp_at_freq(nth_freq=True, plot=True)
+            atf.resp_at_freq(nth_freq=True, plot=False)
             
             for tf in range(len(atf.target_freq)):   
                 post, neg = [],[]
@@ -55,10 +55,17 @@ if  __name__ == "__main__":
                 ax = plt.subplot()
                 txt = (f'{atf.filename} - {atf.target_freq[tf]} Hz.')
                 ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)    
-                plt.savefig(f'slope_PvN-{atf.filename}-{atf.target_freq[tf]}.png', dpi=500)
+                #plt.savefig(f'slope_PvN-{atf.filename}-{atf.target_freq[tf]}.png', dpi=500)
+                plt.show()
                 plt.clf()
         except:
             pass
+    
+    fs = 200000
+    hil = signal.hilbert(sound)
+    b,a = signal.butter(3, 150, btype='low', fs=fs)
+    h_filt = signal.filtfilt(b,a,h)
+    
     
 # =============================================================================
 #     resp_r = signal.resample(resp, 500, axis=1)
