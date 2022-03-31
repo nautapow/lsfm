@@ -418,7 +418,7 @@ class RespAtFreq():
         _target_freq = [3,6,12,24,36,48,60,72,96]
         self.target_freq = [i*1000 for i in _target_freq]
         
-        self.windows, self.slopes, self.nth = [],[],[]
+        self.windows, self.slopes, self.nth, self.latencies, self.averages = [],[],[],[],[]
         
         for freq in self.target_freq:
             i_freq = TFTool.find_nearest(freq, self.f)       
@@ -426,6 +426,8 @@ class RespAtFreq():
             #peak_pre, peak_post = [],[]
             windows = []
             slopes = []
+            latencies = []
+            averages = []
             """depend on the length of crossing"""
             windows_nth = [[] for n in range(6)]
 
@@ -446,6 +448,9 @@ class RespAtFreq():
                         x = x*100
                         window = self.resp_s[idx][x-1250:x+3750]
                         windows.append(window)
+                        avg = window - window[1250]
+                        averages.append(np.mean(avg[1250:]))
+                        latencies.append(x)
                                                     
                         if find_slope:
                             slopes.append(find_slopes(idx, x))
@@ -460,6 +465,8 @@ class RespAtFreq():
             self.windows.append(windows)
             self.slopes.append(slopes)
             self.nth.append(windows_nth)
+            self.latencies.append(latencies)
+            self.averages.append(averages)
             
             if plot:
                 plt.plot(np.mean(windows, axis=0))

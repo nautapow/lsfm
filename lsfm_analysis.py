@@ -64,7 +64,7 @@ if  __name__ == "__main__":
     fs = 200000
     hil = signal.hilbert(sound)
     b,a = signal.butter(3, 150, btype='low', fs=fs)
-    h_filt = signal.filtfilt(b,a,h)
+    h_filt = signal.filtfilt(b,a,hil)
     
     
 # =============================================================================
