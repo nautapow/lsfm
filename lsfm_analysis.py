@@ -16,7 +16,7 @@ import lsfm
     
     
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_Q.csv', dtype={'date':str, '#':str})
+    df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     tlsfm = [35]
     for df_loc in tlsfm:
@@ -31,7 +31,8 @@ if  __name__ == "__main__":
             sound,_ = t.get_raw()
             stim = t.get_sound()
             
-            cwt = scipy.io.loadmat(r'R:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
+            cwt = scipy.io.loadmat(r'E:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
+            #cwt = scipy.io.loadmat(r'R:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
             atf = lsfm.RespAtFreq()
             atf.mod_reduction(stim, resp, para, df, df_loc, cwt)
             atf.resp_at_freq(nth_freq=True, plot=False)

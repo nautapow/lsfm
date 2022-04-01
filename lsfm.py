@@ -449,7 +449,7 @@ class RespAtFreq():
                         window = self.resp_s[idx][x-1250:x+3750]
                         windows.append(window)
                         avg = window - window[1250]
-                        peak = max(avg) - abs(min(avg))
+                        peak = max(avg) + min(avg)
                         averages.append(peak)
                         latencies.append(x)
                                                     
