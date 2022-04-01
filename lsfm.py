@@ -449,7 +449,8 @@ class RespAtFreq():
                         window = self.resp_s[idx][x-1250:x+3750]
                         windows.append(window)
                         avg = window - window[1250]
-                        averages.append(np.mean(avg[1250:]))
+                        peak = max(avg) - abs(min(avg))
+                        averages.append(peak)
                         latencies.append(x)
                                                     
                         if find_slope:
