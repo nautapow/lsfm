@@ -1,4 +1,3 @@
-import matplotlib.pyplot as plt
 from nptdms import TdmsFile
 from scipy.fft import fft
 import numpy as np
@@ -6,6 +5,23 @@ from scipy import signal
 import os
 import pandas as pd
 from pathlib import Path
+
+def multi_hilbert(sound):
+    from multiprocessing import Pool
+    def hilbert(arr):
+        return signal.hilbert(arr)
+    
+    blocks = []
+    size = 50000000
+    overlap = 2000
+    blocks.append([sound[i:i+size] for i in range(0, len(sound), size-overlap)])
+    blocks = np.array(blocks, dtype=object).T[:,0]
+    
+    p = Pool(4)
+    p.map(hilbert, blocks)
+    
+    
+    
 
 
 class Tdms():
@@ -153,14 +169,40 @@ class Tdms():
             mod_rate = groups[_channel][2::3]
             
             
-            self.Para = sorted(zip(fc, bdwidth, mod_rate, stim_startT), key=lambda x:x[0:3])
-            fc, bdwidth, mod_rate, stim_startT = zip(*self.Para)
-            para = self.Para
+            para = sorted(zip(fc, bdwidth, mod_rate, stim_startT), key=lambda x:x[0:3])
+            fc, bdwidth, mod_rate, stim_startT = zip(*para)
+            stim_startT = np.array(stim_startT)
+            
+            if precise_timing:
+                _sound = np.array(sound - np.mean(sound))
+                
+                hil = np.abs(signal.hilbert(_sound)) - 0.012
+                b,a = signal.butter(3, 150, btype='low', fs=200000)
+                filt = signal.filtfilt(b,a, hil)
+                cross0 = np.diff(np.sign(filt)) > 0
+                
+                #stim_startT in ms, change to data point by times 200 sampling rate
+                #windows given 10ms prior and 20ms after the LabView onset timing
+                #precision is the index first datapoint crossing threshold
+                #counting from 10ms before stim_startT so substract 10ms after switch back to ms by dividing sampling rate
+                for idx,time in enumerate(stim_startT):
+                    window = cross0[int(time*200-10*200):int(time*200+20*200)]
+                    
+                    if any(window):
+                        precision = min([i for i, x in enumerate(window) if x])/200 - 10
+                        stim_startT[idx] = stim_startT[idx] + precision
+                    else:
+                        stim_startT[idx] = stim_startT[idx] + 9
+                        
+            self.Para = zip(fc, bdwidth, mod_rate, stim_startT)
+                    
+                
+            
             stim_startT = np.array(stim_startT)
             #start time ms in tdms is not accurately capture the onset time of stimuli
             #it is approximately 9ms prior to the actual onset time
             #-250ms, +500ms for covering ISI
-            stim_startP = stim_startT*sRate + 9*sRate - 50*sRate  
+            stim_startP = stim_startT*sRate - 50*sRate  
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
             for i in range(n_epochs):
                 x1 = int(stim_startP[i])
@@ -190,7 +232,6 @@ class Tdms():
                 else:
                     sound = self.S
                 
-
 
                 
         
