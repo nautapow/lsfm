@@ -6,25 +6,76 @@ import os
 import pandas as pd
 from pathlib import Path
 
-def multi_hilbert(sound):
+
+# =============================================================================
+# def hilbert(arr):
+#     return signal.hilbert(arr)
+# =============================================================================
+
+class pickle():
+    #create function in main module for multiprocessing to work    
+    def hilbert(self, block):
+        return signal.hilbert(block)
+
+
+def multi_hilbert(arr):
+    """
+    Section array over 50 million points to facilitate hilbert transformation
+    as over 100 million drastically decrese the speed of hilbert
+
+    Parameters
+    ----------
+    arr : ndarray
+        Array to perform hilbert transform
+
+    Returns
+    -------
+    nd.array
+        DESCRIPTION.
+
+    """
+    
+    
     from multiprocessing import Pool
-    def hilbert(arr):
-        return signal.hilbert(arr)
     
     blocks = []
     size = 50000000
     overlap = 2000
-    blocks.append([sound[i:i+size] for i in range(0, len(sound), size-overlap)])
+    blocks.append([arr[i:i+size] for i in range(0, len(arr), size-overlap)])
     blocks = np.array(blocks, dtype=object).T[:,0]
     
+    mh = pickle()
     p = Pool(4)
-    p.map(hilbert, blocks)
+    outputs = p.map(mh.hilbert, blocks)
+    p.close()
+    p.join()
     
-    
+    trim = []
+    for idx, output in enumerate(outputs):
+        if idx == 0:
+            trim.append(output[:size-overlap//2])
+        elif idx == len(outputs)-1:
+            trim.append(output[overlap//2:])
+        else:
+            trim.append(output[overlap//2:size-overlap//2])
+    return np.hstack(trim[:])
     
 
 
 class Tdms():
+    """
+    class variable
+    rawS, rawR:     non-sectioned stimulus and response
+                    stimulus is low-res if load_sound and precise_timing both set to Flase
+    S, R, Para:     sectioned low-resolution stimulus, response, and parameters
+    Rdpk, rawRdpk:  depeaked response, sectioned and non-sectioned raw
+    Sound:          sectioned high-resolution stimulus
+    misc:           peak start location used for sectioning
+    path:           file path
+    sRate:          sampling rate for low-res stimulus and response
+    """
+        
+
     
     def __init__(self):
         self.S, self.R = [],[]
@@ -176,8 +227,9 @@ class Tdms():
             if precise_timing:
                 _sound = np.array(sound - np.mean(sound))
                 
-                hil = np.abs(signal.hilbert(_sound)) - 0.012
-                b,a = signal.butter(3, 150, btype='low', fs=200000)
+                hil = np.abs(multi_hilbert(_sound)) - 0.012
+                #hil = np.abs(signal.hilbert(_sound)) - 0.012
+                b,a = signal.butter(3, 300, btype='low', fs=200000)
                 filt = signal.filtfilt(b,a, hil)
                 cross0 = np.diff(np.sign(filt)) > 0
                 
@@ -185,6 +237,7 @@ class Tdms():
                 #windows given 10ms prior and 20ms after the LabView onset timing
                 #precision is the index first datapoint crossing threshold
                 #counting from 10ms before stim_startT so substract 10ms after switch back to ms by dividing sampling rate
+                count = 0
                 for idx,time in enumerate(stim_startT):
                     window = cross0[int(time*200-10*200):int(time*200+20*200)]
                     
@@ -193,9 +246,9 @@ class Tdms():
                         stim_startT[idx] = stim_startT[idx] + precision
                     else:
                         stim_startT[idx] = stim_startT[idx] + 9
-                        
+            
             self.Para = zip(fc, bdwidth, mod_rate, stim_startT)
-                    
+                        
                 
             
             stim_startT = np.array(stim_startT)
@@ -372,27 +425,8 @@ class Tdms():
         
         return cutted
         
+    
 
-    def get_misc(self):
-        return self.misc
-       
-    def get_stim(self):
-        return self.S, self.Para
-    
-    def get_resp(self):
-        return self.R
-    
-    def get_dir(self):
-        return self.path
-    
-    def get_sound(self):
-        return self.Sound
-    
-    def get_raw(self):
-        return self.rawS, self.rawR
-    
-    def get_dpk(self):
-        return self.Rdpk, self.rawRdpk
         
 
         

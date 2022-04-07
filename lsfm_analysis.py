@@ -12,64 +12,76 @@ import TFTool
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import lsfm
-
     
     
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    tlsfm = [35]
+    tlsfm = [56]
     for df_loc in tlsfm:
-        try:
-            fdir = df['path'][df_loc]
-            filename = df['date'][df_loc]+'_'+df['#'][df_loc]
-            t = Tdms()
-            t.loadtdms(fdir, load_sound=True)
+
+        fdir = df['path'][df_loc]
+        filename = df['date'][df_loc]+'_'+df['#'][df_loc]
+        t = Tdms()
+        t.loadtdms(fdir, load_sound=True, precise_timing=True)
+        
+        para = t.Para
+        resp = t.Rdpk
+        sound = t.rawS
+        stim = t.Sound
+        
+        def baseline(resp_iter):
+            return resp_iter - np.mean(resp_iter[:50*25])
+        
+        def baseline_zero(resp_iter):
+            return resp_iter - resp_iter[50*25]
             
-            _,para = t.get_stim()
-            resp,_ = t.get_dpk()
-            sound,_ = t.get_raw()
-            stim = t.get_sound()
-            
-            cwt = scipy.io.loadmat(r'E:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
-            #cwt = scipy.io.loadmat(r'R:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
-            atf = lsfm.RespAtFreq()
-            atf.mod_reduction(stim, resp, para, df, df_loc, cwt)
-            atf.resp_at_freq(nth_freq=True, plot=False)
-        except:
-            pass
-            
+        resp = np.array(resp)
+        resp_base = np.apply_along_axis(baseline, 1, resp)
+        plt.plot(t.S[253]*0.05)
+        plt.plot(np.mean(resp_base, axis=0))
+        plt.savefig(f'{filename}.png', dpi=500)
+        del resp_base
+        
 # =============================================================================
-#             for tf in range(len(atf.target_freq)):   
-#                 post, neg = [],[]
-#                 for i,a in enumerate(atf.slopes[tf]):
-#                     if a > 0:
-#                         post.append(atf.windows[tf][i])
-#                     else:
-#                         neg.append(atf.windows[tf][i])
-#                 
-#                 mean_p = np.mean(post, axis=0)
-#                 mean_p = mean_p - mean_p[1250]
-#                 mean_n = np.mean(neg, axis=0)
-#                 mean_n = mean_n - mean_n[1250]
-#                 
-#                 plt.plot(mean_p)
-#                 plt.plot(mean_n)
-#                 plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-#                 ax = plt.subplot()
-#                 txt = (f'{atf.filename} - {atf.target_freq[tf]} Hz.')
-#                 ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)    
-#                 #plt.savefig(f'slope_PvN-{atf.filename}-{atf.target_freq[tf]}.png', dpi=500)
-#                 plt.show()
-#                 plt.clf()
-#         except:
-#             pass
-#     
-#     fs = 200000
-#     hil = signal.hilbert(sound)
-#     b,a = signal.butter(3, 150, btype='low', fs=fs)
-#     h_filt = signal.filtfilt(b,a,hil)
+#         """response at target frequency"""
+#         cwt = scipy.io.loadmat(r'E:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
+#         #cwt = scipy.io.loadmat(r'R:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
+#         atf = lsfm.RespAtFreq()
+#         atf.mod_reduction(stim, resp, para, df, df_loc, cwt)
+#         atf.resp_at_freq(nth_freq=True, plot=False)
 # =============================================================================
+    
+        
+ 
+        
+# =============================================================================
+#         """ average response in positive vs negative slope"""
+#         for tf in range(len(atf.target_freq)):   
+#             post, neg = [],[]
+#             for i,a in enumerate(atf.slopes[tf]):
+#                 if a > 0:
+#                     post.append(atf.windows[tf][i])
+#                 else:
+#                     neg.append(atf.windows[tf][i])
+#             
+#             mean_p = np.mean(post, axis=0)
+#             mean_p = mean_p - mean_p[1250]
+#             mean_n = np.mean(neg, axis=0)
+#             mean_n = mean_n - mean_n[1250]
+#             
+#             plt.plot(mean_p)
+#             plt.plot(mean_n)
+#             plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+#             ax = plt.subplot()
+#             txt = (f'{atf.filename} - {atf.target_freq[tf]} Hz.')
+#             ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)    
+#             #plt.savefig(f'slope_PvN-{atf.filename}-{atf.target_freq[tf]}.png', dpi=500)
+#             plt.show()
+#             plt.clf()
+# =============================================================================
+
+    
     
     
 # =============================================================================

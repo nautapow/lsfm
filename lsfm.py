@@ -274,9 +274,9 @@ def coeff(df, loc1, loc2):
     df : Data Frame
         Pandas data frame.
     loc1 : int
-        index of first recording
+        index of first recording in df
     loc2 : int
-        index of second recording.
+        index of second recording in df
 
     Returns
     -------
@@ -341,7 +341,7 @@ def rank(resp):
 
     Parameters
     ----------
-    resp : TYPE
+    resp : ndarray
         DESCRIPTION.
     filename : TYPE
         DESCRIPTION.

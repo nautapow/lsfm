@@ -218,3 +218,6 @@ def para_merge2(para, resp, axis=1):
 def butter(arr, order, cutoff, filtertype, fs):
     b,a = signal.butter(order, cutoff, btype=filtertype, fs=fs)
     return signal.filtfilt(b,a, arr)
+
+def hilbert(arr):
+    return signal.hilbert(arr)
