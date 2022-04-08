@@ -17,7 +17,8 @@ import lsfm
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    tlsfm = [56]
+    #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
+    tlsfm = [35]
     for df_loc in tlsfm:
 
         fdir = df['path'][df_loc]
@@ -30,19 +31,12 @@ if  __name__ == "__main__":
         sound = t.rawS
         stim = t.Sound
         
-        def baseline(resp_iter):
-            return resp_iter - np.mean(resp_iter[:50*25])
+        for p in para:
+            plt.plot(resp[123])
         
-        def baseline_zero(resp_iter):
-            return resp_iter - resp_iter[50*25]
+        
+
             
-        resp = np.array(resp)
-        resp_base = np.apply_along_axis(baseline, 1, resp)
-        plt.plot(t.S[253]*0.05)
-        plt.plot(np.mean(resp_base, axis=0))
-        plt.savefig(f'{filename}.png', dpi=500)
-        del resp_base
-        
 # =============================================================================
 #         """response at target frequency"""
 #         cwt = scipy.io.loadmat(r'E:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
