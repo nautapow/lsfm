@@ -17,9 +17,10 @@ import lsfm
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
-    tlsfm = [35]
-    for df_loc in tlsfm:
+    tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
+    psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
+                                        'sum1','sum2','sum3','sum4', 'sum5']) 
+    for idx, df_loc in enumerate(tlsfm):
 
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
@@ -30,13 +31,54 @@ if  __name__ == "__main__":
         resp = t.Rdpk
         sound = t.rawS
         stim = t.Sound
-        
-        for p in para:
-            plt.plot(resp[123])
+        lsfm.psth_analysis(resp, para, filename, saveplot=True)
         
         
+# =============================================================================
+#         psth = lsfm.psth(resp, filename)
+#         zpsth = stats.zscore(psth)
+#         
+#         psth_para.loc[idx] = filename, sum(psth), max(psth), min(psth), np.mean(psth),\
+#             max(zpsth), min(zpsth), sum(psth[:10000]), sum(psth[10000:20000]), sum(psth[20000:30000]),\
+#                 sum(psth[30000:40000]), sum(psth[40000:50000])
+#         
+#         print(idx)
+# =============================================================================
+                    
+# =============================================================================
+#     psth_para.to_csv('PSTH_parameters.csv')
+#     types = ['two peaks', 'two peaks', 'two peaks', 'no response', 'two peaks', 'two peaks', 
+#              'no response', 'plateau', 'plateau', 'no response', 'plateau', 'no response']    
+# =============================================================================
+        
+    
+    df_loc = 49
+    fdir = df['path'][df_loc]
+    filename = df['date'][df_loc]+'_'+df['#'][df_loc]
+    t = Tdms()
+    t.loadtdms(fdir, load_sound=True, precise_timing=True)
+    
+    para = t.Para
+    resp = t.Rdpk
+    sound = t.rawS
+    stim = t.Sound
 
+    lsfm.psth_analysis(resp, para, filename)
+    
             
+            
+# =============================================================================
+#         plt.plot(test)
+#         plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+#         plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
+#         label = list(np.round(np.linspace(0, 2.0, 11), 2))
+#         plt.xticks(np.linspace(0,50000,11),label)
+#         ax = plt.subplot()
+#         txt = (f'{filename}-PSTH')
+#         ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)        
+# =============================================================================
+           
+           
 # =============================================================================
 #         """response at target frequency"""
 #         cwt = scipy.io.loadmat(r'E:\In-Vivo_Patch_Results\FIR\cwt_fir_real.mat')
