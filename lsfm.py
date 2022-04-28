@@ -666,7 +666,7 @@ class Psth():
         else:
             plt.show()
             
-    def psth_trend(self, plot=False):
+    def psth_trend(self, plot=False, **kwargs):
         _para = np.swapaxes(np.array(self.para),0,1)
         para_cf = _para[0][:]
         para_band = _para[1][:]
@@ -680,6 +680,9 @@ class Psth():
         for i in permutations(range(3),3):
             aranges.append(i)
         
+
+            
+        
         for arange in aranges:
             group = para_name[arange[0]]
             base = para_name[arange[1]]
@@ -690,9 +693,33 @@ class Psth():
                 resp_incategory=[]
                 samebase=[]
                 for b in label_list[arange[1]]:
-                    for i,p in enumerate(self.para):
+                    for i,p in enumerate(self.para):                                            
                         if p[arange[0]] == g and p[arange[1]] == b:
-                            resp_incategory.append(self.resp[i])
+                            _resp = Psth.baseline(self.resp[i])
+                            set_window = kwargs.get('window')
+                            if set_window:
+                                if(set_window[0]>set_window[1]):
+                                    set_window[0], set_window[1] = set_window[1], set_window[0]
+                                if(min(set_window) < 0):
+                                    raise ValueError('Must start at 0')
+                                if(max(set_window) > len(_resp)):
+                                    raise ValueError('Exceed data range')
+                            
+                                window = _resp[set_window[0]:set_window[1]]
+                            else:
+                                window = _resp
+                                
+                            set_location = kwargs.get('location')
+                            if(set_location == 'onset'):
+                                window = _resp[:10000]
+                            elif(set_location == 'second'):
+                                window = _resp[10000:20000]
+                            elif(set_location == 'plateau'):
+                                window = _resp[20000:40000]
+                            elif(set_location == 'offset'):
+                                window = _resp[40000:]
+                           
+                            resp_incategory.append(window)
                             
                     if resp_incategory:
                         v_mean = np.mean(resp_incategory, axis=1)

@@ -34,65 +34,9 @@ if  __name__ == "__main__":
         stim = t.Sound
         
         p = lsfm.Psth(resp, para, filename)
-        p.psth_analysis() 
-        p.psth_trend(plot=True)
-
-        _para = np.swapaxes(np.array(para),0,1)
-        para_cf = _para[0][:]
-        para_band = _para[1][:]
-        para_mod = _para[2][:]
-        para_name = ['Center Freq', 'Band Width', 'Mod Rate']
-        label_list = [cf_label, bw_label, mod_label]
-        para_list = [para_cf, para_band, para_mod]
-        
-        from itertools import permutations
-        aranges = []
-        for i in permutations(range(3),3):
-            aranges.append(i)
-        
-        for arange in aranges:
-            group = para_name[arange[0]]
-            base = para_name[arange[1]]
-            volt = para_name[arange[2]]
+        p.psth_analysis()
+        p.psth_trend(location='offset')
             
-            #samebase=[]
-            samegroup=[]
-            for g in label_list[arange[0]]:
-                resp_incategory=[]
-                samebase=[]
-                for b in label_list[arange[1]]:
-                    for i,p in enumerate(para):
-                        if p[arange[0]] == g and p[arange[1]] == b:
-                            resp_incategory.append(resp[i])
-                            
-                    if resp_incategory:
-                        v_mean = np.mean(resp_incategory, axis=1)
-                        samebase.append([g,b,np.mean(v_mean),np.std(v_mean)])
-                
-                samegroup.append(samebase)
-                
-            colors = plt.cm.OrRd(np.linspace(0.3,1,len(samegroup)))
-            
-            for i,gp in enumerate(samegroup):              
-                x,y,err=[],[],[]
-                for ii in gp:
-                    x.append(ii[1])
-                    y.append(ii[2])
-                    err.append(ii[3])
-                plt.errorbar(x,y,yerr=err, color=colors[i], capsize=(4), marker='o', label=f'{group}-{gp[0][0]}')
-                plt.xlabel(f'{base}')
-                plt.legend(bbox_to_anchor=(1.04,1), loc='upper left')
-            plt.show()
-            
-            
-# =============================================================================
-#             for i, x in enumerate(label_list[arange[0]]):
-#                 for xyz in samebase:
-#                     if xyz[0] == x:
-#                         plt.scatter(xyz[1],xyz[2], color=colors[i])
-#                         #plt.errorbar(xyz[1],xyz[2],xyz[3])
-#             plt.show()
-# =============================================================================
             
             
 # =============================================================================
