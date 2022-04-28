@@ -492,163 +492,247 @@ class RespAtFreq():
                 plt.savefig(f'nth_cross-{self.filename}-{freq}.png', dpi=500)
                 plt.clf()
 
-def baseline(resp_iter):
-    return resp_iter - np.mean(resp_iter[:50*25])
 
-def baseline_zero(resp_iter):
-    return resp_iter - resp_iter[50*25]
-
-def psth(resp, filename, plot=False) -> list:
-    resp = np.array(resp)
-    resp_base = np.apply_along_axis(baseline, 1, resp)
-    
-    if plot:
-        plt.plot(np.mean(resp_base, axis=0)*1000)
-        plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-        plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
-        label = list(np.round(np.linspace(0, 2.0, 11), 2))
-        plt.xticks(np.linspace(0,50000,11),label)
-        ax = plt.subplot()
-        txt = (f'{filename}-PSTH')
-        ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-        plt.savefig(f'{filename}-PSTH.png', dpi=500)
-        plt.clf()
+class Psth():
+    def __init__(self, resp, para, filename):
+        self.resp = resp
+        self.para = para
+        self.filename = filename
+        _para = np.swapaxes(np.array(self.para),0,1)
+        self.mod_label = sorted(set(_para[2][:]))
+        self.cf_label = sorted(set(_para[0][:]))
+        self.bw_label = sorted(set(_para[1][:]))
         
-    return np.mean(resp_base, axis=0)*1000
-
-def psth_para(resp, para, filename, plot=False) -> dict:
-    """
-    PSTH seperated by each parameters
-    """
+    def baseline(resp_iter):
+        return resp_iter - np.mean(resp_iter[:50*25])
     
-    resp = np.array(resp)
-    para = np.swapaxes(np.array(para),0,1)
-    mods = sorted(list(set(para[2])))
-    cfs = sorted(list(set(para[0])))
-    bands = sorted(list(set(para[1])))
-    para_mod = para[2][:]
-    para_cf = para[0][:]
-    para_band = para[1][:]
+    def baseline_zero(resp_iter):
+        return resp_iter - resp_iter[50*25]
     
-    resp_mod, resp_cf, resp_band=[],[],[]
-    
-    for mod in mods:
-        temp = []
-        for i, p in enumerate(para_mod):
-            if p == mod:
-                temp.append(baseline(resp[i]))
-        resp_mod.append(temp)
-
-    for cf in cfs:
-        temp = []
-        for i, p in enumerate(para_cf):
-            if p == cf:
-                temp.append(baseline(resp[i]))
-        resp_cf.append(temp)
-
-    for band in bands:
-        temp = []
-        for i, p in enumerate(para_band):
-            if p == band:
-                temp.append(baseline(resp[i]))
-        resp_band.append(temp)
+    def psth_all(self, plot=False):
+        resp = np.array(self.resp)
+        resp_base = np.apply_along_axis(Psth.baseline, 1, resp)
         
-    if plot:
-        for i in range(len(mods)):
+        if plot:
+            plt.plot(np.mean(resp_base, axis=0)*1000)
+            plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+            plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
+            label = list(np.round(np.linspace(0, 2.0, 11), 2))
+            plt.xticks(np.linspace(0,50000,11),label)
+            ax = plt.subplot()
+            txt = (f'{self.filename}-PSTH')
+            ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
+            plt.savefig(f'{self.filename}-PSTH.png', dpi=500)
+            plt.clf()
+            
+        return np.mean(resp_base, axis=0)*1000
+    
+    def psth_para(self, plot=False) -> dict:
+        """
+        PSTH seperated by each parameters
+        """
+        resp = np.array(self.resp)
+        _para = np.swapaxes(np.array(self.para),0,1)
+        para_mod = _para[2][:]
+        para_cf = _para[0][:]
+        para_band = _para[1][:]
+        
+        resp_mod, resp_cf, resp_band=[],[],[]
+        
+        for mod in self.mod_label:
+            temp = []
+            for i, p in enumerate(para_mod):
+                if p == mod:
+                    temp.append(Psth.baseline(resp[i]))
+            resp_mod.append(temp)
+    
+        for cf in  self.cf_label:
+            temp = []
+            for i, p in enumerate(para_cf):
+                if p == cf:
+                    temp.append(Psth.baseline(resp[i]))
+            resp_cf.append(temp)
+    
+        for band in self.bw_label:
+            temp = []
+            for i, p in enumerate(para_band):
+                if p == band:
+                    temp.append(Psth.baseline(resp[i]))
+            resp_band.append(temp)
+            
+        
+        for i in range(len(self.mod_label)):
             plt.plot(np.mean(resp_mod[i], axis=0)*1000)
             plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
             plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
             label = list(np.round(np.linspace(0, 2.0, 11), 2))
             plt.xticks(np.linspace(0,50000,11),label)
             ax = plt.subplot()
-            txt = (f'{filename}-mod {mods[i]} Hz')
+            txt = (f'{self.filename}-mod {self.mod_label[i]} Hz')
             ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-            plt.savefig(f'{filename}-mod {mods[i]} Hz.png', dpi=500)
-            plt.clf()
             
-        for i in range(len(cfs)):
+            if plot:
+                plt.savefig(f'{self.filename}-mod {self.mod_label[i]} Hz.png', dpi=500)
+                plt.clf()
+            else:
+                plt.show()
+            
+        for i in range(len(self.cf_label)):
             plt.plot(np.mean(resp_cf[i], axis=0)*1000)
             plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
             plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
             label = list(np.round(np.linspace(0, 2.0, 11), 2))
             plt.xticks(np.linspace(0,50000,11),label)
             ax = plt.subplot()
-            txt = (f'{filename}-cf {cfs[i]} Hz')
+            txt = (f'{self.filename}-cf {self.cf_label[i]} Hz')
             ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-            plt.savefig(f'{filename}-cf {cfs[i]} kHz.png', dpi=500)
-            plt.clf()
+            if plot:
+                plt.savefig(f'{self.filename}-cf {self.cf_label[i]} kHz.png', dpi=500)
+                plt.clf()
+            else:
+                plt.show()
             
-        for i in range(len(bands)):
+        for i in range(len(self.bw_label)):
             plt.plot(np.mean(resp_band[i], axis=0)*1000)
             plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
             plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
             label = list(np.round(np.linspace(0, 2.0, 11), 2))
             plt.xticks(np.linspace(0,50000,11),label)
             ax = plt.subplot()
-            txt = (f'{filename}-bdwidth {bands[i]} kHz')
+            txt = (f'{self.filename}-bdwidth {self.bw_label[i]} kHz')
             ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-            plt.savefig(f'{filename}-bdwidth {bands[i]} kHz.png', dpi=500)
-            plt.clf()
+            if plot:
+                plt.savefig(f'{self.filename}-bdwidth {bands[i]} kHz.png', dpi=500)
+                plt.clf()
+            else:
+                plt.plot()
+            
+        return {'modrate':resp_mod, 'centerfreq':resp_cf,
+                'bandwidth':resp_band}
+    
+    
+    def psth_correlation(self, saveplot=False):
+        psth_a = Psth.psth_all(self)
+        psth_p = Psth.psth_para(self)
         
-    return {'modrate':resp_mod, 'centerfreq':resp_cf,
-            'bandwidth':resp_band}
+        '''coeff'''
+        mod_coeff, cf_coeff, bw_coeff = [],[],[]
+     
+        mod = psth_p['modrate']
+        for i in range(len(mod)):
+            psth_mod = np.mean(mod[i], axis=0)    
+            mod_coeff.append(stats.pearsonr(psth_a, psth_mod)[0])
+        plt.plot(mod_coeff)
+        plt.xticks(list(range(len(mod))), self.mod_label)
+        ax = plt.subplot()
+        txt = (f'{self.filename}_Modrate_coeff')
+        ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
+        if saveplot:
+            plt.savefig(f'{self.filename}_PSTH_ModRate_Coeff.png', dpi=500)
+            plt.clf()
+        else:
+            plt.show()
+        
+        cf = psth_p['centerfreq']
+        for i in range(len(cf)):
+            psth_cf = np.mean(cf[i], axis=0)
+            cf_coeff.append(stats.pearsonr(psth_a, psth_cf)[0])
+        plt.plot(cf_coeff)
+        plt.xticks(list(range(len(cf))), self.cf_label)
+        plt.xticks(rotation = 45)
+        ax = plt.subplot()
+        txt = (f'{self.filename}_centerfreq_coeff')
+        ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
+        if saveplot:
+            plt.savefig(f'{self.filename}_PSTH_CenterFreq_Coeff.png', dpi=500)
+            plt.clf()
+        else:
+            plt.show()
+        
+        bw = psth_p['bandwidth']
+        for i in range(len(bw)):
+            psth_bw = np.mean(bw[i], axis=0)
+            bw_coeff.append(stats.pearsonr(psth_a, psth_bw)[0])
+            plt.show()
+        plt.plot(bw_coeff)
+        plt.xticks(list(range(len(bw))), self.bw_label)
+        plt.xticks(rotation = 45)
+        ax = plt.subplot()
+        txt = (f'{self.filename}_bandwidth_coeff')
+        ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
+        if saveplot:
+            plt.savefig(f'{self.filename}_PSTH_BandWidth_Coeff.png', dpi=500)
+            plt.clf()
+        else:
+            plt.show()
+            
+    def psth_trend(self, plot=False):
+        _para = np.swapaxes(np.array(self.para),0,1)
+        para_cf = _para[0][:]
+        para_band = _para[1][:]
+        para_mod = _para[2][:]
+        para_name = ['Center Freq', 'Band Width', 'Mod Rate']
+        label_list = [self.cf_label, self.bw_label, self.mod_label]
+        para_list = [para_cf, para_band, para_mod]
+        
+        from itertools import permutations
+        aranges = []
+        for i in permutations(range(3),3):
+            aranges.append(i)
+        
+        for arange in aranges:
+            group = para_name[arange[0]]
+            base = para_name[arange[1]]
+            volt = para_name[arange[2]]
+            
+            samegroup=[]
+            for g in label_list[arange[0]]:
+                resp_incategory=[]
+                samebase=[]
+                for b in label_list[arange[1]]:
+                    for i,p in enumerate(self.para):
+                        if p[arange[0]] == g and p[arange[1]] == b:
+                            resp_incategory.append(self.resp[i])
+                            
+                    if resp_incategory:
+                        v_mean = np.mean(resp_incategory, axis=1)
+                        samebase.append([g,b,np.mean(v_mean),np.std(v_mean)])
+                
+                samegroup.append(samebase)
+                
+            colors = plt.cm.OrRd(np.linspace(0.3,1,len(samegroup)))
+            
+            for i,gp in enumerate(samegroup):              
+                x,y,err=[],[],[]
+                for ii in gp:
+                    x.append(ii[1])
+                    y.append(ii[2])
+                    err.append(ii[3])
+                plt.errorbar(x,y,yerr=err, color=colors[i], capsize=(4), marker='o', label=f'{group}-{gp[0][0]}')
+                plt.xlabel(f'{base}')
+                plt.legend(bbox_to_anchor=(1.04,1), loc='upper left')
+            if plot:
+                plt.savefig(f'{self.filename}_function_{group}-{base}.png', \
+                            dpi=500, bbox_inches='tight')
+                plt.clf()
+            else:
+                plt.show()
+        
 
-
-def psth_analysis(resp, para, filename, saveplot=False):
-    psth_a = psth(resp, filename)
-    psth_p = psth_para(resp, para, filename)
-    
-    '''coeff'''
-    _para = np.swapaxes(np.array(para),0,1)
-    mod_coeff, cf_coeff, bw_coeff = [],[],[]
-    mod_label = sorted(set(_para[2][:]))
-    cf_label = sorted(set(_para[0][:]))
-    bw_label = sorted(set(_para[1][:]))
-    
-    mod = psth_p['modrate']
-    for i in range(len(mod)):
-        psth_mod = np.mean(mod[i], axis=0)    
-        mod_coeff.append(stats.pearsonr(psth_a, psth_mod)[0])
-    plt.plot(mod_coeff)
-    plt.xticks(list(range(len(mod))), mod_label)
-    ax = plt.subplot()
-    txt = (f'{filename}_Modrate_coeff')
-    ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-    if saveplot:
-        plt.savefig(f'{filename}_PSTH_ModRate_Coeff.png', dpi=500)
-        plt.clf()
-    else:
-        plt.show()
-    
-    cf = psth_p['centerfreq']
-    for i in range(len(cf)):
-        psth_cf = np.mean(cf[i], axis=0)
-        cf_coeff.append(stats.pearsonr(psth_a, psth_cf)[0])
-    plt.plot(cf_coeff)
-    plt.xticks(list(range(len(cf))), cf_label)
-    plt.xticks(rotation = 45)
-    ax = plt.subplot()
-    txt = (f'{filename}_centerfreq_coeff')
-    ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-    if saveplot:
-        plt.savefig(f'{filename}_PSTH_CenterFreq_Coeff.png', dpi=500)
-        plt.clf()
-    else:
-        plt.show()
-    
-    bw = psth_p['bandwidth']
-    for i in range(len(bw)):
-        psth_bw = np.mean(bw[i], axis=0)
-        bw_coeff.append(stats.pearsonr(psth_a, psth_bw)[0])
-        plt.show()
-    plt.plot(bw_coeff)
-    plt.xticks(list(range(len(bw))), bw_label)
-    plt.xticks(rotation = 45)
-    ax = plt.subplot()
-    txt = (f'{filename}_bandwidth_coeff')
-    ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-    if saveplot:
-        plt.savefig(f'{filename}_PSTH_BandWidth_Coeff.png', dpi=500)
-        plt.clf()
-    else:
-        plt.show()
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
