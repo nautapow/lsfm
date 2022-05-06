@@ -12,7 +12,7 @@ import TFTool
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import lsfm
-    
+import pyabf    
     
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
@@ -32,11 +32,30 @@ if  __name__ == "__main__":
         resp = np.array(t.Rdpk)
         sound = t.rawS
         stim = t.Sound
+           
+    
+    
+# =============================================================================
+#         _para = np.swapaxes(np.array(para),0,1)
+#         mod_label = sorted(set(_para[2][:]))
+#         cf_label = sorted(set(_para[0][:]))
+#         bw_label = sorted(set(_para[1][:]))
+# =============================================================================
         
         p = lsfm.Psth(resp, para, filename)
-        p.psth_analysis()
-        p.psth_trend(location='offset')
-            
+        _ = p.psth_para(plot=False)
+        p.psth_trend(window=(3000,5000))
+        p.psth_all()
+        p.psth_window(((3000,5000)), 'onset')
+        
+# =============================================================================
+#         p.psth_window((1250,2750), 'inhibit', saveplot=True, savenotes=False)
+#         p.psth_window((5000,10000), 'onset', saveplot=True, savenotes=False)
+#         p.psth_window((27500,37500), 'sustain', saveplot=True, savenotes=False)
+#         p.psth_window((40000,45000), 'offset', saveplot=True, savenotes=True)
+# =============================================================================
+        
+                                         
             
             
 # =============================================================================
