@@ -42,11 +42,13 @@ if  __name__ == "__main__":
 #         bw_label = sorted(set(_para[1][:]))
 # =============================================================================
         
-        p = lsfm.Psth(resp, para, filename)
-        _ = p.psth_para(plot=False)
-        p.psth_trend(window=(3000,5000))
-        p.psth_all()
-        p.psth_window(((3000,5000)), 'onset')
+# =============================================================================
+#         p = lsfm.Psth(resp, para, filename)
+#         _ = p.psth_para(plot=False)
+#         p.psth_trend(window=(3000,5000))
+#         p.psth_all()
+#         p.psth_window(((3000,5000)), 'onset')
+# =============================================================================
         
 # =============================================================================
 #         p.psth_window((1250,2750), 'inhibit', saveplot=True, savenotes=False)

@@ -739,7 +739,7 @@ class Psth():
         else:
             plt.show()
             
-    def psth_trend(self, saveplot=False, tuning=None, **kwargs) -> None:
+    def psth_trend(self, tuning=None, saveplot=False, **kwargs) -> None:
         """
         Generate average potential vs base. Traces seperated by group.
 
@@ -852,7 +852,7 @@ class Psth():
                 plt.show()
         
 
-    def psth_window(self, window, featname, saveplot=False, savenotes=False):
+    def psth_window(self, window, featname, tuning=None, saveplot=False, savenotes=False):
         """
         Generate PSTH for every parameters within the range of interest.
 
