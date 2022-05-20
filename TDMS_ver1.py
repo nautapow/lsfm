@@ -215,10 +215,19 @@ class Tdms():
         #depend on protocol, load parameters stored in toneparameters
         #sort by stimuli parameters
         if protocol == 0:
-            fc = groups[_channel][::3]
-            bdwidth = groups[_channel][1::3]
-            mod_rate = groups[_channel][2::3]
+            centfreq = groups[_channel][::3]
+            bd = groups[_channel][1::3]
+            modrate = groups[_channel][2::3]
+            fc, bdwidth, mod_rate, stim_time = [],[],[],[]
             
+            for i,f in enumerate(centfreq):
+                if f >= 3.0:
+                    fc.append(f)
+                    bdwidth.append(bd[i])
+                    mod_rate.append(modrate[i])
+                    stim_time.append(stim_startT[i])
+            
+            stim_startT = stim_time[:]                    
             
             para = sorted(zip(fc, bdwidth, mod_rate, stim_startT), key=lambda x:x[0:3])
             fc, bdwidth, mod_rate, stim_startT = zip(*para)
@@ -257,7 +266,7 @@ class Tdms():
             #-250ms, +500ms for covering ISI
             stim_startP = stim_startT*sRate - 50*sRate  
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
-            for i in range(n_epochs):
+            for i in range(len(para)):
                 x1 = int(stim_startP[i])
                 x2 = x1 + 2000*sRate
                 self.misc.append(x1)
