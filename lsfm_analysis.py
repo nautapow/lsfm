@@ -11,8 +11,30 @@ import mne
 import TFTool
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
-import lsfm
-import pyabf    
+import lsfm 
+import math
+
+def stim4contour(stim, para):
+    def ranges(arr):
+        arr_crop = arr[5000:35000]
+        for idx, val in enumerate(arr):
+            if val < min(arr_crop) or val > max(arr_crop):
+                arr[idx] = 0
+                
+        return arr
+    
+    fs = 200000
+    """cwt decimation rate is 800 to 250Hz"""
+    b,a = signal.butter(3, 150, btype='low', fs=fs)
+    hil = signal.hilbert(stim)
+    phase = np.unwrap(np.angle(hil))
+    ifreq = np.diff(phase) / (2*np.pi) * fs
+    filt_ifreq = signal.filtfilt(b,a,ifreq)
+    
+    stim_lowres = signal.resample(stim, len(stim)/8)
+    ifreq_lowres = signal.resample(filt_ifreq, len(filt_ifreq)/8)
+    
+    
     
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
@@ -33,7 +55,7 @@ if  __name__ == "__main__":
         sound = t.rawS
         stim = t.Sound
            
-    
+        
     
 # =============================================================================
 #         _para = np.swapaxes(np.array(para),0,1)
