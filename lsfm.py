@@ -2,6 +2,7 @@ from TDMS_ver1 import Tdms
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 from pathlib import Path
 from scipy import signal
 from scipy import stats
@@ -921,7 +922,106 @@ def fake_sound(stim, para):
     for p in para:
         fc = para[0]
         
-        
+""""""""""""""""""""""""""""""""""""""""""
+"""Plot slope versus frequency with lag"""
+def transient_remove(arr):
+    """
+    Zero non-stimulation part and start and end transient spike caused by filtering or calculation
+
+    Parameters
+    ----------
+    arr : nd.array
+        array for correction.
+
+    Returns
+    -------
+    arr : nd.array
+        corrected array.
+
+    """
+    arr_crop = arr[5000:35000]
+    arr_std = np.std(arr_crop)
+    mask = tuple([(arr < min(arr_crop)-arr_std)|(arr > max(arr_crop)+arr_std)])
+
+    arr[mask]=0    
+    return arr
+
+
+def stim4contour(stim):
+    fs = 200000
+    """cwt decimation rate is 800 to 250Hz"""
+    b,a = signal.butter(3, 150, btype='low', fs=fs)
+    hil = signal.hilbert(stim)
+    phase = np.unwrap(np.angle(hil))
+    ifreq = np.diff(phase) / (2*np.pi) * fs
+    filt_ifreq = signal.filtfilt(b,a,ifreq)
+    
+    inst_freq_res = signal.resample(filt_ifreq, int(len(filt_ifreq)/8))
+    return transient_remove(inst_freq_res)
+    
+def single_freq_slope(stim, resp, lag):
+    """
+    Return frequencies and slopes for single stimulus and response with specified lag.
+
+    Parameters
+    ----------
+    stim : ARRAY
+        single stimulus.
+    resp : ARRAY
+        correspond response.
+    lag : int
+        lag in milliseconds.
+
+    Returns
+    -------
+    list
+        [[x:instant frequency], [y:slopes], [z:response with lag]].
+
+    """
+    
+    fs = 25000
+    inst_freq = stim4contour(stim)
+    slope = transient_remove(np.diff(inst_freq, prepend=0))    
+    delay_point = int(lag * (fs/1000))
+    resp = Psth.baseline(resp)
+    if lag == 0:
+        x = inst_freq[1249:]
+        y = slope[1249:]
+        z = resp[1250:]
+    else:
+        x = inst_freq[:-1*delay_point]
+        y = slope[:-1*delay_point]
+        z = resp[delay_point+1:]
+    
+    return [x,y,z]   
+    
+
+def freq_slope_contour(stim, resp, lag, binning=None, filename=None, saveplot=False):
+    data=[[],[],[]]
+    for i in range(len(stim)):
+        data = np.concatenate((data,single_freq_slope(stim[i], resp[i], lag)), axis=1)
+    x_edges = np.linspace(-1000,1000,20)
+    y_edges = [3,4.24,6,8.48,12,16.97,24,33.94,48,67.88,96]    
+    if binning != None:
+        ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=binning)
+    else:
+        ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=[x_edges,y_edges])
+    
+    YY, XX = np.meshgrid(ret[1], ret[2])
+    fig, ax1 = plt.subplots()
+    #divnorm=colors.TwoSLopeNorm(vmin=-10., vcenter=0., vmax=10.)
+    pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())
+    ax1.set_xscale('log')
+    
+    ax2 = plt.subplot()
+    txt = (f'{filename}-Lag:{lag}ms')
+    ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+    fig.colorbar(pcm, ax=ax1)
+    if saveplot:
+        plt.savefig(f'{filename}-Lag_{lag}ms.png', dpi=500)
+        plt.clf()
+    else:
+        plt.show()        
         
         
         
