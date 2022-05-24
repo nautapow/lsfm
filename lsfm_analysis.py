@@ -14,92 +14,20 @@ import pandas as pd
 import lsfm 
 import math
 
-def transient_remove(arr):
-    """
-    Zero non-stimulation part and start and end transient spike caused by filtering or calculation
 
-    Parameters
-    ----------
-    arr : nd.array
-        array for correction.
-
-    Returns
-    -------
-    arr : nd.array
-        corrected array.
-
-    """
-    arr_crop = arr[5000:35000]
-    arr_std = np.std(arr_crop)
-    mask = tuple([(arr < min(arr_crop)-arr_std)|(arr > max(arr_crop)+arr_std)])
-
-    arr[mask]=0    
-    return arr
-
-
-def stim4contour(stim):
-    fs = 200000
-    """cwt decimation rate is 800 to 250Hz"""
-    b,a = signal.butter(3, 150, btype='low', fs=fs)
-    hil = signal.hilbert(stim)
-    phase = np.unwrap(np.angle(hil))
-    ifreq = np.diff(phase) / (2*np.pi) * fs
-    filt_ifreq = signal.filtfilt(b,a,ifreq)
-    
-    inst_freq_res = signal.resample(filt_ifreq, int(len(filt_ifreq)/8))
-    return transient_remove(inst_freq_res)
-    
-def single_freq_slope(stim, resp, lag):
-    """
-    Return frequencies and slopes for single stimulus and response with specified lag.
-
-    Parameters
-    ----------
-    stim : ARRAY
-        single stimulus.
-    resp : ARRAY
-        corresponse response.
-    lag : int
-        lag in milliseconds.
-
-    Returns
-    -------
-    list
-        [[x:instant frequency], [y:slopes], [z:response with lag]].
-
-    """
-    
-    fs = 25000
-    inst_freq = stim4contour(stim)
-    slope = transient_remove(np.diff(inst_freq, prepend=0))    
-    delay_point = int(lag * (fs/1000))
-    x = inst_freq[:-1*delay_point]
-    y = slope[:-1*delay_point]
-    z = resp[delay_point+1:]
-    
-    return [x,y,z]   
-    
-
-def freq_slope_contour(stim, resp, lag, binning):
-    data=[[],[],[]]
-    for i in range(len(stim)):
-        data = np.concatenate((data,single_freq_slope(stim[i], resp[i], lag)), axis=1)
         
-    ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=binning)
-    XX, YY = np.meshgrid(ret[1], ret[2])
-    plt.pcolormesh(XX, YY, ret[0])
 
 
     
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
+    tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
     #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
     #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
-    df_loc = 28
-    if df_loc == 28:
-
+    #df_loc = 35
+    #if df_loc == 35:
+    for df_loc in tlsfm:
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
         t = Tdms()
@@ -109,9 +37,10 @@ if  __name__ == "__main__":
         resp = np.array(t.Rdpk)
         sound = t.rawS
         stim = t.Sound
-           
-
         
+        lags = [20,50,100,200,400]
+        for lag in lags:
+            lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=True)
             
         
         
