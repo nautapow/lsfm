@@ -329,7 +329,7 @@ class Tdms():
             #stim_startP = stim_startT*sRate - 20*sRate
             stim_startP = stim_startT*sRate - 500 #20ms for baseline
             
-            for i in range(len(para)): #np.arange(n_epochs):
+            for i in range(len(stim_startT)): #np.arange(n_epochs):
                 x1 = int(stim_startP[i])
                 x2 = x1 + 400*sRate
                 self.misc.append(x1)

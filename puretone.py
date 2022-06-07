@@ -10,7 +10,7 @@ import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 
-def mem_V(stim, para, resp, filename=''):
+def mem_V(stim, para, resp, filename='', savefig=False):
     on_r, off_r = [],[]
     sum_on, sum_off = [],[]
     on_p, on_m, off_p, off_m = [],[],[],[]
@@ -65,9 +65,11 @@ def mem_V(stim, para, resp, filename=''):
     plt.yticks(fontsize=14)
     plt.xlabel('Frequency Hz', fontsize=16)
     plt.ylabel('Loudness dB-SPL', fontsize=16)
-    plt.savefig(f'{filename}_on', dpi=500)
-    #plt.show()
-    plt.clf()
+    if savefig:
+        plt.savefig(f'{filename}_on', dpi=500)
+        plt.clf()
+    else:
+        plt.show()
     
     
     #for membrane potential at stimulus offset
@@ -87,9 +89,11 @@ def mem_V(stim, para, resp, filename=''):
     plt.yticks(fontsize=14)
     plt.xlabel('Frequency Hz', fontsize=16)
     plt.ylabel('Loudness dB-SPL', fontsize=16)
-    plt.savefig(f'{filename}_off', dpi=500)
-    #plt.show()
-    plt.clf()
+    if savefig:
+        plt.savefig(f'{filename}_off', dpi=500)
+        plt.clf()
+    else:
+        plt.show()
     
 
 def avg_freq(stim, para, resp):
@@ -130,7 +134,7 @@ def avg_freq(stim, para, resp):
 # =============================================================================
 
 
-def plot_avg_resp(stim, para, resp, filename=''):
+def plot_avg_resp(stim, para, resp, filename='', savefig=False):
     """ALIGN AVERAGE RESPONSE FROM DIFFERENT LOUDNESS"""
     #mem_V(stim, para, resp)
     #mem_V(*avg_freq(stim, para, resp))
@@ -152,10 +156,11 @@ def plot_avg_resp(stim, para, resp, filename=''):
         ax2.text(0.1,1.02,f'{filename}_{_para_avg[j][1]} Hz', transform=ax2.transAxes, fontsize=14)
         plt.xlabel('Response (ms)', fontsize=12)
         plt.xticks(x,xticks)
-        plt.savefig(f'{filename}_{i}.png', dpi=500)
-        #plt.show()
-        plt.clf()
-        
+        if savefig:
+            plt.savefig(f'{filename}_{i}.png', dpi=500)
+            plt.clf()
+        else:
+            plt.show()
         
 def sound4strf(para, resp, sound):
     loud,_,_ = zip(*para)
@@ -177,11 +182,11 @@ def sound4strf(para, resp, sound):
 
 
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_Q.csv', dtype = {'date':str, '#':str})
+    df = pd.read_csv('patch_list_E.csv', dtype = {'date':str, '#':str})
     index = df.index[df['type']=='Pure Tones']
     #for i in index:
-    i=26
-    if i == 26:
+    i=69
+    if i == 69:
         path = df['path'][i]
         filename = df['date'][i]+'_'+df['#'][i]
         try:

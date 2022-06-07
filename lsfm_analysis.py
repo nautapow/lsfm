@@ -1,4 +1,4 @@
-from TDMS_ver1 import Tdms
+from TDMS_ver2 import Tdms
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -22,12 +22,13 @@ import math
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
+    #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
     #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
     #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
-    #df_loc = 35
-    #if df_loc == 35:
-    for df_loc in tlsfm:
+    
+    df_loc = 70
+    if df_loc == 70:
+    #for df_loc in tlsfm:
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
         t = Tdms()
@@ -40,7 +41,7 @@ if  __name__ == "__main__":
         
         lags = [20,50,100,200,400]
         for lag in lags:
-            lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=True)
+            lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=False)
             
         
         
