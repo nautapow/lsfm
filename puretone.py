@@ -2,6 +2,7 @@ from TDMS import Tdms
 import numpy as np
 import os
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 from pathlib import Path
 from scipy import signal
 import scipy.io
@@ -9,6 +10,12 @@ import TFTool
 import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
+
+def tunning(stim, para, resp, filename='', savefig=False):
+    
+
+
+
 
 def mem_V(stim, para, resp, filename='', savefig=False):
     on_r, off_r = [],[]
@@ -70,6 +77,24 @@ def mem_V(stim, para, resp, filename='', savefig=False):
         plt.clf()
     else:
         plt.show()
+    
+# =============================================================================
+#     YY, XX = np.meshgrid(freq[on_p], loud[on_p])
+#     fig, ax1 = plt.subplots()
+#     pcm = ax1.pcolormesh(XX, YY, _sum[on_p].T, cmap='RdBu_r', norm=colors.CenteredNorm())
+#     ax1.set_xscale('log')
+#     ax1.xlabel('Frequency Hz', fontsize=16)
+#     ax1.ylabel('Loudness dB-SPL', fontsize=16)
+#     ax2 = plt.subplot()
+#     ax2.text(0.05, 1.02, filename, fontsize=16, transform=ax.transAxes)
+#     ax2.text(0.3, 1.02, 'On', fontsize=16, transform=ax.transAxes)
+#     
+#     ax3 = plt.subplot()
+#     txt = (f'{filename}_on')
+#     ax3.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+#     fig.colorbar(pcm, ax=ax1)
+#     plt.show()
+# =============================================================================
     
     
     #for membrane potential at stimulus offset
