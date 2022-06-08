@@ -301,6 +301,7 @@ class Tdms():
             freq = groups[_channel][::2]
             loudness = groups[_channel][1::2]
             
+            
             para = sorted(zip(loudness, freq, stim_startT), key=lambda x:x[0:3])
             
             """delete all stimuli with frequency lower than 3k Hz"""
@@ -327,7 +328,7 @@ class Tdms():
             #it is approximately 9ms prior to the actual onset time
             #-250ms, +500ms for covering ISI
             #stim_startP = stim_startT*sRate - 20*sRate
-            stim_startP = stim_startT*sRate - 500 #20ms for baseline
+            stim_startP = stim_startT*sRate - 20*sRate #20ms for baseline
             
             for i in range(len(stim_startT)): #np.arange(n_epochs):
                 x1 = int(stim_startP[i])

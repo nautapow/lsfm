@@ -1,4 +1,3 @@
-from TDMS import Tdms
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -11,13 +10,75 @@ import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 
-def tunning(stim, para, resp, filename='', savefig=False):
+def tunning(resp, para, filename='', saveplot=False):
+    """
+    Generate tunning curve.
+
+    Parameters
+    ----------
+    resp : ndarray
+        Response.
+    para : ndarray
+        Parameters.
+    filename : str, optional
+        Filename
+    saveplot : Boolean, optional
+        Set Ture to save plot. The default is False.
+
+    Returns
+    -------
+    None
+
+    """
     
+    def on_avg(arr):
+        base = np.mean(arr[:500])
+        arr = (arr-base)*100            
+        return np.mean(arr[500:3000])
+    
+    def off_avg(arr):
+        base = np.mean(arr[:500])
+        arr = (arr-base)*100            
+        return np.mean(arr[3000:5500])
+    
+    loud, freq, _ = zip(*para)
+    loud = sorted(set(loud))
+    freq = sorted(set(freq))
+    resp_mesh = np.reshape(resp, (len(loud),len(freq),-1))
+    resp_on = np.apply_along_axis(on_avg, 2, resp_mesh)
+    resp_off = np.apply_along_axis(off_avg, 2, resp_mesh)
+    
+    XX,YY = np.meshgrid(freq, loud)
+        
+    fig, ax1 = plt.subplots()
+    pcm = ax1.pcolormesh(XX, YY, resp_on, cmap='RdBu_r', norm=colors.CenteredNorm())
+    ax1.set_xscale('log')
+    ax2 = plt.subplot()
+    txt = (f'{filename}_on')
+    ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+    fig.colorbar(pcm, ax=ax1)
+    if saveplot:
+        plt.savefig(f'{filename}_on', dpi=500)
+        plt.clf()
+    else:
+        plt.show() 
+    
+    fig, ax1 = plt.subplots()
+    pcm = ax1.pcolormesh(XX, YY, resp_off, cmap='RdBu_r', norm=colors.CenteredNorm())
+    ax1.set_xscale('log')
+    ax2 = plt.subplot()
+    txt = (f'{filename}_off')
+    ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+    fig.colorbar(pcm, ax=ax1)
+    if saveplot:
+        plt.savefig(f'{filename}_off', dpi=500)
+        plt.clf()
+    else:
+        plt.show() 
 
 
 
-
-def mem_V(stim, para, resp, filename='', savefig=False):
+def mem_V(stim, para, resp, filename='', saveplot=False):
     on_r, off_r = [],[]
     sum_on, sum_off = [],[]
     on_p, on_m, off_p, off_m = [],[],[],[]
@@ -72,29 +133,11 @@ def mem_V(stim, para, resp, filename='', savefig=False):
     plt.yticks(fontsize=14)
     plt.xlabel('Frequency Hz', fontsize=16)
     plt.ylabel('Loudness dB-SPL', fontsize=16)
-    if savefig:
+    if saveplot:
         plt.savefig(f'{filename}_on', dpi=500)
         plt.clf()
     else:
         plt.show()
-    
-# =============================================================================
-#     YY, XX = np.meshgrid(freq[on_p], loud[on_p])
-#     fig, ax1 = plt.subplots()
-#     pcm = ax1.pcolormesh(XX, YY, _sum[on_p].T, cmap='RdBu_r', norm=colors.CenteredNorm())
-#     ax1.set_xscale('log')
-#     ax1.xlabel('Frequency Hz', fontsize=16)
-#     ax1.ylabel('Loudness dB-SPL', fontsize=16)
-#     ax2 = plt.subplot()
-#     ax2.text(0.05, 1.02, filename, fontsize=16, transform=ax.transAxes)
-#     ax2.text(0.3, 1.02, 'On', fontsize=16, transform=ax.transAxes)
-#     
-#     ax3 = plt.subplot()
-#     txt = (f'{filename}_on')
-#     ax3.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
-#     fig.colorbar(pcm, ax=ax1)
-#     plt.show()
-# =============================================================================
     
     
     #for membrane potential at stimulus offset
@@ -114,7 +157,7 @@ def mem_V(stim, para, resp, filename='', savefig=False):
     plt.yticks(fontsize=14)
     plt.xlabel('Frequency Hz', fontsize=16)
     plt.ylabel('Loudness dB-SPL', fontsize=16)
-    if savefig:
+    if saveplot:
         plt.savefig(f'{filename}_off', dpi=500)
         plt.clf()
     else:
@@ -205,26 +248,6 @@ def sound4strf(para, resp, sound):
 """
 
 
-
-if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_E.csv', dtype = {'date':str, '#':str})
-    index = df.index[df['type']=='Pure Tones']
-    #for i in index:
-    i=69
-    if i == 69:
-        path = df['path'][i]
-        filename = df['date'][i]+'_'+df['#'][i]
-        try:
-            t = Tdms()
-            t.loadtdms(path, protocol=1, dePeak=False, precise_timing=True)
-            stim,para = t.get_stim()
-            resp,_ = t.get_dpk()
-            
-            #mem_V(stim, para, resp, filename)
-            #plot_avg_resp(stim, para, resp, filename)
-            #mem_V(*avg_freq(stim, para, resp), filename)
-        except:
-            pass
     
 # =============================================================================
 #     resp_80, sound_80 = sound4strf(para, resp, sound)

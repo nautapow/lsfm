@@ -26,7 +26,7 @@ folder.sort()
 try:
     df = pd.read_csv('patch_list.csv')
 except:
-    df = pd.DataFrame(columns = ['date', '#', 'path', 'type', 'CWT', 'FIR'])  
+    df = pd.DataFrame(columns = ['date', '#', 'path', 'type', 'CWT', 'FIR', 'Version'])  
     
     
 frame = []
@@ -45,8 +45,13 @@ for i in range(len(folder)):
                     rtype = tdms_meta['Settings'].\
                         properties['Sound Configuration.Run Config.Tone Type']
                     n = path.find('_00')
+                    if 'StimStart' in list(tdms_meta['Untitled']):
+                        version = 2
+                    else:
+                        version = 1
                     fdict = {'date' : folder[i], '#' : str(path[n+1:n+4]), 'path' : 
-                             path, 'type' : rtype, 'CWT': 'no', 'FIR': asign_fir(df, folder[i])}
+                             path, 'type' : rtype, 'CWT': 'no', 'FIR': asign_fir(df, folder[i]), 
+                             'Version' : version}
                     frame.append(fdict)
     else:
         continue

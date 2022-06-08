@@ -1,4 +1,4 @@
-from TDMS_ver2 import Tdms
+from TDMS_ver3 import Tdms_V1, Tdms_V2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -18,22 +18,35 @@ import math
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_puretone = df.index[df['type']=='Pure Tones']
-    #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
-    #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
-    #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
     
-    df_loc = 69
-    if df_loc == 69:
-    #for df_loc in tlsfm:
-        fdir = df['path'][df_loc]
-        filename = df['date'][df_loc]+'_'+df['#'][df_loc]
-        t = Tdms()
-        t.loadtdms(fdir, protocol=1, load_sound=True)
+    #df_loc = 26
+    #if df_loc == 26:
+    for df_loc in idx_puretone:
+        try:
+            fdir = df['path'][df_loc]
+            filename = df['date'][df_loc]+'_'+df['#'][df_loc]
+            version = df['Version'][df_loc]
+            if version == 1:
+                t = Tdms_V1()
+                t.loadtdms(fdir, protocol=1, load_sound=False, precise_timing=True)
+            if version == 2:
+                t = Tdms_V2()
+                t.loadtdms(fdir, protocol=1, load_sound=False)
+                
+    
+            para = t.Para
+            resp = np.array(t.Rdpk)
+            #sound = t.rawS
+            #stim = t.Sound
+            
+            puretone.tunning(resp, para, filename=filename, saveplot=True)
+            print(filename)
+        except:
+            pass
+       
         
-        para = t.Para
-        resp = np.array(t.Rdpk)
-        sound = t.rawS
-        stim = t.Sound
         
-        puretone.mem_V(stim, para, resp)
+
+        
+        
         
