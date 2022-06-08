@@ -886,7 +886,7 @@ class Psth():
         para_name = ['center_freq (KHz)', 'bandwidth (octave)', 'mod_rate (Hz)']
         
         for par in range(3): #parameter
-            x,y = [],[]    
+            x,y,err = [],[],[] 
             for con in range(len(label_list[par])): #condition
                 def slicing(arr, start, end):
                     return arr[start:end]
@@ -895,13 +895,17 @@ class Psth():
                 resp_incondition = np.mean(resp_window, axis=1)
                 _x = label_list[par][con]
                 _y = np.mean(resp_incondition, axis=0)
+                _err = stats.sem(resp_incondition, axis=0)
                 x.append(_x)
                 y.append(_y)
-                temp = pd.DataFrame({'x':[_x], 'y':[_y], 'base':[f'{para_name[par]}'], \
+                err.append(_err)
+                temp = pd.DataFrame({'x':[_x], 'y':[_y], 'error':[_err], 'base':[f'{para_name[par]}'], \
                     'feature':[f'{featname}'], 'start':[window[0]], 'end':[window[1]]})
                 self.features = pd.concat((self.features, temp), axis=0)            
             
-            plt.plot(x,y, marker='o')
+                        
+            #plt.plot(x,y, marker='o')
+            plt.errorbar(x,y,yerr=err, color='k', capsize=(4), marker='o')
             plt.xlabel(f'{para_name[par]}')
             plt.ylabel('mV')
             if par == 0 or par == 2:
@@ -911,7 +915,7 @@ class Psth():
             ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
             
             if saveplot:
-                plt.savefig(f'{self.filename}_{para_name[par]}_Feature_{featname}.png', dpi=500)
+                plt.savefig(f'{self.filename}_p_{para_name[par]}_Feature_{featname}.png', dpi=500)
                 plt.clf()
             else:
                 plt.show()
@@ -1000,14 +1004,15 @@ def freq_slope_contour(stim, resp, lag, binning=None, filename=None, saveplot=Fa
     data=[[],[],[]]
     for i in range(len(stim)):
         data = np.concatenate((data,single_freq_slope(stim[i], resp[i], lag)), axis=1)
-    x_edges = np.linspace(-1000,1000,20)
-    y_edges = [3,4.24,6,8.48,12,16.97,24,33.94,48,67.88,96]    
+    x_edges = [3,4.24,6,8.48,12,16.97,24,33.94,48,67.88,96] 
+    y_edges = np.linspace(-500,500,50)
+     
     if binning != None:
         ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=binning)
     else:
         ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=[x_edges,y_edges])
     
-    YY, XX = np.meshgrid(ret[1], ret[2])
+    XX, YY = np.meshgrid(ret[1], ret[2])
     fig, ax1 = plt.subplots()
     #divnorm=colors.TwoSLopeNorm(vmin=-10., vcenter=0., vmax=10.)
     pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())
