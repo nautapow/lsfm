@@ -1,4 +1,4 @@
-from TDMS_ver2 import Tdms
+from TDMS_ver3 import Tdms_V1, Tdms_V2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -15,34 +15,48 @@ import lsfm
 import math
 
 
-        
-
-
     
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
+    #tlsfm = [28,35,45,70]
+    #tlsfm = [65,67,70,71,73,74,76]
     #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
     #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
     
-    df_loc = 70
-    if df_loc == 70:
-    #for df_loc in tlsfm:
+    df_loc = 45
+    if df_loc == 45:
+    #for df_loc in tlsfm:       
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
-        t = Tdms()
-        t.loadtdms(fdir, load_sound=True, precise_timing=True)
+        version = df['Version'][df_loc]
+        if version == 1:
+            t = Tdms_V1()
+            t.loadtdms(fdir, protocol=0, load_sound=True, precise_timing=True)
+        if version == 2:
+            t = Tdms_V2()
+            t.loadtdms(fdir, protocol=0, load_sound=True)
         
         para = t.Para
         resp = np.array(t.Rdpk)
         sound = t.rawS
         stim = t.Sound
+
+        p = lsfm.Psth(resp, para, filename)   
+        p.psth_all(saveplot=False)        
+        _ = p.psth_para(plot=True, saveplot=False)
         
-        lags = [20,50,100,200,400]
-        for lag in lags:
-            lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=False)
-            
+        p.psth_window((30000,35000), 'sustain', tuning=None, saveplot=True, savenotes=False)
+        p.psth_trend(saveplot=True, window=(30000,35000))
+    
+# =============================================================================
+#         lags = [20,50,100,200,400]
+#         for lag in lags:
+#             lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=True)
+# =============================================================================
+
+                
         
         
     
