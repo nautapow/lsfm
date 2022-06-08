@@ -591,7 +591,7 @@ class Tdms_V2():
             
             stim_startP = stim_time - 50*sRate
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
-            for i in range(stim_time):
+            for i in range(len(stim_time)):
                 x1 = int(stim_startP[i])
                 x2 = x1 + 1500*sRate
                 self.misc.append(x1)
