@@ -43,18 +43,19 @@ if  __name__ == "__main__":
         sound = t.rawS
         stim = t.Sound
 
-        p = lsfm.Psth(resp, para, filename)   
-        p.psth_all(saveplot=False)        
-        _ = p.psth_para(plot=True, saveplot=False)
-        
-        p.psth_window((30000,35000), 'sustain', tuning=None, saveplot=True, savenotes=False)
-        p.psth_trend(saveplot=True, window=(30000,35000))
+# =============================================================================
+#         p = lsfm.Psth_New(resp, para, filename)   
+#         p.psth_all(saveplot=True)        
+#         _ = p.psth_para(plot=True, saveplot=True)
+#         p.psth_trend(saveplot=True)
+#         
+#         p.psth_window((27500,30000), 'offset', tuning=None, saveplot=True, savenotes=True)
+#         p.psth_trend(saveplot=True, window=(27500,30000))
+# =============================================================================
     
-# =============================================================================
-#         lags = [20,50,100,200,400]
-#         for lag in lags:
-#             lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=True)
-# =============================================================================
+        lags = [15]
+        for lag in lags:
+            lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=False)
 
                 
         
