@@ -17,17 +17,15 @@ import math
 
     
 if  __name__ == "__main__":
-    df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
+    df = pd.read_csv('patch_list_new.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
-    #tlsfm = [28,35,45,70]
-    #tlsfm = [65,67,70,71,73,74,76]
+    tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,74]
     #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
     #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
     
-    df_loc = 45
-    if df_loc == 45:
-    #for df_loc in tlsfm:       
+    #df_loc = 45
+    #if df_loc == 45:
+    for df_loc in tlsfm:       
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
         version = df['Version'][df_loc]
@@ -53,9 +51,9 @@ if  __name__ == "__main__":
 #         p.psth_trend(saveplot=True, window=(27500,30000))
 # =============================================================================
     
-        lags = [15]
+        lags = [15,30,151,313]
         for lag in lags:
-            lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=False)
+            lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=True)
 
                 
         
