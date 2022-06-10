@@ -866,6 +866,11 @@ class Psth_New():
                 plt.clf()
             else:
                 plt.show()
+                
+            if arange==(1,0,2):
+                return samegroup
+            else:
+                pass    
         
 
     def psth_window(self, window, featname, tuning=None, saveplot=False, savenotes=False):
@@ -1284,7 +1289,7 @@ class Psth():
                 
             colors = plt.cm.rainbow(np.linspace(0.3,1,len(samegroup)))
             
-            for i,gp in enumerate(samegroup):              
+            for i,gp in enumerate(samegroup):          
                 x,y,err=[],[],[]
                 for ii in gp:
                     x.append(ii[1])
@@ -1312,6 +1317,11 @@ class Psth():
                 plt.clf()
             else:
                 plt.show()
+                
+            if arange==(1,0,2):
+                return samegroup
+            else:
+                pass
         
 
     def psth_window(self, window, featname, tuning=None, saveplot=False, savenotes=False):
@@ -1471,12 +1481,15 @@ def single_freq_slope(stim, resp, lag):
     return [x,y,z]   
     
 
-def freq_slope_contour(stim, resp, lag, binning=None, filename=None, saveplot=False):
-    data=[[],[],[]]
-    for i in range(len(stim)):
-        data = np.concatenate((data,single_freq_slope(stim[i], resp[i], lag)), axis=1)
+def freq_slope_contour(stim, resp, para, lag, binning=None, filename=None, saveplot=False):
+    data=[[],[],[]]        
+    
+    for i,p in enumerate(para):
+        if p[2] not in [0.0,64.0,128.0]: 
+            data = np.concatenate((data,single_freq_slope(stim[i], resp[i], lag)), axis=1)
+    
     x_edges = [3000,4240,6000,8480,12000,16970,24000,33940,48000,67880,96000] 
-    y_edges = np.linspace(-20,20,50)
+    y_edges = np.linspace(-20,20,51)
      
     if binning != None:
         ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=binning)
@@ -1498,8 +1511,38 @@ def freq_slope_contour(stim, resp, lag, binning=None, filename=None, saveplot=Fa
         plt.savefig(f'{filename}-Lag_{lag}ms.png', dpi=500)
         plt.clf()
     else:
-        plt.show()        
+        plt.show()
+
+    return ret[0]
         
         
+def fsc_modrate(stim, resp, para, lag, filename=None, saveplot=False):
+    modrate = [i[2] for i in para]
+    mr_set = sorted(set(modrate))
+    mr_set.remove(0.0)
+    for mr in mr_set:
+        data=[[],[],[]]
+        for i,p in enumerate(modrate):
+            if p == mr:
+                data = np.concatenate((data,single_freq_slope(stim[i], resp[i], lag)), axis=1)
         
+        x_edges = [3000,4240,6000,8480,12000,16970,24000,33940,48000,67880,96000] 
+        y_edges = np.linspace(-20,20,51)    
+            
+        ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=[x_edges,y_edges])
+        XX, YY = np.meshgrid(x_edges,y_edges)
+        #XX, YY = np.meshgrid(ret[1], ret[2])
+        fig, ax1 = plt.subplots()
+        #divnorm=colors.TwoSLopeNorm(vmin=-10., vcenter=0., vmax=10.)
+        pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())
+        ax1.set_xscale('log')
         
+        ax2 = plt.subplot()
+        txt = (f'{filename}-modrate:{mr}-Lag:{lag}ms')
+        ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+        fig.colorbar(pcm, ax=ax1)
+        if saveplot:
+            plt.savefig(f'{filename}-modrate_{mr}-Lag_{lag}ms.png', dpi=500)
+            plt.clf()
+        else:
+            plt.show()       
