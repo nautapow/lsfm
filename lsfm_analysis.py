@@ -20,13 +20,13 @@ if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
-    #tlsfm = [28,35,45,70]
+    tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,74]
     #tlsfm = [65,67,70,71,73,74,76]
     #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
     #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
     
-    df_loc = 45
-    if df_loc == 45:
+    df_loc = 74
+    if df_loc == 74:
     #for df_loc in tlsfm:       
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
@@ -42,22 +42,57 @@ if  __name__ == "__main__":
         resp = np.array(t.Rdpk)
         sound = t.rawS
         stim = t.Sound
-
+        
+        if version == 1:
+            p = lsfm.Psth(resp, para, filename)
+        elif version == 2:
+            p = lsfm.Psth_New(resp, para, filename)
 # =============================================================================
-#         p = lsfm.Psth_New(resp, para, filename)   
 #         p.psth_all(saveplot=True)        
 #         _ = p.psth_para(plot=True, saveplot=True)
 #         p.psth_trend(saveplot=True)
-#         
-#         p.psth_window((27500,30000), 'offset', tuning=None, saveplot=True, savenotes=True)
-#         p.psth_trend(saveplot=True, window=(27500,30000))
 # =============================================================================
-    
-        lags = [15]
+        
+# =============================================================================
+#         #p.psth_window((27500,30000), 'offset', tuning=None, saveplot=True, savenotes=True)
+#         test = p.psth_trend(saveplot=False, window=(3000,6000))
+#         
+#         df2 = pd.DataFrame(columns = ['bd', 'cf', 'y', 'err'])
+#         for i in range(len(test)):
+#             _df = pd.DataFrame(test[i], columns = ['bd', 'cf', 'y', 'err'])
+#             df2 = pd.concat([df2, _df])      
+#         
+#         df2.to_csv(f'{filename}_onset.csv', index=False)
+#         
+#         test = p.psth_trend(saveplot=False, window=(17500,22500))
+#         
+#         df3 = pd.DataFrame(columns = ['bd', 'cf', 'y', 'err'])
+#         for i in range(len(test)):
+#             _df = pd.DataFrame(test[i], columns = ['bd', 'cf', 'y', 'err'])
+#             df3 = pd.concat([df3, _df])      
+#         
+#         df3.to_csv(f'{filename}_sustain.csv', index=False)
+#         
+#         test = p.psth_trend(saveplot=False, window=(27500,30000))
+#         
+#         df4 = pd.DataFrame(columns = ['bd', 'cf', 'y', 'err'])
+#         for i in range(len(test)):
+#             _df = pd.DataFrame(test[i], columns = ['bd', 'cf', 'y', 'err'])
+#             df4 = pd.concat([df4, _df])      
+#         
+#         df4.to_csv(f'{filename}_offset.csv', index=False)
+# =============================================================================
+        test2 = []
+        lags = [200,250,300,350,400]
         for lag in lags:
-            lsfm.freq_slope_contour(stim, resp, lag, filename=filename, saveplot=False)
-
-                
+            test2.append(lsfm.freq_slope_contour(stim, resp, para, lag, filename=filename, saveplot=False))
+            #lsfm.fsc_modrate(stim, resp, para, lag, filename=filename, saveplot=True)
+        
+        std = []
+        for lag_set in test3:
+            std.append(np.nanstd(lag_set[2]))
+            
+        
         
         
     
