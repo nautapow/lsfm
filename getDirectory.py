@@ -18,7 +18,7 @@ def asign_fir(df, date):
 
 
 
-mdir = Path(r'Z:\Users\cwchiang\in_vivo_patch')
+mdir = Path(r'E:\in-vivo_patch')
 
 folder = os.listdir(mdir)
 folder.sort()
