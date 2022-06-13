@@ -25,8 +25,8 @@ if  __name__ == "__main__":
     #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
     #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
     
-    df_loc = 74
-    if df_loc == 74:
+    df_loc = 45
+    if df_loc == 45:
     #for df_loc in tlsfm:       
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
@@ -47,6 +47,7 @@ if  __name__ == "__main__":
             p = lsfm.Psth(resp, para, filename)
         elif version == 2:
             p = lsfm.Psth_New(resp, para, filename)
+            
 # =============================================================================
 #         p.psth_all(saveplot=True)        
 #         _ = p.psth_para(plot=True, saveplot=True)
@@ -82,26 +83,13 @@ if  __name__ == "__main__":
 #         
 #         df4.to_csv(f'{filename}_offset.csv', index=False)
 # =============================================================================
-        test2 = []
-        lags = [200,250,300,350,400]
-        for lag in lags:
-            test2.append(lsfm.freq_slope_contour(stim, resp, para, lag, filename=filename, saveplot=False))
-            #lsfm.fsc_modrate(stim, resp, para, lag, filename=filename, saveplot=True)
         
-        std = []
-        for lag_set in test3:
-            std.append(np.nanstd(lag_set[2]))
-            
-        
-        
-        
+        lags = np.linspace(0, 100, 51)
+        slope_lags = lsfm.freq_slope_contour_restruct(stim, resp, para, lags=lags, filename=filename, saveplot=False)        
+        std2 = []
+        for s in slope_lags:
+            std2.append(np.nanstd(s[1:3]))
     
-# =============================================================================
-#         _para = np.swapaxes(np.array(para),0,1)
-#         mod_label = sorted(set(_para[2][:]))
-#         cf_label = sorted(set(_para[0][:]))
-#         bw_label = sorted(set(_para[1][:]))
-# =============================================================================
         
 # =============================================================================
 #         p = lsfm.Psth(resp, para, filename)
@@ -120,17 +108,7 @@ if  __name__ == "__main__":
         
                                          
             
-            
-# =============================================================================
-#         psth = lsfm.psth(resp, filename)
-#         zpsth = stats.zscore(psth)
-#         
-#         psth_para.loc[idx] = filename, sum(psth), max(psth), min(psth), np.mean(psth),\
-#             max(zpsth), min(zpsth), sum(psth[:10000]), sum(psth[10000:20000]), sum(psth[20000:30000]),\
-#                 sum(psth[30000:40000]), sum(psth[40000:50000])
-#         
-#         print(idx)
-# =============================================================================
+    
                     
 # =============================================================================
 #     psth_para.to_csv('PSTH_parameters.csv')
@@ -139,19 +117,6 @@ if  __name__ == "__main__":
 # =============================================================================
         
     
-    
-            
-            
-# =============================================================================
-#         plt.plot(test)
-#         plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-#         plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
-#         label = list(np.round(np.linspace(0, 2.0, 11), 2))
-#         plt.xticks(np.linspace(0,50000,11),label)
-#         ax = plt.subplot()
-#         txt = (f'{filename}-PSTH')
-#         ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)        
-# =============================================================================
            
            
 # =============================================================================
