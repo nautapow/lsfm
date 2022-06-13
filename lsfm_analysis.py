@@ -25,8 +25,8 @@ if  __name__ == "__main__":
     #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
     #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
     
-    df_loc = 45
-    if df_loc == 45:
+    df_loc = 35
+    if df_loc == 35:
     #for df_loc in tlsfm:       
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
@@ -47,6 +47,15 @@ if  __name__ == "__main__":
             p = lsfm.Psth(resp, para, filename)
         elif version == 2:
             p = lsfm.Psth_New(resp, para, filename)
+            
+        lags = np.linspace(0, 100, 51)
+        slope_lags = lsfm.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, saveplot=False)        
+        
+        std = []
+        s_index = []
+        for s in slope_lags:
+            std.append(np.nanstd(s))
+            s_index.append(lsfm.s_index(s))
             
 # =============================================================================
 #         p.psth_all(saveplot=True)        
@@ -84,11 +93,7 @@ if  __name__ == "__main__":
 #         df4.to_csv(f'{filename}_offset.csv', index=False)
 # =============================================================================
         
-        lags = np.linspace(0, 100, 51)
-        slope_lags = lsfm.freq_slope_contour_restruct(stim, resp, para, lags=lags, filename=filename, saveplot=False)        
-        std2 = []
-        for s in slope_lags:
-            std2.append(np.nanstd(s[1:3]))
+
     
         
 # =============================================================================
