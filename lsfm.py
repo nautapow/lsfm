@@ -1486,7 +1486,7 @@ def data_at_lag(inst_freq, slope, resp, lag):
     return [x,y,z]
         
 
-def freq_slope_contour_restruct(stim, resp, para, lags, binning=None, filename=None, saveplot=False):
+def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, saveplot=False):
            
     """index after parameter exclusion"""
     idx=[i for i, a in enumerate(para) if a[2] not in [0.0,16.0,64.0,128.0]]
@@ -1535,6 +1535,16 @@ def freq_slope_contour_restruct(stim, resp, para, lags, binning=None, filename=N
     
     return bind_slope_lags
 
+
+def s_index(slope_lag):
+    pos = np.swapaxes(slope_lag, 1, 0)[25:]
+    neg = np.swapaxes(slope_lag, 1, 0)[:25]
+    neg = neg[::-1]
+
+    ttest, p_value = stats.ttest_rel(pos.flatten(), neg.flatten(), nan_policy='omit')
+    
+    return p_value    
+    
         
 # =============================================================================
 # def fsc_modrate(stim, resp, para, lag, filename=None, saveplot=False):
