@@ -1414,7 +1414,8 @@ def transient_remove(arr):
         corrected array.
 
     """
-    arr_crop = arr[5000:35000]
+    
+    arr_crop = arr[15000:195000]
     arr_std = np.std(arr_crop)
     mask = tuple([(arr < min(arr_crop)-arr_std)|(arr > max(arr_crop)+arr_std)])
 
@@ -1427,11 +1428,11 @@ def get_instfreq(stim):
     b,a = signal.butter(3, 150, btype='low', fs=fs)
     hil = signal.hilbert(stim)
     phase = np.unwrap(np.angle(hil))
-    ifreq = np.diff(phase) / (2*np.pi) * fs
+    ifreq = np.diff(phase, prepend=0) / (2*np.pi) * fs
     filt_ifreq = signal.filtfilt(b,a,ifreq)
     
-    inst_freq_res = signal.resample(filt_ifreq, int(len(filt_ifreq)/8))
-    return transient_remove(inst_freq_res)
+    
+    return  filt_ifreq
     
 def get_stimslope(stim):
     """
@@ -1454,7 +1455,12 @@ def get_stimslope(stim):
     """
     
 
-    inst_freq = get_instfreq(stim)
+    inst_freq = transient_remove(get_instfreq(stim))    
+    slope = transient_remove(np.diff(inst_freq, prepend=0))
+    
+    inst_freq_res = signal.resample(inst_freq, int(len(inst_freq)/8))
+    slope_res = signal.resample(slope, int(len(slope)/8))
+    
     
     """log raw slope for distribution"""
     def scaling(f):    
@@ -1465,23 +1471,26 @@ def get_stimslope(stim):
         elif f < 0:
             return -1*math.log(-1*f)
         
-    slope = transient_remove(np.diff(inst_freq, prepend=0))
-    slope = [scaling(f) for f in slope]
+    slope_res = [scaling(f) for f in slope_res]
     
-    return inst_freq, slope
+    
+    return inst_freq_res, slope_res
+
 
 def data_at_lag(inst_freq, slope, resp, lag):
     fs = 25000
     delay_point = int(lag * (fs/1000))
+    b,a = signal.butter(1, 1500, btype='low', fs=fs)
+    resp = signal.filtfilt(b,a,resp)
     
-    if lag == 0:
-        x = inst_freq[1249:]
-        y = slope[1249:]
-        z = resp[1250:]
-    else:
-        x = inst_freq[:-1*delay_point]
-        y = slope[:-1*delay_point]
-        z = resp[delay_point+1:]
+    if len(resp) == 50000:
+        endpoint = 38750
+    elif len(resp) == 37500:
+        endpoint = 26250
+    
+    x = inst_freq[1250:endpoint]
+    y = slope[1250:endpoint]
+    z = resp[1250+delay_point:endpoint+delay_point]
         
     return [x,y,z]
         
