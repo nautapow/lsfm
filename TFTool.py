@@ -221,3 +221,20 @@ def butter(arr, order, cutoff, filtertype, fs):
 
 def hilbert(arr):
     return signal.hilbert(arr)
+
+def binlocator(n, arr):
+    """find the location in a binned array givien a number"""
+    
+    if n == arr[-1]:
+        return len(arr)
+    elif n < arr[0] or n > arr[-1]:
+        raise ValueError('out of range')
+    else:
+        for i in range(len(arr)):
+            if n >= arr[i] and n < arr[i+1]:
+                return i
+    
+    
+    
+    
+    
