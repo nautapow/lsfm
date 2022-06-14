@@ -1495,7 +1495,7 @@ def data_at_lag(inst_freq, slope, resp, lag):
     return [x,y,z]
         
 
-def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, saveplot=False):
+def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot=True, saveplot=False):
            
     """index after parameter exclusion"""
     idx=[i for i, a in enumerate(para) if a[2] not in [0.0,16.0,64.0,128.0]]
@@ -1523,37 +1523,55 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, save
         else:
             ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=[x_edges,y_edges])
         
-        XX, YY = np.meshgrid(x_edges,y_edges)
-        #XX, YY = np.meshgrid(ret[1], ret[2])
-        fig, ax1 = plt.subplots()
-        #divnorm=colors.TwoSLopeNorm(vmin=-10., vcenter=0., vmax=10.)
-        pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())
-        ax1.set_xscale('log')
+        if plot:
+            XX, YY = np.meshgrid(x_edges,y_edges)
+            #XX, YY = np.meshgrid(ret[1], ret[2])
+            fig, ax1 = plt.subplots()
+            pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', vmax=20., vmin=-20.)
+            #pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())
+            
+            ax1.set_xscale('log')
+            
+            ax2 = plt.subplot()
+            txt = (f'{filename}-Lag:{lag}ms')
+            ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+            fig.colorbar(pcm, ax=ax1)
+            if saveplot:
+                plt.savefig(f'{filename}-Lag_{lag}ms.png', dpi=500)
+                plt.clf()
+            else:
+                plt.show()
         
-        ax2 = plt.subplot()
-        txt = (f'{filename}-Lag:{lag}ms')
-        ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
-        fig.colorbar(pcm, ax=ax1)
-        if saveplot:
-            plt.savefig(f'{filename}-Lag_{lag}ms.png', dpi=500)
-            plt.clf()
-        else:
-            plt.show()
-    
         bind_slope_lags.append(ret[0])
     
     return bind_slope_lags
 
 
 def s_index(slope_lag):
-    pos = np.swapaxes(slope_lag, 1, 0)[25:]
-    neg = np.swapaxes(slope_lag, 1, 0)[:25]
+    if slope_lag.ndim == 1:
+        pos = slope_lag[25:]
+        neg = slope_lag[:25]
+    else:
+        pos = np.swapaxes(slope_lag, 1, 0)[25:]
+        neg = np.swapaxes(slope_lag, 1, 0)[:25]
     neg = neg[::-1]
 
     ttest, p_value = stats.ttest_rel(pos.flatten(), neg.flatten(), nan_policy='omit')
     
     return p_value    
     
+def get_bf(resp, para):
+    idx = [i for i,a in enumerate(para) if a[2] == 0]
+    x,y = [],[]
+    for i in idx:
+        x.append(para[i][0])
+        y.append(np.mean(Psth.baseline(resp[i])))
+    
+    return x[np.array(y).argmax()]
+    
+    
+
+
         
 # =============================================================================
 # def fsc_modrate(stim, resp, para, lag, filename=None, saveplot=False):
