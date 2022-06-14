@@ -25,9 +25,11 @@ if  __name__ == "__main__":
     #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
     #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
     
-    df_loc = 35
-    if df_loc == 35:
-    #for df_loc in tlsfm:       
+    #df_loc = 45
+    #if df_loc == 45:
+    for df_loc in tlsfm:       
+        
+        #savedata = []
         fdir = df['path'][df_loc]
         filename = df['date'][df_loc]+'_'+df['#'][df_loc]
         version = df['Version'][df_loc]
@@ -49,14 +51,46 @@ if  __name__ == "__main__":
             p = lsfm.Psth_New(resp, para, filename)
             
         lags = np.linspace(0, 100, 51)
-        slope_lags = lsfm.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, saveplot=False)        
+        slope_lags = lsfm.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=True)        
         
         std = []
+        std_bf = []
         s_index = []
+        si_bf = []
+        bf = lsfm.get_bf(resp, para)*1000
+        target_f = [3000,4240,6000,8480,12000,16970,24000,33940,48000,67880,96000]
+        bf_bin = TFTool.binlocator(bf, target_f)
+        
         for s in slope_lags:
             std.append(np.nanstd(s))
+            std_bf.append(np.nanstd(s[bf_bin]))
             s_index.append(lsfm.s_index(s))
-            
+            si_bf.append(lsfm.s_index(s[bf_bin]))
+        
+        
+        plt.plot(std)
+        plt.plot(std_bf)
+        ax = plt.subplot()
+        txt = (f'{filename}_deviation')
+        ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
+        plt.savefig(f'{filename}_deviation.png', dpi=500)
+        plt.clf()
+        plt.close()
+        
+        plt.plot(s_index)
+        plt.plot(si_bf)
+        ax = plt.subplot()
+        txt = (f'{filename}_direction')
+        ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
+        plt.savefig(f'{filename}_direction.png', dpi=500)
+        plt.clf()
+        plt.close()
+        
+        cell_data = {'stim':stim, 'resp':resp, 'para':para, 'slope_lag':slope_lags}
+        np.save(f'{filename}_data.npy', cell_data)
+        
+
+        
 # =============================================================================
 #         p.psth_all(saveplot=True)        
 #         _ = p.psth_para(plot=True, saveplot=True)
