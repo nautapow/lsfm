@@ -1539,8 +1539,10 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
             if saveplot:
                 plt.savefig(f'{filename}-Lag_{lag}ms.png', dpi=500)
                 plt.clf()
+                plt.close()
             else:
                 plt.show()
+                plt.close()
         
         bind_slope_lags.append(ret[0])
     
