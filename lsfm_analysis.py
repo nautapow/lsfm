@@ -11,7 +11,8 @@ import mne
 import TFTool
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
-import lsfm 
+import lsfm
+import lsfm_psth
 import math
 
 
@@ -20,14 +21,58 @@ if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     #tlsfm = [23,24,25,27,28,30,32,35,37,40,45,49]
-    tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,74]
+    tlsfm = [23,24,25,28,30,35,37,45,60,62,71,74]
+    bfs = [5000, 14000, 11200, 8800, 8000, 3500, 4500, 7000, 4500, 5700, 10500, 14000]
     #tlsfm = [65,67,70,71,73,74,76]
-    #psth_para = pd.DataFrame(columns = ['name','sum','max','min','average','zmax','zmin',
-    #                                    'sum1','sum2','sum3','sum4', 'sum5']) 
+    
+    slope_all = pd.DataFrame()
+    slope_bf = pd.DataFrame()
+    
+    df_loc = 82
+    if df_loc == 82:
+# =============================================================================
+#     #for i in range(len(tlsfm)):
+#         
+#         filename = df['filename'][df_loc]
+#         cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
+#         
+#         para = cell_data.item().get('para')
+#         stim = cell_data.item().get('stim')
+#         resp = cell_data.item().get('resp')
+#         slope_lags = cell_data.item().get('slope_lag')
+#         
+#         std = []
+#         std_bf = []
+#         s_index = []
+#         si_bf = []
+#         bf = 11000
+#         target_f = [3000,4240,6000,8480,12000,16970,24000,33940,48000,67880,96000]
+#         bf_bin = TFTool.binlocator(bf, target_f)
+#         
+#         for s in slope_lags:
+#             std.append(np.nanstd(s))
+#             std_bf.append(np.nanstd(s[bf_bin]))
+#             s_index.append(lsfm.s_index(s))
+#             si_bf.append(lsfm.s_index(s[bf_bin]))
+#         
+#         slope_all[f'{filename}_std'] = std
+#         slope_all[f'{filename}_p'] = s_index
+#         slope_bf[f'{filename}_std'] = std_bf
+#         slope_bf[f'{filename}_p'] = si_bf
+#         
+#         plt.plot(std)
+#         plt.plot(std_bf)
+#         ax = plt.subplot()
+#         txt = (f'{filename}_deviation')
+#         ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
+#         plt.savefig(f'{filename}_deviation.png', dpi=500)
+#         plt.clf()
+#         plt.close()
+# =============================================================================
     
     #df_loc = 45
     #if df_loc == 45:
-    for df_loc in tlsfm:       
+    #for df_loc in tlsfm:       
         
         #savedata = []
         fdir = df['path'][df_loc]
@@ -46,9 +91,9 @@ if  __name__ == "__main__":
         stim = t.Sound
         
         if version == 1:
-            p = lsfm.Psth(resp, para, filename)
+            p = lsfm_psth.Psth(resp, para, filename)
         elif version == 2:
-            p = lsfm.Psth_New(resp, para, filename)
+            p = lsfm_psth.Psth_New(resp, para, filename)
             
         lags = np.linspace(0, 100, 51)
         slope_lags = lsfm.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=True)        
@@ -74,6 +119,7 @@ if  __name__ == "__main__":
         txt = (f'{filename}_deviation')
         ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
         plt.savefig(f'{filename}_deviation.png', dpi=500)
+        #plt.show()
         plt.clf()
         plt.close()
         
@@ -83,12 +129,14 @@ if  __name__ == "__main__":
         txt = (f'{filename}_direction')
         ax.text(0,1.02, txt, horizontalalignment='left', transform=ax.transAxes)
         plt.savefig(f'{filename}_direction.png', dpi=500)
+        #plt.show()
         plt.clf()
         plt.close()
         
         cell_data = {'stim':stim, 'resp':resp, 'para':para, 'slope_lag':slope_lags}
         np.save(f'{filename}_data.npy', cell_data)
-        
+                
+                
 
         
 # =============================================================================
