@@ -26,7 +26,7 @@ folder.sort()
 try:
     df = pd.read_csv('patch_list.csv')
 except:
-    df = pd.DataFrame(columns = ['date', '#', 'path', 'type', 'CWT', 'FIR', 'Version'])  
+    df = pd.DataFrame(columns = ['date', '#', 'filename','path', 'type', 'CWT', 'FIR', 'Version'])  
     
     
 frame = []
@@ -49,8 +49,8 @@ for i in range(len(folder)):
                         version = 2
                     else:
                         version = 1
-                    fdict = {'date' : folder[i], '#' : str(path[n+1:n+4]), 'path' : 
-                             path, 'type' : rtype, 'CWT': 'no', 'FIR': asign_fir(df, folder[i]), 
+                    fdict = {'date' : folder[i], '#' : str(path[n+1:n+4]), 'filename': str(f'{folder[i]}_{path[n+1:n+4]}'),
+                             'path' : path, 'type' : rtype, 'CWT': 'no', 'FIR': asign_fir(df, folder[i]), 
                              'Version' : version}
                     frame.append(fdict)
     else:
