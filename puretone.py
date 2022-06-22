@@ -2,6 +2,8 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+from matplotlib import cm
+from matplotlib.image import NonUniformImage
 from pathlib import Path
 from scipy import signal
 import scipy.io
@@ -60,6 +62,7 @@ def tunning(resp, para, filename='', saveplot=False):
     if saveplot:
         plt.savefig(f'{filename}_on', dpi=500)
         plt.clf()
+        plt.close()
     else:
         plt.show() 
     
@@ -73,9 +76,22 @@ def tunning(resp, para, filename='', saveplot=False):
     if saveplot:
         plt.savefig(f'{filename}_off', dpi=500)
         plt.clf()
+        plt.close()
     else:
         plt.show() 
-
+    
+    
+    methods = [None, 'none', 'nearest', 'bilinear', 'bicubic', 'spline16',
+           'spline36', 'hanning', 'hamming', 'hermite', 'kaiser', 'quadric',
+           'catrom', 'gaussian', 'bessel', 'mitchell', 'sinc', 'lanczos']
+    for method in methods:
+        fig, ax1 = plt.subplots()
+        im = plt.imshow(resp_on, interpolation=method, origin='lower', extent=(0,13,0,7), cmap='RdBu_r', norm=colors.CenteredNorm())
+        ax1.add_image(im)
+        fig.colorbar(im, ax=ax1)
+        ax1.set_title(method)
+        plt.show()
+        plt.close(fig)
 
 
 def mem_V(stim, para, resp, filename='', saveplot=False):
