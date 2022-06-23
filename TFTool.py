@@ -235,6 +235,13 @@ def binlocator(n, arr):
                 return i
     
     
+def bootstrap(data, np_method, times):
+    #np_method must be nan tolerate
+    res = []
+    for n in range(times):
+        sample = np.random.choice(data, size=len(data), replace=True)
+        res.append(np_method(sample))
+    boot_mean = np.mean(res)
+    boot_std = np.std(res)    
     
-    
-    
+    return res, boot_mean, boot_std
