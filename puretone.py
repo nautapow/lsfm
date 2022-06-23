@@ -6,7 +6,7 @@ from matplotlib import cm
 from matplotlib.image import NonUniformImage
 from pathlib import Path
 from scipy import signal
-import scipy.io
+from scipy import stats
 import TFTool
 import mne
 from mne.decoding import ReceptiveField, TimeDelayingRidge
@@ -50,48 +50,137 @@ def tunning(resp, para, filename='', saveplot=False):
     resp_on = np.apply_along_axis(on_avg, 2, resp_mesh)
     resp_off = np.apply_along_axis(off_avg, 2, resp_mesh)
     
-    XX,YY = np.meshgrid(freq, loud)
-        
-    fig, ax1 = plt.subplots()
-    pcm = ax1.pcolormesh(XX, YY, resp_on, cmap='RdBu_r', norm=colors.CenteredNorm())
-    ax1.set_xscale('log')
-    ax2 = plt.subplot()
-    txt = (f'{filename}_on')
-    ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
-    fig.colorbar(pcm, ax=ax1)
-    if saveplot:
-        plt.savefig(f'{filename}_on', dpi=500)
-        plt.clf()
-        plt.close()
-    else:
-        plt.show() 
+# =============================================================================
+#     XX,YY = np.meshgrid(freq, loud)
+#         
+#     fig, ax1 = plt.subplots()
+#     pcm = ax1.pcolormesh(XX, YY, resp_on, cmap='RdBu_r', norm=colors.CenteredNorm())
+#     ax1.set_xscale('log')
+#     ax2 = plt.subplot()
+#     txt = (f'{filename}_on')
+#     ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+#     fig.colorbar(pcm, ax=ax1)
+#     if saveplot:
+#         plt.savefig(f'{filename}_on', dpi=500)
+#         plt.clf()
+#         plt.close()
+#     else:
+#         plt.show() 
+#     
+#     fig, ax1 = plt.subplots()
+#     pcm = ax1.pcolormesh(XX, YY, resp_off, cmap='RdBu_r', norm=colors.CenteredNorm())
+#     ax1.set_xscale('log')
+#     ax2 = plt.subplot()
+#     txt = (f'{filename}_off')
+#     ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+#     fig.colorbar(pcm, ax=ax1)
+#     if saveplot:
+#         plt.savefig(f'{filename}_off', dpi=500)
+#         plt.clf()
+#         plt.close()
+#     else:
+#         plt.show() 
+# =============================================================================
+    
+    
+    method = 'gaussian'
+    xlabel = freq[::int((len(freq)-1)/10)]
+    xlabel = [i/1000 for i in xlabel]
+    ylabel = [int(i) for i in loud]
+    Nx = len(xlabel)
+    Ny = len(ylabel)
+    xtick = np.arange(0.5,Nx-0.4,1)
+    ytick = np.arange(0.5,Ny-0.4,1)
     
     fig, ax1 = plt.subplots()
-    pcm = ax1.pcolormesh(XX, YY, resp_off, cmap='RdBu_r', norm=colors.CenteredNorm())
-    ax1.set_xscale('log')
-    ax2 = plt.subplot()
-    txt = (f'{filename}_off')
-    ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
-    fig.colorbar(pcm, ax=ax1)
+    im = plt.imshow(resp_on, interpolation=method, origin='lower', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
+    ax1.add_image(im)
+    ax1.set_xticks(xtick)
+    ax1.set_xticklabels(xlabel, rotation=45)
+    ax1.set_yticks(ytick)
+    ax1.set_yticklabels(ylabel)
+    ax1.set_title(f'{filename}_onset')
+    ax1.set_xlabel('Frequency kHz')
+    ax1.set_ylabel('dB SPL')
+    
+    cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
+    cbar = plt.colorbar(im, cax=cax)
+    cbar.ax.set_ylabel('mV')
     if saveplot:
-        plt.savefig(f'{filename}_off', dpi=500)
+        plt.savefig(f'{filename}_on', dpi=500, bbox_inches='tight')
         plt.clf()
-        plt.close()
+        plt.close(fig)
     else:
-        plt.show() 
-    
-    
-    methods = [None, 'none', 'nearest', 'bilinear', 'bicubic', 'spline16',
-           'spline36', 'hanning', 'hamming', 'hermite', 'kaiser', 'quadric',
-           'catrom', 'gaussian', 'bessel', 'mitchell', 'sinc', 'lanczos']
-    for method in methods:
-        fig, ax1 = plt.subplots()
-        im = plt.imshow(resp_on, interpolation=method, origin='lower', extent=(0,13,0,7), cmap='RdBu_r', norm=colors.CenteredNorm())
-        ax1.add_image(im)
-        fig.colorbar(im, ax=ax1)
-        ax1.set_title(method)
         plt.show()
         plt.close(fig)
+    
+
+    method = 'gaussian'
+    xlabel = freq[::int((len(freq)-1)/10)]
+    xlabel = [i/1000 for i in xlabel]
+    ylabel = [int(i) for i in loud]
+    Nx = len(xlabel)
+    Ny = len(ylabel)
+    xtick = np.arange(0.5,Nx-0.4,1)
+    ytick = np.arange(0.5,Ny-0.4,1)
+    
+    fig, ax1 = plt.subplots()
+    im = plt.imshow(resp_off, interpolation=method, origin='lower', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
+    ax1.add_image(im)
+    ax1.set_xticks(xtick)
+    ax1.set_xticklabels(xlabel, rotation=45)
+    ax1.set_yticks(ytick)
+    ax1.set_yticklabels(ylabel)
+    ax1.set_title(f'{filename}_offset')
+    ax1.set_xlabel('Frequency kHz')
+    ax1.set_ylabel('dB SPL')
+    
+    cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
+    cbar = plt.colorbar(im, cax=cax)
+    cbar.ax.set_ylabel('mV')
+    if saveplot:
+        plt.savefig(f'{filename}_off', dpi=500, bbox_inches='tight')
+        plt.clf()
+        plt.close(fig)
+    else:
+        plt.show()
+        plt.close(fig)
+
+def baseline(resp_iter):    #correct baseline
+    return (resp_iter - np.mean(resp_iter[:20*25]))*100
+
+def psth(resp, filename, set_x_intime=False, saveplot=False):
+    resp_base = np.apply_along_axis(baseline, 1, resp)
+    y = np.mean(resp_base, axis=0)
+    x = np.arange(0,len(y))
+    err = stats.sem(resp_base, axis=0)
+    
+    plt.plot(x,y)
+    plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+    plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+    plt.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
+    label = list(np.round(np.linspace(0, 2.0, 16), 2))
+    plt.set_title(f'{filename}_tone-PSTH')
+    
+    if set_x_intime:
+        plt.xticks(np.linspace(0,37500,16),label)
+    else:
+        plt.xticks(np.linspace(0,37500,16))
+        plt.xticks(rotation = 45)
+    
+# =============================================================================
+#     ax = plt.subplot()
+#     txt = (f'{filename}_puretone_PSTH')
+#     ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
+# =============================================================================
+    
+    if saveplot:
+        plt.savefig(f'{filename}_tone-PSTH.png', dpi=500, bbox_inches='tight')
+        plt.clf()
+        plt.close()
+    else:
+        plt.show()
+        plt.close()
 
 
 def mem_V(stim, para, resp, filename='', saveplot=False):
