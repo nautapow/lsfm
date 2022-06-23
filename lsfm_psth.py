@@ -76,6 +76,7 @@ class Psth_New():
         txt = (f'{self.filename}-PSTH')
         ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
         
+        
         if saveplot:
             plt.savefig(f'{self.filename}-PSTH.png', dpi=500)
             plt.clf()
