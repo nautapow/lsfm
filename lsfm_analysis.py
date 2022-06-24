@@ -29,10 +29,11 @@ if  __name__ == "__main__":
     slope_all = pd.DataFrame()
     slope_bf = pd.DataFrame()
     
-    df_loc = 45
-    if df_loc == 45:
+    #df_loc = 71
+    #if df_loc == 71:
     #for i in range(len(tlsfm)):
-        #df_loc = tlsfm[i]
+        i = 10
+        df_loc = tlsfm[i]
         filename = df['filename'][df_loc]
         cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
         
@@ -41,10 +42,12 @@ if  __name__ == "__main__":
         resp = cell_data.item().get('resp')
         slope_lags = cell_data.item().get('slope_lag')
         
-        txt = filename+'_slope'
-        lsfm_slope.plot_slope_index(*lsfm_slope.slope_index(slope_lags, 6800), txt, saveplot=False)
-        txt = filename+'_direction'
-        lsfm_slope.plot_slope_index(*lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), 6800), txt, saveplot=False)
+# =============================================================================
+#         txt = filename+'_slope'
+#         lsfm_slope.plot_slope_index(*lsfm_slope.slope_index(slope_lags, bfs[i]), txt, saveplot=False)
+#         txt = filename+'_direction'
+#         lsfm_slope.plot_slope_index(*lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bfs[i]), txt, saveplot=False)
+# =============================================================================
            
         
 # =============================================================================
