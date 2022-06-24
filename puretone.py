@@ -7,10 +7,67 @@ from matplotlib.image import NonUniformImage
 from pathlib import Path
 from scipy import signal
 from scipy import stats
+from scipy.optimize import curve_fit
+from scipy import ndimage
 import TFTool
 import mne
+import math
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
+
+def best_freq(resp_tune, para):
+    _, freq, _ = zip(*para)
+    freq = sorted(set(freq))
+    mask = resp_tune[2:] >0
+    bf_loc = ndimage.center_of_mass(resp_tune[2:], labels=mask)[1]
+    bf = np.interp(bf_loc, np.arange(0,len(freq)), freq)
+    
+    return bf
+    
+# =============================================================================
+#     def gauss(x, H, A, x0, sigma):
+#         return H + A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
+#     
+#     def gauss_fit(x, y):
+#         """
+#         preform gaussian fit
+# 
+#         Parameters
+#         ----------
+#         x : list or array
+#             x axis value.
+#         y : list or array
+#             y axis value.
+# 
+#         Returns
+#         -------
+#         popt : array
+#             return H, A, x0, sigma.
+#             peak height = H+A
+#             peak location = x0
+#             std = sigma
+#             FWHM = 2.355*sigma
+# 
+#         """
+#         mean = sum(x * y) / sum(y)
+#         sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
+#         popt, pcov = curve_fit(gauss, x, y, p0=[min(y), max(y), mean, sigma])
+#         return popt
+#     
+#     _, freq, _ = zip(*para)
+#     freq = sorted(set(freq))
+#     x = [math.log(f, 2) for f in freq]
+#     #x = np.arange(0,len(arr))
+#     y = resp_loudness
+#     popt = gauss_fit(x,y)
+#     peak = popt[0]+popt[1]
+#     bf = 2**popt[2]
+#     band = 2.355*popt[3]
+#     tone_charact = {'best frequency': bf, 'band width': band}
+#     
+#     return tone_charact
+# =============================================================================
+
 
 def tunning(resp, para, filename='', saveplot=False):
     """
@@ -107,7 +164,7 @@ def tunning(resp, para, filename='', saveplot=False):
     cbar = plt.colorbar(im, cax=cax)
     cbar.ax.set_ylabel('mV')
     if saveplot:
-        plt.savefig(f'{filename}_on', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_on.png', dpi=500, bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:
@@ -139,12 +196,14 @@ def tunning(resp, para, filename='', saveplot=False):
     cbar = plt.colorbar(im, cax=cax)
     cbar.ax.set_ylabel('mV')
     if saveplot:
-        plt.savefig(f'{filename}_off', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_off.png', dpi=500, bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:
         plt.show()
         plt.close(fig)
+    
+    return int(best_freq(resp_on, para))
 
 def baseline(resp_iter):    #correct baseline
     return (resp_iter - np.mean(resp_iter[:20*25]))*100
@@ -155,32 +214,33 @@ def psth(resp, filename, set_x_intime=False, saveplot=False):
     x = np.arange(0,len(y))
     err = stats.sem(resp_base, axis=0)
     
-    plt.plot(x,y)
-    plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-    plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-    plt.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
-    label = list(np.round(np.linspace(0, 2.0, 16), 2))
-    plt.set_title(f'{filename}_tone-PSTH')
-    
+    fig, ax = plt.subplots()
+    ax.plot(x,y)
+    ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+    [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
+    [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
+    ax.set_title(f'{filename}_tone-PSTH')   
+    ax.set_xlim(0,10000)
+    ax.set_ylabel('membrane potential mV')
+
     if set_x_intime:
-        plt.xticks(np.linspace(0,37500,16),label)
+        label = np.linspace(-20,380,6)
+        ax.set_xticks(np.linspace(0,10000,6),label)
+        ax.set_xlabel('time ms')
     else:
-        plt.xticks(np.linspace(0,37500,16))
-        plt.xticks(rotation = 45)
-    
-# =============================================================================
-#     ax = plt.subplot()
-#     txt = (f'{filename}_puretone_PSTH')
-#     ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-# =============================================================================
-    
+        ax.set_xticks([0,500,1500,3000,5000,7000,9000])
+        ax.set_xlabel('data point 2500/100ms')
+        
     if saveplot:
         plt.savefig(f'{filename}_tone-PSTH.png', dpi=500, bbox_inches='tight')
         plt.clf()
-        plt.close()
+        plt.close(fig)
     else:
         plt.show()
-        plt.close()
+        plt.close(fig)
+
+def psth_window(resp, filename, window):
+    pass
 
 
 def mem_V(stim, para, resp, filename='', saveplot=False):
