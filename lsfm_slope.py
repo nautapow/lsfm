@@ -260,6 +260,7 @@ def plot_slope_index(m, m_bf, filename, saveplot=False):
     ax1.set_xticks([0,10,20,30,40,50])
     ax1.set_xticklabels([0,20,40,60,80,100])
     ax1.set_xlim(0,50)
+    ax1.set_xlabel('lag ms')
     
     if saveplot:
         plt.savefig(f'{filename}_index.png', dpi=500, bbox_inches='tight')
