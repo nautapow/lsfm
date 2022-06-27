@@ -517,13 +517,15 @@ class Tdms_V2():
                     _re_diff = np.convolve(np.diff(_re), np.ones(10)/10, mode='same') 
                     index = [i for i in range(len(_re_diff)) if np.abs(_re_diff[i] - 0) > 0.001]
                     #boundary for extrime value
-                    if index[0] > 40:
-                        index[0] = 25
-                    if index[-1] < 100:
-                        index[-1] = 150
-                    
-                    base_left.append(peak-50+index[0])
-                    base_right.append(peak-50+index[-1])
+                    if index:
+                        if index[0] > 40:
+                            index[0] = 25
+                        if index[-1] < 100:
+                            index[-1] = 150
+                        base_left.append(peak-50+index[0])
+                        base_right.append(peak-50+index[-1])
+                    else:
+                        pass
             for i in range(len(base_left)):
                 m[base_left[i]:base_right[i]] = True
                 
@@ -669,6 +671,7 @@ class Tdms_V2():
                         self.Sound.append(sound[x1*8:x2*8])
                 else:
                     sound = self.S
+                    self.Sound = sound
                       
         
         del tdms_file
