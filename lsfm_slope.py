@@ -96,7 +96,7 @@ def get_stimslope(stim):
     return inst_freq_res, slope_res
 
 
-def data_at_lag(inst_freq, slope, resp, lag):
+def data_at_lag(inst_freq, slope, resp, lag, **kwargs):
     fs = 25000
     delay_point = int(lag * (fs/1000))
     b,a = signal.butter(1, 1500, btype='low', fs=fs)
@@ -107,20 +107,59 @@ def data_at_lag(inst_freq, slope, resp, lag):
     elif len(resp) == 37500:
         endpoint = 26250
     
-    x = inst_freq[1250:endpoint]
-    y = slope[1250:endpoint]
-    z = resp[1250+delay_point:endpoint+delay_point]
+    window = kwargs.get('window')
+    if window:
+        x = inst_freq[window[0]:window[1]]
+        y = slope[window[0]:window[1]]
+        z = resp[window[0]+delay_point:window[1]+delay_point] 
+    else:
+        x = inst_freq[1250:endpoint]
+        y = slope[1250:endpoint]
+        z = resp[1250+delay_point:endpoint+delay_point]
         
     return [x,y,z]
+
         
 
-def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot=True, saveplot=False):
-           
+def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot=True, saveplot=False, **kwargs):
+    """
+    Plot lagged membrane potential contour of stimulus slope vs stimulus instant frequency
+
+    Parameters
+    ----------
+    stim : array_like
+        Stimuli.
+    resp : array_like
+        Responses.
+    para : array_like
+        Parameters.
+    lags : int or list or ndarray 
+        Time delay in ms of reponse relative to stimulus.
+    binning : [array, array], optional
+        [x edges, y edges] for 2D statistic, N edges should be N bins+1. The default is None.
+    filename : str, optional
+        Filename for storing plot. The default is None.
+    plot : bool, optional
+        Set True to show plot. The default is True.
+    saveplot : bool, optional
+        Set True to save plot. The default is False.
+    **kwargs : window = (int, int)
+        window = (start, end) in datapoint to specify the time window of interest 
+
+    Returns
+    -------
+    bin_slope_lags : list of ndarray
+        list with lags of 2D-array of slope vs frequency
+
+    """       
+    
     """index after parameter exclusion"""
     idx=[i for i, a in enumerate(para) if a[2] not in [0.0,16.0,64.0,128.0]]
     
     inst_freqs, slopes, resps = [],[],[] 
     """get instant frequency and slope for each stimulus"""
+    window = kwargs.get('window')
+    
     for i in idx:
         inst_freq, slope = get_stimslope(stim[i])
         inst_freqs.append(inst_freq)
@@ -132,15 +171,21 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
         data = [[],[],[]]
         
         for i in range(len(idx)):
-            data = np.concatenate((data,data_at_lag(inst_freqs[i], slopes[i], resps[i], lag)), axis=1)
+            if window:
+                data = np.concatenate((data,data_at_lag(inst_freqs[i], slopes[i], resps[i], lag, window=window)), axis=1)
+            else:
+                data = np.concatenate((data,data_at_lag(inst_freqs[i], slopes[i], resps[i], lag)), axis=1)
 
-        x_edges = [3000,4240,6000,8480,12000,16970,24000,33940,48000,67880,96000] 
+        x_edges = [3000,4240,6000,8480,12000,16970,24000,33940,48000,67880,96000]
         y_edges = np.linspace(-20,20,51)
          
         if binning != None:
             ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=binning)
         else:
             ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=[x_edges,y_edges])
+        
+        if saveplot:
+            plot = True
         
         if plot:
             XX, YY = np.meshgrid(x_edges,y_edges)
@@ -155,8 +200,12 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
             txt = (f'{filename}-Lag:{lag}ms')
             ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
             fig.colorbar(pcm, ax=ax1)
+            
             if saveplot:
-                plt.savefig(f'{filename}-Lag_{lag}ms.png', dpi=500)
+                if window:
+                    plt.savefig(f'{filename}_window-{window}_Lag-{lag}ms.png', dpi=500)
+                else:
+                    plt.savefig(f'{filename}_Lag_{lag}ms.png', dpi=500)
                 plt.clf()
                 plt.close()
             else:
