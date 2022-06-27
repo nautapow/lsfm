@@ -18,10 +18,12 @@ import math
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_puretone = df.index[df['type']=='Pure Tones']
-    idx_tone = [26,29,31,34,36,43,44,61,69,75,77,79]
+    idx_tone = [26,29,31,34,36,44,48,50,61,72,75,77,80]
+    df['best_frequency'] = np.nan
+    df['bandwidth'] = np.nan
     
-    df_loc = 77
-    if df_loc == 77:
+    df_loc = 61
+    if df_loc == 61:
     #for df_loc in idx_tone:
         
         fdir = df['path'][df_loc]
@@ -40,10 +42,16 @@ if  __name__ == "__main__":
         #sound = t.rawS
         stim = t.Sound
         
-        bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
-        df['best_frequency'].iloc[df_loc] = bf
-        puretone.psth(resp, filename, set_x_intime=False, saveplot=False)
 
+        
+        bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
+        #df_copy = df.copy()
+        #df_copy['best_frequency'].iloc[df_loc] = bf
+        #df.iloc[df_loc, df.columns.get_loc('best_frequency')] = bf['best_frequency']
+        #df.iloc[df_loc, df.columns.get_loc('bandwidth')] = bf['bandwidth']
+        #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
+    
+    #df.to_csv('patch_list_E.csv', index=False)
        
         
         
