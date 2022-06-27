@@ -16,57 +16,61 @@ from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 
 def best_freq(resp_tune, para):
-    _, freq, _ = zip(*para)
-    freq = sorted(set(freq))
-    mask = resp_tune[2:] >0
-    bf_loc = ndimage.center_of_mass(resp_tune[2:], labels=mask)[1]
-    bf = np.interp(bf_loc, np.arange(0,len(freq)), freq)
+    def sum_above0(arr):
+        return sum(i for i in arr if i > 0)
     
-    return bf
+    freq_sum = np.apply_along_axis(sum_above0, 0, resp_tune)
     
 # =============================================================================
-#     def gauss(x, H, A, x0, sigma):
-#         return H + A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
-#     
-#     def gauss_fit(x, y):
-#         """
-#         preform gaussian fit
-# 
-#         Parameters
-#         ----------
-#         x : list or array
-#             x axis value.
-#         y : list or array
-#             y axis value.
-# 
-#         Returns
-#         -------
-#         popt : array
-#             return H, A, x0, sigma.
-#             peak height = H+A
-#             peak location = x0
-#             std = sigma
-#             FWHM = 2.355*sigma
-# 
-#         """
-#         mean = sum(x * y) / sum(y)
-#         sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
-#         popt, pcov = curve_fit(gauss, x, y, p0=[min(y), max(y), mean, sigma])
-#         return popt
-#     
 #     _, freq, _ = zip(*para)
 #     freq = sorted(set(freq))
-#     x = [math.log(f, 2) for f in freq]
-#     #x = np.arange(0,len(arr))
-#     y = resp_loudness
-#     popt = gauss_fit(x,y)
-#     peak = popt[0]+popt[1]
-#     bf = 2**popt[2]
-#     band = 2.355*popt[3]
-#     tone_charact = {'best frequency': bf, 'band width': band}
+#     mask = resp_tune[2:] >0
+#     bf_loc = ndimage.center_of_mass(resp_tune[2:], labels=mask)[1]
+#     bf = np.interp(bf_loc, np.arange(0,len(freq)), freq)
 #     
-#     return tone_charact
+#     return bf
 # =============================================================================
+    
+    def gauss(x, H, A, x0, sigma):
+        return H + A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
+    
+    def gauss_fit(x, y):
+        """
+        preform gaussian fit
+
+        Parameters
+        ----------
+        x : list or array
+            x axis value.
+        y : list or array
+            y axis value.
+
+        Returns
+        -------
+        popt : array
+            return H, A, x0, sigma.
+            peak height = H+A
+            peak location = x0
+            std = sigma
+            FWHM = 2.355*sigma
+
+        """
+        mean = sum(x * y) / sum(y)
+        sigma = np.sqrt(sum(y * (x - mean) ** 2) / sum(y))
+        popt, pcov = curve_fit(gauss, x, y, p0=[min(y), max(y), mean, sigma])
+        return popt
+    
+    _, freq, _ = zip(*para)
+   f
+    x = [math.log(f, 2) for f in freq]
+    #x = np.arange(0,len(arr))
+    popt = gauss_fit(x,freq_sum)
+    peak = popt[0]+popt[1]
+    bf = 2**popt[2]
+    band = abs(2.355*popt[3])
+    tone_charact = {'best_frequency': bf, 'bandwidth': band, 'Fit': popt}
+    
+    return tone_charact
 
 
 def tunning(resp, para, filename='', saveplot=False):
@@ -203,7 +207,7 @@ def tunning(resp, para, filename='', saveplot=False):
         plt.show()
         plt.close(fig)
     
-    return int(best_freq(resp_on, para))
+    return best_freq(resp_on, para)
 
 def baseline(resp_iter):    #correct baseline
     return (resp_iter - np.mean(resp_iter[:20*25]))*100
