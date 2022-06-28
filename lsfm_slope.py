@@ -17,6 +17,42 @@ def baseline_zero(resp_iter):   #fix sound onset to zero
 
         
 
+# =============================================================================
+# """Plot slope versus frequency with lag"""
+# def transient_remove_hires(arr):
+#     """
+#     Zero non-stimulation part and start and end transient spike caused by filtering or calculation
+# 
+#     Parameters
+#     ----------
+#     arr : nd.array
+#         array for correction.
+# 
+#     Returns
+#     -------
+#     arr : nd.array
+#         corrected array.
+# 
+#     """
+#     arr = np.array(arr)
+#     arr_crop = arr[15000:195000]
+#     arr_std = np.std(arr_crop)
+#     mask = (arr < min(arr_crop)-arr_std)|(arr > max(arr_crop)+arr_std)
+#     
+#     arr[mask]=0
+#     
+#     arr = [a if i > 10000 else 0 for i,a in enumerate(arr)]
+#     
+#     if (len(arr)>300000):
+#         arr = [a if a < 310000 else 0 for i,a in enumerate(arr)]
+#         #arr[i = ][310000:] = 0
+#     else:
+#         arr = [a if a < 210000 else 0 for i,a in enumerate(arr)]
+#     
+#     return arr        
+# =============================================================================
+
+
 """Plot slope versus frequency with lag"""
 def transient_remove(arr):
     """
@@ -33,13 +69,21 @@ def transient_remove(arr):
         corrected array.
 
     """
-    
-    arr_crop = arr[15000:195000]
+    arr = np.array(arr)
+    arr_crop = arr[1875:24375]
     arr_std = np.std(arr_crop)
-    mask = tuple([(arr < min(arr_crop)-arr_std)|(arr > max(arr_crop)+arr_std)])
-
-    arr[mask]=0    
-    return arr        
+    mask = (arr < min(arr_crop)-arr_std)|(arr > max(arr_crop)+arr_std)
+    
+    arr[mask]=0
+    
+    arr = [a if i > 1250 else 0 for i,a in enumerate(arr)]
+    
+    if (len(arr)>37500):
+        arr = [a if i < 38750 else 0 for i,a in enumerate(arr)]
+    else:
+        arr = [a if i < 26250 else 0 for i,a in enumerate(arr)]
+    
+    return arr   
 
 def get_instfreq(stim):
     fs = 200000
@@ -73,14 +117,6 @@ def get_stimslope(stim):
 
     """
     
-
-    inst_freq = transient_remove(get_instfreq(stim))    
-    slope = transient_remove(np.diff(inst_freq, prepend=0))
-    
-    inst_freq_res = signal.resample(inst_freq, int(len(inst_freq)/8))
-    slope_res = signal.resample(slope, int(len(slope)/8))
-    
-    
     """log raw slope for distribution"""
     def scaling(f):    
         if f == 0:
@@ -90,8 +126,24 @@ def get_stimslope(stim):
         elif f < 0:
             return -1*math.log(-1*f)
         
-    slope_res = [scaling(f) for f in slope_res]
+# =============================================================================
+#     inst_freq = transient_remove(get_instfreq(stim))    
+#     slope = np.diff(inst_freq, prepend=0)   
+#     slope = [scaling(f) for f in slope]
+#     slope = transient_remove(slope)
+#     
+#     inst_freq_res = signal.resample(inst_freq, int(len(inst_freq)/8))
+#     slope_res = signal.resample(slope, int(len(slope)/8))
+# =============================================================================
     
+    inst_freq = get_instfreq(stim)
+    slope = np.diff(inst_freq, prepend=0)
+    slope = [scaling(f) for f in slope]
+    
+    inst_freq_res = transient_remove(signal.resample(inst_freq, int(len(inst_freq)/8)))
+    slope_res = transient_remove(signal.resample(slope, int(len(slope)/8)))
+    inst_freq_res = np.array(inst_freq_res)
+    slope_res = np.array(slope_res)
     
     return inst_freq_res, slope_res
 
@@ -165,7 +217,8 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
         inst_freqs.append(inst_freq)
         slopes.append(slope)
         resps.append(baseline(resp[i]))
-    
+
+    v_max = np.mean(resps, axis=1).max()
     bin_slope_lags=[]
     for lag in lags:
         data = [[],[],[]]
@@ -184,33 +237,41 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
         else:
             ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=[x_edges,y_edges])
         
-        if saveplot:
-            plot = True
+
+        XX, YY = np.meshgrid(x_edges,y_edges)
+        #XX, YY = np.meshgrid(ret[1], ret[2])
         
-        if plot:
-            XX, YY = np.meshgrid(x_edges,y_edges)
-            #XX, YY = np.meshgrid(ret[1], ret[2])
-            fig, ax1 = plt.subplots()
-            pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', vmax=20., vmin=-20.)
-            #pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())
+        fig, ax1 = plt.subplots()
+        pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', vmax=v_max, vmin=-1*v_max)
+        #pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())
+        
+        ax1.set_xscale('log')
+        if window:
+            ax1.set_title(f'{filename}_window:{window}_Lag:{lag}ms')
+        else:
+            ax1.set_title(f'{filename}_Lag:{lag}ms')
+        
+# =============================================================================
+#         ax2 = plt.subplot()
+#         txt = (f'{filename}-Lag:{lag}ms')
+#         ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
+# =============================================================================
+        
+        fig.colorbar(pcm, ax=ax1)
             
-            ax1.set_xscale('log')
-            
-            ax2 = plt.subplot()
-            txt = (f'{filename}-Lag:{lag}ms')
-            ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
-            fig.colorbar(pcm, ax=ax1)
-            
-            if saveplot:
-                if window:
-                    plt.savefig(f'{filename}_window-{window}_Lag-{lag}ms.png', dpi=500)
-                else:
-                    plt.savefig(f'{filename}_Lag_{lag}ms.png', dpi=500)
-                plt.clf()
-                plt.close()
+        if saveplot:
+            if window:
+                plt.savefig(f'{filename}_window-{window}_Lag-{lag}ms.png', dpi=500)
             else:
+                plt.savefig(f'{filename}_Lag_{lag}ms.png', dpi=500)
+            if plot:
                 plt.show()
-                plt.close()
+            plt.clf()
+            plt.close()
+            
+        elif plot:
+            plt.show()
+            plt.close()
         
         bin_slope_lags.append(ret[0])
     
