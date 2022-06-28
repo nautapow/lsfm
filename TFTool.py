@@ -245,3 +245,12 @@ def bootstrap(data, np_method, times):
     boot_std = np.std(res)    
     
     return res, boot_mean, boot_std
+
+
+def list_comb(arr1, arr2):
+    from itertools import zip_longest
+    arr = list(zip_longest(arr1, arr2, fillvalue=np.nan))
+
+    return arr
+    
+    
