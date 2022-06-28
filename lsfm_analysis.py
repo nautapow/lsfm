@@ -26,13 +26,13 @@ if  __name__ == "__main__":
 
     #tlsfm = [65,67,70,71,73,74,76]
     
-    #df_loc = 76
-    #if df_loc == 76:
-    for i in range(len(tlsfm)):
+    df_loc = 45
+    if df_loc == 45:
+    #for i in range(len(tlsfm)):
     #for df_loc in tlsfm:
-        #i = 2
-        df_loc = tlsfm[i]
+        i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
         filename = df['filename'][df_loc]
+        version = df['Version']
         cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
         
         para = cell_data.item().get('para')
@@ -40,19 +40,29 @@ if  __name__ == "__main__":
         resp = cell_data.item().get('resp')
         slope_lags = cell_data.item().get('slope_lag')
         
-        lags = np.linspace(0, 50, 11)
-        slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=True)
+        lags = np.linspace(0, 100, 51)
         
-        if df['Version'][df_loc] == 1:
-            _ = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(1250,37500), filename=filename, plot=True, saveplot=True)
-        elif df['Version'][df_loc] == 2:
-            _ = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(1250,25000), filename=filename, plot=True, saveplot=True)
+        resp_at_freq = lsfm.resp_freq(stim, resp, para, lags, bfs[i])
+        best_lag = lsfm.at_freq_lag(resp_at_freq)
+# =============================================================================
+#         slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=False, saveplot=True)
+#         
+#         if df['Version'][df_loc] == 1:
+#             slope_range = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(1250,10000), filename=filename, plot=False, saveplot=True)
+#         elif df['Version'][df_loc] == 2:
+#             slope_range = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(1250,10000), filename=filename, plot=False, saveplot=True)
+#         
+#         txt = filename+'_slope'
+#         lsfm_slope.plot_slope_index(*lsfm_slope.slope_index(slope_lags, bfs[i]), txt, saveplot=True)
+#         txt = filename+'_direction'
+#         lsfm_slope.plot_slope_index(*lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bfs[i]), txt, saveplot=True)
+#         
+#         txt = filename+'_slope_window'
+#         lsfm_slope.plot_slope_index(*lsfm_slope.slope_index(slope_range, bfs[i]), txt, saveplot=True)
+#         txt = filename+'_direction_window'
+#         lsfm_slope.plot_slope_index(*lsfm_slope.direction_index(lsfm_slope.direction_map(slope_range), bfs[i]), txt, saveplot=True)
+# =============================================================================
         
-        txt = filename+'_slope'
-        lsfm_slope.plot_slope_index(*lsfm_slope.slope_index(slope_lags, bfs[i]), txt, saveplot=True)
-        txt = filename+'_direction'
-        lsfm_slope.plot_slope_index(*lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bfs[i]), txt, saveplot=True)
-           
         
 # =============================================================================
 #         savedata = []
