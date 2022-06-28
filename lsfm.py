@@ -11,6 +11,7 @@ import TFTool
 import pandas as pd
 from scipy.signal.windows import dpss
 import math
+import lsfm_slope
 
        
     
@@ -493,12 +494,94 @@ class RespAtFreq():
                 plt.clf()
 
 
-
+def resp_freq(stim, resp, para, lags, best_freq):
+    idx=[i for i, a in enumerate(para) if a[2] not in [0.0,64.0,128.0]]
+    fs=25000
+    lag_points = [int(n*(fs/1000)) for n in lags]
+    resp_at_freq = []
     
-    
-
-
+    for i in idx:
+        """iterate through all stimuli and responses"""
+        inst_freq, slopes = lsfm_slope.get_stimslope(stim[i])
+        cross = np.abs(np.diff(np.sign(inst_freq - best_freq)))
+        x_idx = [i for i,a in enumerate(cross) if a > 0]
         
+        resp_base_correct = lsfm_slope.baseline(resp[i])
+        
+        if x_idx:
+            resp_lag_each_stim=[]
+            slope_each_stim=[]
+            for x in x_idx:
+                """iterate x when stim cross best freq"""
+                resp_lag_each_stim.append([resp_base_correct[x+lag] for lag in lag_points])
+                slope_each_stim.append(slopes[x])
+                
+            case = {'#':i, 'para':para[i][:3], 'location':x_idx, 'resp_lag':resp_lag_each_stim, 'slope':slope_each_stim}
+            resp_at_freq.append(case)
+        
+    return resp_at_freq
+        
+
+def at_freq_lag(resp_at_freq):
+    """
+    plot instant response at each lag time after stimulus cross best frequency
+
+    Parameters
+    ----------
+    resp_at_freq : list of dictionary
+        list generated from resp_freq().
+
+    Returns
+    -------
+    best_lag : int
+        lag that gives highest potential
+
+    """
+    
+    n_stim = len(resp_at_freq)
+    
+    all_resp_lag=[]
+    for n in range(n_stim):
+        slope = resp_at_freq[n]['slope']
+        resp_lag = resp_at_freq[n]['resp_lag']
+        
+        for i in range(len(slope)):
+            all_resp_lag.append(resp_lag[i])
+            
+    a_mean = np.mean(all_resp_lag, axis=0)
+    a_std = np.std(all_resp_lag, axis=0)
+    
+    x = range(len(a_mean))
+    plt.plot(x, a_mean)
+    plt.fill_between(x, a_mean+a_std, a_mean-a_std, color='orange', alpha=0.5)
+    best_lag = np.argmax(a_mean)
+    
+    return best_lag
+    
+def at_freq_ncross(resp_at_freq, best_lag):
+    n_stim = len(resp_at_freq)
+
+    ncross_stim=[]
+    for n in range(n_stim):
+        slope = resp_at_freq[n]['slope']
+        resp_lag = resp_at_freq[n]['resp_lag']
+        
+        ncross_each_stim=[]
+        for i in range(len(slope)):
+            ncross_each_stim.append(resp_lag[i][best_lag])
+        
+        ncross_stim.append(ncross_each_stim)
+        
+    ncross_comb=[]
+    for n in ncross_stim:
+        ncross_comb = TFTool.list_comb(ncross_comb, n)
+    ncross_comb = list(ncross_comb)
+    
+    ncross_avg = np.nanmean(ncross_comb, axis=1)
+    ncross_std = np.nanstd(ncross_comb, axis=1)    
+    
+    return ncross_stim, ncross_avg
+       
 # =============================================================================
 # def fsc_modrate(stim, resp, para, lag, filename=None, saveplot=False):
 #     modrate = [i[2] for i in para]
