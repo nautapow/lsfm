@@ -35,7 +35,7 @@ class Psth_New():
     def baseline_zero(resp_iter):   #fix sound onset to zero
         return (resp_iter - resp_iter[50*25])*100
     
-    def psth_all(self, set_x_intime=False, saveplot=False):
+    def psth_all(self, plot=True, saveplot=False):
         """
         Generates PSTH using all lsfm response.
 
@@ -60,28 +60,80 @@ class Psth_New():
         x = np.arange(0,len(y))
         err = stats.sem(resp_base, axis=0)
         
-        plt.plot(x,y)
-        plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-        plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-        plt.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
-        label = list(np.round(np.linspace(0, 2.0, 16), 2))
-        
-        if set_x_intime:
-            plt.xticks(np.linspace(0,37500,16),label)
-        else:
-            plt.xticks(np.linspace(0,37500,16))
-            plt.xticks(rotation = 45)
-        
-        ax = plt.subplot()
-        txt = (f'{self.filename}-PSTH')
-        ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-        
+        fig, ax = plt.subplots()
+        ax.plot(x,y)
+        ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+        [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [1250,26250]]
+        ax.set_xlim(0,len(x))
+        label = list(np.round(np.linspace(0, 1.5, 16), 2))
+        ax.set_xticks(np.linspace(0,37500,16))
+        ax.set_xticklabels(label, rotation = 45)
+        #ax.xticks(rotation = 45)
+        ax.set_title(f'{self.filename}_PSTH-time')
+        ax.set_xlabel('time (sec)')
+        ax.set_ylabel('average response (mV)')
         
         if saveplot:
-            plt.savefig(f'{self.filename}-PSTH.png', dpi=500)
+            plt.savefig(f'{self.filename}_PSTH_time.png', dpi=500, bbox_inches='tight')
+            if plot:
+                plt.show()
             plt.clf()
-        else:
+            plt.close(fig)
+        
+        if plot:
             plt.show()
+            plt.clf()
+            plt.close(fig)
+            
+        fig, ax = plt.subplots()
+        ax.plot(x,y)
+        ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+        [ax.axvline(x=_x, color='k', linestyle='dotted', alpha=0.3) for _x in np.arange(0,37501,2500)]
+        [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.7) for _x in [1250,26250]]
+        ax.set_xlim(0,len(x))
+        ax.set_xticks(np.linspace(0,37500,16))
+        plt.xticks(rotation=45)
+        ax.set_title(f'{self.filename}_PSTH')
+        ax.set_xlabel('data point (2500/100ms)')
+        ax.set_ylabel('average response (mV)')
+        
+        if saveplot:
+            plt.savefig(f'{self.filename}_PSTH.png', dpi=500, bbox_inches='tight')
+            if plot:
+                plt.show()
+            plt.clf()
+            plt.close(fig)
+        
+        if plot:
+            plt.show()
+            plt.clf()
+            plt.close(fig)
+        
+        
+# =============================================================================
+#         plt.plot(x,y)
+#         plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+#         plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+#         plt.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
+#         label = list(np.round(np.linspace(0, 2.0, 16), 2))
+#         
+#         if set_x_intime:
+#             plt.xticks(np.linspace(0,37500,16),label)
+#         else:
+#             plt.xticks(np.linspace(0,37500,16))
+#             plt.xticks(rotation = 45)
+#         
+#         ax = plt.subplot()
+#         txt = (f'{self.filename}-PSTH')
+#         ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
+#         
+#         
+#         if saveplot:
+#             plt.savefig(f'{self.filename}-PSTH.png', dpi=500)
+#             plt.clf()
+#         else:
+#             plt.show()
+# =============================================================================
     
     def psth_para(self, plot=False, saveplot=False) -> dict:
         """
@@ -132,69 +184,94 @@ class Psth_New():
                     temp.append(Psth.baseline(resp[i]))
             resp_band.append(temp)
             
-        if plot:
-            for i in range(len(self.mod_label)):
-                y = np.mean(resp_mod[i], axis=0)
-                x = np.arange(0,len(y))
-                err = stats.sem(resp_mod[i], axis=0)
-                
-                plt.plot(x,y)
-                plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-                plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-                plt.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
-                label = list(np.round(np.linspace(0, 1.5, 11), 2))
-                plt.xticks(np.linspace(0,37500,11),label)
-                ax = plt.subplot()
-                txt = (f'{self.filename}-mod {self.mod_label[i]} Hz')
-                ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-                
-                if saveplot:
-                    plt.savefig(f'{self.filename}-mod {self.mod_label[i]} Hz.png', dpi=500)
-                    plt.clf()
-                else:
-                    plt.show()
+        
+        for i in range(len(self.mod_label)):
+            y = np.mean(resp_mod[i], axis=0)
+            x = np.arange(0,len(y))
+            err = stats.sem(resp_mod[i], axis=0)
             
-            for i in range(len(self.cf_label)):
-                y = np.mean(resp_cf[i], axis=0)
-                x = np.arange(0,len(y))
-                err = stats.sem(resp_cf[i], axis=0)
-                
-                plt.plot(x,y)
-                plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-                plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-                plt.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
-                label = list(np.round(np.linspace(0, 1.5, 11), 2))
-                plt.xticks(np.linspace(0,37500,11),label)
-                ax = plt.subplot()
-                txt = (f'{self.filename}-cf {self.cf_label[i]} Hz')
-                ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-                
-                if saveplot:
-                    plt.savefig(f'{self.filename}-cf {self.cf_label[i]} kHz.png', dpi=500)
-                    plt.clf()
-                else:
-                    plt.show()
+            fig, ax = plt.subplots()
+            ax.plot(x,y)
+            ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+            ax.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+            ax.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
+            label = list(np.round(np.linspace(0, 1.5, 11), 2))
+            ax.set_xlim(0,len(x))
+            ax.set_xticks(np.linspace(0,37500,11),label)
+            ax.set_title(f'{self.filename}-mod {self.mod_label[i]} Hz')
+            ax.set_xlabel('time (sec)')
+            ax.set_ylabel('average response (mV)')
             
-            for i in range(len(self.bw_label)):
-                y = np.mean(resp_band[i], axis=0)
-                x = np.arange(0,len(y))
-                err = stats.sem(resp_band[i], axis=0)
-                
-                plt.plot(x,y)
-                plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-                plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-                plt.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
-                label = list(np.round(np.linspace(0, 1.5, 11), 2))
-                plt.xticks(np.linspace(0,37500,11),label)
-                ax = plt.subplot()
-                txt = (f'{self.filename}-bdwidth {self.bw_label[i]} kHz')
-                ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-                
-                if saveplot:
-                    plt.savefig(f'{self.filename}-bdwidth {self.bw_label[i]} kHz.png', dpi=500)
-                    plt.clf()
-                else:
+            if saveplot:
+                plt.savefig(f'{self.filename}-mod {self.mod_label[i]} Hz.png', dpi=500, bbox_inches='tight')
+                if plot:
                     plt.show()
+                plt.clf()
+                plt.close(fig)
+                
+            if plot:
+                plt.show()
+                plt.close(fig)
+            
+        
+        for i in range(len(self.cf_label)):
+            y = np.mean(resp_cf[i], axis=0)
+            x = np.arange(0,len(y))
+            err = stats.sem(resp_cf[i], axis=0)
+            
+            fig, ax = plt.subplots()
+            ax.plot(x,y)
+            ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+            ax.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+            ax.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
+            label = list(np.round(np.linspace(0, 1.5, 11), 2))
+            ax.set_xlim(0,len(x))
+            ax.set_xticks(np.linspace(0,37500,11),label)
+            ax.set_title(f'{self.filename}-cf {self.cf_label[i]} Hz')
+            ax.set_xlabel('time (sec)')
+            ax.set_ylabel('average response (mV)')
+            
+            if saveplot:
+                plt.savefig(f'{self.filename}-cf {self.cf_label[i]} kHz.png', dpi=500, bbox_inches='tight')
+                if plot:
+                    plt.show()
+                plt.clf()
+                plt.close(fig)
+                
+            if plot:
+                plt.show()
+                plt.close(fig)
+                
+                
+        for i in range(len(self.bw_label)):
+            y = np.mean(resp_band[i], axis=0)
+            x = np.arange(0,len(y))
+            err = stats.sem(resp_band[i], axis=0)
+            
+            fig, ax = plt.subplots()
+            ax.plot(x,y)
+            ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+            ax.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+            ax.axvline(x=26250, color='k', linestyle='--', alpha=0.5)
+            label = list(np.round(np.linspace(0, 1.5, 11), 2))
+            ax.set_xlim(0,len(x))
+            ax.set_xticks(np.linspace(0,37500,11),label)
+            ax.set_title(f'{self.filename}-bdwidth {self.bw_label[i]} kHz')
+            ax.set_xlabel('time (sec)')
+            ax.set_ylabel('average response (mV)')
+            
+            
+            if saveplot:
+                plt.savefig(f'{self.filename}-bdwidth {self.bw_label[i]} kHz.png', dpi=500, bbox_inches='tight')
+                if plot:
+                    plt.show()
+                plt.clf()
+                plt.close(fig)
+                
+            if plot:
+                plt.show()
+                plt.close(fig)
+                
             
         #return resp grouped by parameters
         return {'modrate':resp_mod, 'centerfreq':resp_cf,
@@ -354,18 +431,17 @@ class Psth_New():
                     x.append(ii[1])
                     y.append(ii[2])
                     err.append(ii[3])
-                try:                        
+                try:                                            
                     plt.errorbar(x,y,yerr=err, color=colors[i], capsize=(4), marker='o', label=f'{group}-{gp[0][0]}')
                 except IndexError:
                     pass
                 
                 if set_window:
-                    txt = '_window'+str(set_window)
+                    txt = f'{self.filename}_{base} v {group}_window'+str(set_window)
                 else:
-                    txt='_all'
+                    txt=f'{self.filename}_{base} v {group}_all'
                 
-                ax = plt.subplot()
-                ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
+                plt.title(txt)
                 plt.xscale('symlog')                
                 plt.xlabel(f'{base}')
                 plt.legend(bbox_to_anchor=(1.04,1), loc='upper left')
@@ -374,6 +450,7 @@ class Psth_New():
                 plt.savefig(f'{self.filename}_{group}-{base}{txt}.png', \
                             dpi=500, bbox_inches='tight')
                 plt.clf()
+                plt.close()
             else:
                 plt.show()
                 
@@ -447,8 +524,9 @@ class Psth_New():
             ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
             
             if saveplot:
-                plt.savefig(f'{self.filename}_p_{para_name[par]}_Feature_{featname}.png', dpi=500)
+                plt.savefig(f'{self.filename}_p_{para_name[par]}_Feature_{featname}.png', dpi=500, bbox_inches='tight')
                 plt.clf()
+                plt.close()
             else:
                 plt.show()
         if savenotes:
@@ -489,7 +567,7 @@ class Psth():
     def baseline_zero(resp_iter):   #fix sound onset to zero
         return (resp_iter - resp_iter[50*25])*100
     
-    def psth_all(self, set_x_intime=False, saveplot=False):
+    def psth_all(self, plot=True, saveplot=False):
         """
         Generates PSTH using all lsfm response.
 
@@ -514,27 +592,56 @@ class Psth():
         x = np.arange(0,len(y))
         err = stats.sem(resp_base, axis=0)
         
-        plt.plot(x,y)
-        plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-        plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-        plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
+        fig, ax = plt.subplots()
+        ax.plot(x,y)
+        ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+        [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [1250,38750]]
+        ax.set_xlim(0,len(x))
         label = list(np.round(np.linspace(0, 2.0, 21), 2))
-        
-        if set_x_intime:
-            plt.xticks(np.linspace(0,50000,21),label)
-        else:
-            plt.xticks(np.linspace(0,50000,21))
-            plt.xticks(rotation = 45)
-        
-        ax = plt.subplot()
-        txt = (f'{self.filename}-PSTH')
-        ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
+        ax.set_xticks(np.linspace(0,50000,21))
+        ax.set_xticklabels(label, rotation = 45)
+        #ax.xticks(rotation = 45)
+        ax.set_title(f'{self.filename}_PSTH-time')
+        ax.set_xlabel('time (sec)')
+        ax.set_ylabel('average response (mV)')
         
         if saveplot:
-            plt.savefig(f'{self.filename}-PSTH.png', dpi=500)
+            plt.savefig(f'{self.filename}_PSTH_time.png', dpi=500, bbox_inches='tight')
+            if plot:
+                plt.show()
             plt.clf()
-        else:
+            plt.close(fig)
+        
+        if plot:
             plt.show()
+            plt.clf()
+            plt.close(fig)
+            
+        fig, ax = plt.subplots()
+        ax.plot(x,y)
+        ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+        [ax.axvline(x=_x, color='k', linestyle='dotted', alpha=0.3) for _x in np.arange(0,50001,2500)]
+        [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.7) for _x in [1250,38750]]
+        ax.set_xlim(0,len(x))
+        ax.set_xticks(np.linspace(0,50000,21))
+        plt.xticks(rotation=45)
+        ax.set_title(f'{self.filename}_PSTH')
+        ax.set_xlabel('data point (2500/100ms)')
+        ax.set_ylabel('average response (mV)')
+        
+        if saveplot:
+            plt.savefig(f'{self.filename}_PSTH.png', dpi=500, bbox_inches='tight')
+            if plot:
+                plt.show()
+            plt.clf()
+            plt.close(fig)
+        
+        if plot:
+            plt.show()
+            plt.clf()
+            plt.close(fig)
+                
+            
     
     def psth_para(self, plot=False, saveplot=False) -> dict:
         """
@@ -585,69 +692,96 @@ class Psth():
                     temp.append(Psth.baseline(resp[i]))
             resp_band.append(temp)
             
-        if plot:
-            for i in range(len(self.mod_label)):
-                y = np.mean(resp_mod[i], axis=0)
-                x = np.arange(0,len(y))
-                err = stats.sem(resp_mod[i], axis=0)
-                
-                plt.plot(x,y)
-                plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-                plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-                plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
-                label = list(np.round(np.linspace(0, 2.0, 11), 2))
-                plt.xticks(np.linspace(0,50000,11),label)
-                ax = plt.subplot()
-                txt = (f'{self.filename}-mod {self.mod_label[i]} Hz')
-                ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-                
-                if saveplot:
-                    plt.savefig(f'{self.filename}-mod {self.mod_label[i]} Hz.png', dpi=500)
-                    plt.clf()
-                else:
-                    plt.show()
+        
+        for i in range(len(self.mod_label)):
+            y = np.mean(resp_mod[i], axis=0)
+            x = np.arange(0,len(y))
+            err = stats.sem(resp_mod[i], axis=0)
             
-            for i in range(len(self.cf_label)):
-                y = np.mean(resp_cf[i], axis=0)
-                x = np.arange(0,len(y))
-                err = stats.sem(resp_cf[i], axis=0)
-                
-                plt.plot(x,y)
-                plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-                plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-                plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
-                label = list(np.round(np.linspace(0, 2.0, 11), 2))
-                plt.xticks(np.linspace(0,50000,11),label)
-                ax = plt.subplot()
-                txt = (f'{self.filename}-cf {self.cf_label[i]} Hz')
-                ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-                
-                if saveplot:
-                    plt.savefig(f'{self.filename}-cf {self.cf_label[i]} kHz.png', dpi=500)
-                    plt.clf()
-                else:
-                    plt.show()
+            fig, ax = plt.subplots()
+            ax.plot(x,y)
+            ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+            ax.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+            ax.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
+            label = list(np.round(np.linspace(0, 2.0, 11), 2))
+            ax.set_xlim(0,len(x))
+            ax.set_xticks(np.linspace(0,50000,11),label)
+            ax.set_title(f'{self.filename}-mod {self.mod_label[i]} Hz')
+            ax.set_xlabel('time (sec)')
+            ax.set_ylabel('average response (mV)')
             
-            for i in range(len(self.bw_label)):
-                y = np.mean(resp_band[i], axis=0)
-                x = np.arange(0,len(y))
-                err = stats.sem(resp_band[i], axis=0)
-                
-                plt.plot(x,y)
-                plt.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-                plt.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
-                plt.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
-                label = list(np.round(np.linspace(0, 2.0, 11), 2))
-                plt.xticks(np.linspace(0,50000,11),label)
-                ax = plt.subplot()
-                txt = (f'{self.filename}-bdwidth {self.bw_label[i]} kHz')
-                ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-                
-                if saveplot:
-                    plt.savefig(f'{self.filename}-bdwidth {self.bw_label[i]} kHz.png', dpi=500)
-                    plt.clf()
-                else:
+            if saveplot:
+                plt.savefig(f'{self.filename}-mod {self.mod_label[i]} Hz.png', dpi=500, bbox_inches='tight')
+                if plot:
                     plt.show()
+                plt.clf()
+                plt.close(fig)
+                
+            if plot:
+                plt.show()
+                plt.clf()
+                plt.close(fig)
+                    
+            
+        for i in range(len(self.cf_label)):
+            y = np.mean(resp_cf[i], axis=0)
+            x = np.arange(0,len(y))
+            err = stats.sem(resp_cf[i], axis=0)
+            
+            fig, ax = plt.subplots()
+            ax.plot(x,y)
+            ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+            ax.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+            ax.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
+            label = list(np.round(np.linspace(0, 2.0, 11), 2))
+            ax.set_xlim(0,len(x))
+            ax.set_xticks(np.linspace(0,50000,11),label)
+            ax.set_title(f'{self.filename}-cf {self.cf_label[i]} Hz')
+            ax.set_xlabel('time (sec)')
+            ax.set_ylabel('average response (mV)')
+            
+            if saveplot:
+                plt.savefig(f'{self.filename}-cf {self.cf_label[i]} kHz.png', dpi=500, bbox_inches='tight')
+                if plot:
+                    plt.show()
+                plt.clf()
+                plt.close(fig)
+                
+            if plot:
+                plt.show()
+                plt.clf()
+                plt.close(fig)
+                
+                
+        for i in range(len(self.bw_label)):
+            y = np.mean(resp_band[i], axis=0)
+            x = np.arange(0,len(y))
+            err = stats.sem(resp_band[i], axis=0)
+            
+            fig, ax = plt.subplots()
+            ax.plot(x,y)
+            ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+            ax.axvline(x=1250, color='k', linestyle='--', alpha=0.5)
+            ax.axvline(x=38750, color='k', linestyle='--', alpha=0.5)
+            label = list(np.round(np.linspace(0, 2.0, 11), 2))
+            ax.set_xlim(0,len(x))
+            ax.set_xticks(np.linspace(0,50000,11),label)
+            ax.set_title(f'{self.filename}-bdwidth {self.bw_label[i]} kHz')
+            ax.set_xlabel('time (sec)')
+            ax.set_ylabel('average response (mV)')
+            
+            
+            if saveplot:
+                plt.savefig(f'{self.filename}-bdwidth {self.bw_label[i]} kHz.png', dpi=500, bbox_inches='tight')
+                if plot:
+                    plt.show()
+                plt.clf()
+                plt.close(fig)
+                
+            if plot:
+                plt.show()
+                plt.clf()
+                plt.close(fig)
             
         #return resp grouped by parameters
         return {'modrate':resp_mod, 'centerfreq':resp_cf,
@@ -827,6 +961,7 @@ class Psth():
                 plt.savefig(f'{self.filename}_{group}-{base}{txt}.png', \
                             dpi=500, bbox_inches='tight')
                 plt.clf()
+                plt.close()
             else:
                 plt.show()
                 
@@ -900,8 +1035,9 @@ class Psth():
             ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
             
             if saveplot:
-                plt.savefig(f'{self.filename}_p_{para_name[par]}_Feature_{featname}.png', dpi=500)
+                plt.savefig(f'{self.filename}_p_{para_name[par]}_Feature_{featname}.png', dpi=500, bbox_inches='tight')
                 plt.clf()
+                plt.close()
             else:
                 plt.show()
         if savenotes:
