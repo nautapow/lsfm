@@ -16,20 +16,28 @@ from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 
 def best_freq(resp_tune, para):
+    """
+    Acquiring best frequency by summing excited potential of each frequency band
+    than perform guassian fit.
+
+    Parameters
+    ----------
+    resp_tune : array_like
+        resp_on generated from tunning function
+    para : list of tuple
+        parameter
+
+    Returns
+    -------
+    dictionary
+        key: best_frequnecy, bandwidth, and fit parameters
+
+    """
+    
     def sum_above0(arr):
         return sum(i for i in arr if i > 0)
     
     freq_sum = np.apply_along_axis(sum_above0, 0, resp_tune)
-    
-# =============================================================================
-#     _, freq, _ = zip(*para)
-#     freq = sorted(set(freq))
-#     mask = resp_tune[2:] >0
-#     bf_loc = ndimage.center_of_mass(resp_tune[2:], labels=mask)[1]
-#     bf = np.interp(bf_loc, np.arange(0,len(freq)), freq)
-#     
-#     return bf
-# =============================================================================
     
     def gauss(x, H, A, x0, sigma):
         return H + A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
@@ -61,7 +69,7 @@ def best_freq(resp_tune, para):
         return popt
     
     _, freq, _ = zip(*para)
-   f
+    freq = sorted(set(freq))
     x = [math.log(f, 2) for f in freq]
     #x = np.arange(0,len(arr))
     popt = gauss_fit(x,freq_sum)
@@ -73,7 +81,7 @@ def best_freq(resp_tune, para):
     return tone_charact
 
 
-def tunning(resp, para, filename='', saveplot=False):
+def tunning(resp, para, filename='', set_x_intime=False, saveplot=False, **kwargs):
     """
     Generate tunning curve.
 
@@ -94,10 +102,18 @@ def tunning(resp, para, filename='', saveplot=False):
 
     """
     
-    def on_avg(arr):
-        base = np.mean(arr[:500])
-        arr = (arr-base)*100            
-        return np.mean(arr[500:3000])
+    window = kwargs.get('window')
+    
+    if window:
+        def on_avg(arr):
+            base = np.mean(arr[:500])
+            arr = (arr-base)*100            
+            return np.mean(arr[window[0]:window[1]])       
+    else:
+        def on_avg(arr):
+            base = np.mean(arr[:500])
+            arr = (arr-base)*100            
+            return np.mean(arr[500:3000])  
     
     def off_avg(arr):
         base = np.mean(arr[:500])
@@ -110,6 +126,7 @@ def tunning(resp, para, filename='', saveplot=False):
     resp_mesh = np.reshape(resp, (len(loud),len(freq),-1))
     resp_on = np.apply_along_axis(on_avg, 2, resp_mesh)
     resp_off = np.apply_along_axis(off_avg, 2, resp_mesh)
+
     
 # =============================================================================
 #     XX,YY = np.meshgrid(freq, loud)
@@ -175,7 +192,6 @@ def tunning(resp, para, filename='', saveplot=False):
         plt.show()
         plt.close(fig)
     
-
     method = 'gaussian'
     xlabel = freq[::int((len(freq)-1)/10)]
     xlabel = [i/1000 for i in xlabel]
@@ -206,13 +222,15 @@ def tunning(resp, para, filename='', saveplot=False):
     else:
         plt.show()
         plt.close(fig)
+        
+        
+    return best_freq(resp_on, para)    
     
-    return best_freq(resp_on, para)
-
 def baseline(resp_iter):    #correct baseline
     return (resp_iter - np.mean(resp_iter[:20*25]))*100
 
 def psth(resp, filename, set_x_intime=False, saveplot=False):
+    
     resp_base = np.apply_along_axis(baseline, 1, resp)
     y = np.mean(resp_base, axis=0)
     x = np.arange(0,len(y))
@@ -225,15 +243,15 @@ def psth(resp, filename, set_x_intime=False, saveplot=False):
     [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
     ax.set_title(f'{filename}_tone-PSTH')   
     ax.set_xlim(0,10000)
-    ax.set_ylabel('membrane potential mV')
+    ax.set_ylabel('membrane potential (mV)')
 
     if set_x_intime:
         label = np.linspace(-20,380,6)
         ax.set_xticks(np.linspace(0,10000,6),label)
-        ax.set_xlabel('time ms')
+        ax.set_xlabel('time (ms)')
     else:
         ax.set_xticks([0,500,1500,3000,5000,7000,9000])
-        ax.set_xlabel('data point 2500/100ms')
+        ax.set_xlabel('data point (2500/100ms)')
         
     if saveplot:
         plt.savefig(f'{filename}_tone-PSTH.png', dpi=500, bbox_inches='tight')
@@ -242,6 +260,7 @@ def psth(resp, filename, set_x_intime=False, saveplot=False):
     else:
         plt.show()
         plt.close(fig)
+
 
 def psth_window(resp, filename, window):
     pass
