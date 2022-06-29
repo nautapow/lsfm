@@ -21,36 +21,55 @@ import math
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    tlsfm = [23,24,25,28,30,35,37,45,49,60,62,63,71,73,74,76,78,81,82]
-    bfs = [6034,24000,15213,6976,6865,5827,4914,10940,13985,5864,5864,5864,15594,15594,15594,16965,8987,17515,17515]
-
+    tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,73,74,76,78,81,82]
+    bfs = [6034,24000,15213,6976,6865,5827,4914,10940,13985,5864,5864,15594,15594,15594,16965,8987,17515,17515]
+    
     #tlsfm = [65,67,70,71,73,74,76]
     
-    df_loc = 45
-    if df_loc == 45:
+    df_loc = 78
+    if df_loc == 78:
     #for i in range(len(tlsfm)):
     #for df_loc in tlsfm:
         i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
         filename = df['filename'][df_loc]
-        version = df['Version']
+        version = df['Version'][df_loc]
         cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
         
         para = cell_data.item().get('para')
         stim = cell_data.item().get('stim')
         resp = cell_data.item().get('resp')
         slope_lags = cell_data.item().get('slope_lag')
+        resp_by_para = cell_data.item().get('resp_by_para')
         
-        lags = np.linspace(0, 100, 51)
+# =============================================================================
+#         
+#         if version == 1:
+#             p = lsfm_psth.Psth(resp, para, filename)
+#         elif version == 2:
+#             p = lsfm_psth.Psth_New(resp, para, filename)
+#         
+#         p.psth_all(plot=False, saveplot=True)
+#         resp_by_para = p.psth_para(plot=False, saveplot=True)
+#         p.psth_trend(saveplot=True)
+#         
+#         lags = np.linspace(0, 100, 51)
+#         slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=False, saveplot=False)
+#         cell_data = {'stim':stim, 'resp':resp, 'para':para, 'resp_by_para':resp_by_para, 'slope_lags':slope_lags}
+#         np.save(f'{filename}_data.npy', cell_data)
+# =============================================================================
         
-        resp_at_freq = lsfm.resp_freq(stim, resp, para, lags, bfs[i])
-        best_lag = lsfm.at_freq_lag(resp_at_freq)
+
+# =============================================================================
+#         resp_at_freq = lsfm.resp_freq(stim, resp, para, lags, bfs[i])
+#         best_lag = lsfm.at_freq_lag(resp_at_freq, filename=filename, plot=False, saveplot=True)
+# =============================================================================
 # =============================================================================
 #         slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=False, saveplot=True)
 #         
 #         if df['Version'][df_loc] == 1:
-#             slope_range = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(1250,10000), filename=filename, plot=False, saveplot=True)
+#             slope_lags_window = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(1250,10000), filename=filename, plot=False, saveplot=True)
 #         elif df['Version'][df_loc] == 2:
-#             slope_range = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(1250,10000), filename=filename, plot=False, saveplot=True)
+#             slope_lags_window = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(1250,10000), filename=filename, plot=False, saveplot=True)
 #         
 #         txt = filename+'_slope'
 #         lsfm_slope.plot_slope_index(*lsfm_slope.slope_index(slope_lags, bfs[i]), txt, saveplot=True)
@@ -88,21 +107,10 @@ if  __name__ == "__main__":
 #             
 #         lags = np.linspace(0, 50, 11)
 #         slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, window=(2000,10000), filename=filename, plot=True, saveplot=False)        
-#         
-#         
-#         cell_data = {'stim':stim, 'resp':resp, 'para':para, 'slope_lags':slope_lags}
-#         #np.save(f'{filename}_data.npy', cell_data)
 # =============================================================================
-
-                
-                
-
         
-# =============================================================================
-#         p.psth_all(saveplot=True)        
-#         _ = p.psth_para(plot=True, saveplot=True)
-#         p.psth_trend(saveplot=True)
-# =============================================================================
+        
+                
         
 # =============================================================================
 #         #p.psth_window((27500,30000), 'offset', tuning=None, saveplot=True, savenotes=True)
