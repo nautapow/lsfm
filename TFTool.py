@@ -250,6 +250,7 @@ def bootstrap(data, np_method, times):
 def list_comb(arr1, arr2):
     from itertools import zip_longest
     arr = list(zip_longest(arr1, arr2, fillvalue=np.nan))
+    arr = [(a, *rest) for a, rest in arr]
 
     return arr
     
