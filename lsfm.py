@@ -495,7 +495,7 @@ class RespAtFreq():
 
 
 def resp_freq(stim, resp, para, lags, best_freq):
-    idx=[i for i, a in enumerate(para) if a[2] not in [0.0,64.0,128.0]]
+    idx=[i for i, a in enumerate(para) if a[2] not in [0.0,16.0,64.0,128.0]]
     fs=25000
     lag_points = [int(n*(fs/1000)) for n in lags]
     resp_at_freq = []
@@ -522,7 +522,7 @@ def resp_freq(stim, resp, para, lags, best_freq):
     return resp_at_freq
         
 
-def at_freq_lag(resp_at_freq):
+def at_freq_lag(resp_at_freq, filename='', plot=True, saveplot=False):
     """
     plot instant response at each lag time after stimulus cross best frequency
 
@@ -546,15 +546,34 @@ def at_freq_lag(resp_at_freq):
         resp_lag = resp_at_freq[n]['resp_lag']
         
         for i in range(len(slope)):
+            """iter through all crossing within a stimulus"""
+            
             all_resp_lag.append(resp_lag[i])
             
     a_mean = np.mean(all_resp_lag, axis=0)
-    a_std = np.std(all_resp_lag, axis=0)
+    a_std = stats.sem(all_resp_lag, axis=0)
+    best_lag = np.argmax(a_mean)
     
     x = range(len(a_mean))
-    plt.plot(x, a_mean)
-    plt.fill_between(x, a_mean+a_std, a_mean-a_std, color='orange', alpha=0.5)
-    best_lag = np.argmax(a_mean)
+    fig, ax = plt.subplots()
+    ax.plot(x, a_mean)
+    ax.fill_between(x, a_mean+a_std, a_mean-a_std, color='orange', alpha=0.5)
+    ax.set_title(f'{filename}_best_lag:{best_lag*2}ms')
+    ax.set_xlim(0,50)
+    ax.set_xticks([0,10,20,30,40,50])
+    ax.set_xticklabels([0,20,40,60,80,100])
+    ax.set_xlabel('lag ms')
+    ax.set_ylabel('average response at lag mV')
+    
+    if saveplot:
+        plt.savefig(f'{filename}_at_best_freq_lag.png', dpi=500, bbox_inches='tight')
+        if plot:
+            plt.show()
+        plt.clf()
+        plt.close(fig)
+    if plot:
+        plt.show()
+        plt.close(fig)
     
     return best_lag
     
@@ -574,7 +593,7 @@ def at_freq_ncross(resp_at_freq, best_lag):
         
     ncross_comb=[]
     for n in ncross_stim:
-        ncross_comb = TFTool.list_comb(ncross_comb, n)
+        ncross_comb = TFTool.list_comb(n, ncross_comb,)
     ncross_comb = list(ncross_comb)
     
     ncross_avg = np.nanmean(ncross_comb, axis=1)
