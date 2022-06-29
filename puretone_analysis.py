@@ -22,12 +22,12 @@ if  __name__ == "__main__":
     df['best_frequency'] = np.nan
     df['bandwidth'] = np.nan
     
-    df_loc = 61
-    if df_loc == 61:
+    df_loc = 34
+    if df_loc == 34:
     #for df_loc in idx_tone:
         
         fdir = df['path'][df_loc]
-        filename = df['date'][df_loc]+'_'+df['#'][df_loc]
+        filename = df['filename'][df_loc]
         version = df['Version'][df_loc]
         if version == 1:
             t = Tdms_V1()
@@ -44,7 +44,8 @@ if  __name__ == "__main__":
         
 
         
-        bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
+        bf = puretone.tunning(resp, para, filename=filename, set_x_intime=False, saveplot=False)
+        puretone.psth(resp, filename, set_x_intime=False, saveplot=False)
         #df_copy = df.copy()
         #df_copy['best_frequency'].iloc[df_loc] = bf
         #df.iloc[df_loc, df.columns.get_loc('best_frequency')] = bf['best_frequency']
