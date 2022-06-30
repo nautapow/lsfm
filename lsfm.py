@@ -633,3 +633,156 @@ def at_freq_ncross(resp_at_freq, best_lag):
 #         else:
 #             plt.show()       
 # =============================================================================
+
+def resp_overcell(df, cell_idx):
+    cell_note = pd.read_csv('cell_note_all.csv')
+    bd_overcell=[[],[],[],[],[],[],[]]
+    cf_overcell=[[],[],[],[],[],[],[],[],[],[]]
+    mod_overcell=[[],[],[],[],[],[]]
+     
+    
+    for df_loc in cell_idx:
+        i = int([i for i,a in enumerate(cell_idx) if a == df_loc][0])
+        filename = df['filename'][df_loc]
+        version = df['Version'][df_loc]
+        cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
+    
+        para = cell_data.item().get('para')    
+        resp_by_para = cell_data.item().get('resp_by_para')
+
+        resp_bd = resp_by_para['bandwidth']
+        resp_cf = resp_by_para['centerfreq']
+        resp_mod = resp_by_para['modrate']
+        
+        cf,band,modrate,_=zip(*para)
+        band = sorted(set(band))
+        cf = sorted(set(cf))
+        modrate = sorted(set(modrate))
+        band.remove(0.0)
+        modrate.remove(0.0)
+        
+        i = cell_note.index[cell_note['filename']==filename][0]
+        windows = cell_note['window'].loc[i].split(', ')
+        
+        """0: onset, 1:sustain, 2:offset"""
+        window = eval(windows[0])   
+        
+        '''bandwidth'''
+        for idx,res in enumerate(resp_bd):
+            res = np.array(res)
+            
+            def res_crop(arr, window):
+                return arr[window[0]:window[1]]
+            
+            res = np.apply_along_axis(res_crop, 1, res, window)
+            res_mean = np.mean(res)
+            
+            if version==2:
+                idx_reduce = idx
+                if idx_reduce > 1:
+                    idx_reduce+=1
+                
+                bd_overcell[idx_reduce].append(res_mean)
+            else:    
+                bd_overcell[idx].append(res_mean)
+        
+        '''center frequency'''
+        for idx,res in enumerate(resp_cf):
+            res = np.array(res)
+            
+            def res_crop(arr, window):
+                return arr[window[0]:window[1]]
+            
+            res = np.apply_along_axis(res_crop, 1, res, window)
+            res_mean = np.mean(res)
+
+            cf_overcell[idx].append(res_mean)
+    
+    
+        '''mod rate'''
+        for idx,res in enumerate(resp_mod):
+            res = np.array(res)
+            
+            def res_crop(arr, window):
+                return arr[window[0]:window[1]]
+            
+            res = np.apply_along_axis(res_crop, 1, res, window)
+            res_mean = np.mean(res)
+            
+            if version==2:
+                idx_reduce = idx+1                
+                mod_overcell[idx_reduce].append(res_mean)
+            else:    
+                mod_overcell[idx].append(res_mean)
+    
+    
+    mean = [np.mean(res) for res in bd_overcell]
+    std = [stats.sem(res) for res in bd_overcell]
+    x = np.arange(0,len(mean))
+    
+    fig, ax = plt.subplots()
+    ax.errorbar(x,mean,std, capsize=5)
+    ax.set_title('band width')
+    ax.set_xticks(np.arange(0,len(x)))
+    ax.set_xticklabels([0.04167, 0.08333, 0.16667, 0.33333, 1.5, 3.0, 7.0])
+    plt.show()
+    plt.clf()
+    plt.close(fig)
+    
+    mean = [np.mean(res) for res in cf_overcell]
+    std = [stats.sem(res) for res in cf_overcell]
+    x = np.arange(0,len(mean))
+    
+    fig, ax = plt.subplots()
+    ax.errorbar(x,mean,std, capsize=5)
+    ax.set_title('center frequency')
+    ax.set_xticks(np.arange(0,len(x)))
+    ax.set_xticklabels([3.0, 4.24, 6.0, 8.48, 12.0, 16.97, 24.0, 33.94, 48.0, 67.88])
+    plt.show()
+    plt.clf()
+    plt.close(fig)
+    
+    mean = [np.mean(res) for res in mod_overcell]
+    std = [stats.sem(res) for res in mod_overcell]
+    x = np.arange(0,len(mean))
+    
+    fig, ax = plt.subplots()
+    ax.errorbar(x,mean,std, capsize=5)
+    ax.set_title('mod rate')
+    ax.set_xticks(np.arange(0,len(x)))
+    ax.set_xticklabels([1.0, 2.0, 8.0, 16.0, 64.0, 128.0])
+    plt.show()
+    plt.clf()
+    plt.close(fig)
+    
+def stim_resp(i, stim, resp, para, filename):
+    fig, ax1 = plt.subplots()
+    ax1.plot()
+    
+    inst_freq = lsfm_slope.get_instfreq(stim)
+    y1 = lsfm_slope.transient_remove(signal.resample(inst_freq, int(len(inst_freq)/8)))
+    x = range(0,len(y1))
+    ax1.plot(x,y1, color='red', alpha=0.7)
+    ax1.set_title(f'{filename}_#{i}_{para}')
+    ax1.set_ylabel('frequency (Hz)')
+    ax1.set_xlim(0,len(x))
+    
+    if len(resp) < 45000:
+        ax1.set_xticks(np.linspace(0,len(x),15))
+        ax1.set_xticklabels(np.arange(0,15,1)/10, rotation=45)
+    else:
+        ax1.set_xticks(np.linspace(0,len(x),10))
+        ax1.set_xticklabels(np.arange(0,20,2)/10, rotation=45)
+    ax1.set_xlabel('time (sec)')
+    
+    
+    ax2 = ax1.twinx()
+    y2 = TFTool.butter(resp, 3, 2000, 'lowpass', 25000)
+    y2 = lsfm_slope.baseline(y2)
+    ax2.plot(x,y2, color='k')
+    ax2.set_ylabel('membrane potential (mV)')
+    
+    plt.show()
+    plt.clf()
+    plt.close(fig)
+    
