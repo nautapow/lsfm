@@ -22,9 +22,8 @@ if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
     tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,73,74,76,78,81,82]
-    bfs = [6034,24000,15213,6976,6865,5827,4914,10940,13985,5864,5864,15594,15594,15594,16965,8987,17515,17515]
-    
-    #tlsfm = [65,67,70,71,73,74,76]
+
+    #lsfm.resp_overcell(df, tlsfm)
     
     df_loc = 78
     if df_loc == 78:
@@ -39,8 +38,11 @@ if  __name__ == "__main__":
         stim = cell_data.item().get('stim')
         resp = cell_data.item().get('resp')
         slope_lags = cell_data.item().get('slope_lag')
-        resp_by_para = cell_data.item().get('resp_by_para')
         
+        for i,p in enumerate(para):
+            lsfm.stim_resp(i, stim[i], resp[i], p[:3], filename)
+        
+            
 # =============================================================================
 #         
 #         if version == 1:
