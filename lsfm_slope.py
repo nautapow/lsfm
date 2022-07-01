@@ -341,10 +341,10 @@ def slope_index(slope_lags, best_freq):
         boot_std_bf.append(res[1])
         boot_std_bf_std.append(res[2])
         
-    diction = {'mean':boot_mean, 'mean_std':boot_mean_std, 'std':boot_std, 'std_std':boot_std_std}
-    bf_diction = {'mean':boot_mean_bf, 'mean_std':boot_mean_bf_std, 'std':boot_std_bf, 'std_std':boot_std_bf_std}
+    slope = {'mean':boot_mean, 'mean_std':boot_mean_std, 'std':boot_std, 'std_std':boot_std_std}
+    slope_bf = {'mean':boot_mean_bf, 'mean_std':boot_mean_bf_std, 'std':boot_std_bf, 'std_std':boot_std_bf_std}
         
-    return diction, bf_diction
+    return slope, slope_bf
 
 
 def plot_slope_index(m, m_bf, filename, saveplot=False):
@@ -381,11 +381,61 @@ def plot_slope_index(m, m_bf, filename, saveplot=False):
     
     if saveplot:
         plt.savefig(f'{filename}_index.png', dpi=500, bbox_inches='tight')
+        plt.show()
+        plt.clf()
         plt.close(fig)
     else:
         plt.show()
+        plt.clf()
         plt.close(fig)
 
+
+def plot_both_index(m, m_bf, d, d_bf, filename, saveplot=False):
+    x1 = np.arange(0,len(m['mean']))
+    y1 = m['std']
+    err1 = np.array(m['std_std'])
+    y1_bf = m_bf['std']
+    err1_bf = np.array(m_bf['std_std'])
+    
+    x2 = np.arange(0,len(d['mean']))
+    y2 = d['std']
+    err2 = np.array(d['std_std'])
+    y2_bf = d_bf['std']
+    err2_bf = np.array(d_bf['std_std'])
+    
+    fig = plt.figure()
+    grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[1,1])
+    ax1 = fig.add_subplot(grid[0])
+    ax1.plot(x1,y1, c='red', linewidth=3, label='All')
+    ax1.fill_between(x1, y1+err1, y1-err1, color='red', alpha=0.3)
+    ax1.plot(x1,y1_bf, c='orange', linewidth=3, label='Bf')
+    ax1.fill_between(x1, y1_bf+err1_bf, y1_bf-err1_bf, color='orange', alpha=0.3)
+    ax1.legend(loc='upper right')    
+    ax1.set_title(f'{filename}_SD-slope')
+    ax1.set_xticks([0,10,20,30,40,50])
+    ax1.set_xticklabels([0,20,40,60,80,100])
+    ax1.set_xlim(0,50)
+    ax1.set_xlabel('lag ms')
+    
+    
+    ax2 = fig.add_subplot(grid[1], sharex=ax1)
+    ax2.plot(x2,y2, c='red', linewidth=3, label='All')
+    ax2.fill_between(x2, y2+err2, y2-err2, color='red', alpha=0.3)
+    ax2.plot(x2,y2_bf, c='orange', linewidth=3, label='Bf')
+    ax2.fill_between(x2, y2_bf+err2_bf, y2_bf-err2_bf, color='orange', alpha=0.3)
+    ax2.legend(loc='upper right')
+    ax1.set_title(f'{filename}_SD-direction')
+# =============================================================================
+#     ax1.set_xticks([0,10,20,30,40,50])
+#     ax1.set_xticklabels([0,20,40,60,80,100])
+#     ax1.set_xlim(0,50)
+#     ax1.set_xlabel('lag ms')
+# =============================================================================
+    
+    plt.show()
+    plt.clf()
+    plt.close(fig)
+    
 
 def direction_map(slope_lags):       
     direction_lags = []
@@ -432,10 +482,10 @@ def direction_index(direction_lags, best_freq):
         boot_std_bf.append(res[1])
         boot_std_bf_std.append(res[2])
         
-    diction = {'mean':boot_mean, 'mean_std':boot_mean_std, 'std':boot_std, 'std_std':boot_std_std}
-    bf_diction = {'mean':boot_mean_bf, 'mean_std':boot_mean_bf_std, 'std':boot_std_bf, 'std_std':boot_std_bf_std}
+    direct = {'mean':boot_mean, 'mean_std':boot_mean_std, 'std':boot_std, 'std_std':boot_std_std}
+    direct_bf = {'mean':boot_mean_bf, 'mean_std':boot_mean_bf_std, 'std':boot_std_bf, 'std_std':boot_std_bf_std}
         
-    return diction, bf_diction
+    return direct, direct_bf
 
 
   
