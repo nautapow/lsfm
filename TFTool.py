@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 from pathlib import Path
 from scipy import signal
+from scipy import stats
 import scipy.io
 import pandas as pd
 
@@ -242,7 +243,8 @@ def bootstrap(data, np_method, times):
         sample = np.random.choice(data, size=len(data), replace=True)
         res.append(np_method(sample))
     boot_mean = np.mean(res)
-    boot_std = np.std(res)    
+    boot_std = stats.sem(res)
+    #boot_std = np.std(res)    
     
     return res, boot_mean, boot_std
 
