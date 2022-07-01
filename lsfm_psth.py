@@ -11,7 +11,7 @@ class Psth_New():
         #exclude carrier less than 3kHz and puretone
         p_t, r_t = [],[]
         for i,p in enumerate(para):
-            if p[0] < 3.0:
+            if p[0] <= 3.0:
                 pass
             elif p[2] == 0.0:
                 pass
@@ -27,7 +27,7 @@ class Psth_New():
         self.cf_label = sorted(set(_para[0][:]))
         self.bw_label = sorted(set(_para[1][:]))
         self.features = pd.DataFrame()
-        
+
     """reutrn *100 to switch from LabView volt to real mV scale"""
     def baseline(resp_iter):    #correct baseline
         return (resp_iter - np.mean(resp_iter[:50*25]))*100
@@ -153,7 +153,6 @@ class Psth_New():
             'modrate', 'centerfreq', 'bandwidth'.
 
         """
-        
         
         resp = np.array(self.resp)
         _para = np.swapaxes(np.array(self.para),0,1)
@@ -543,7 +542,7 @@ class Psth():
         #exclude carrier less than 3kHz and puretone
         p_t, r_t = [],[]
         for i,p in enumerate(para):
-            if p[0] < 3.0:
+            if p[0] <= 3.0:
                 pass
             elif p[2] == 0.0:
                 pass
