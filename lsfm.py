@@ -635,13 +635,12 @@ def at_freq_ncross(resp_at_freq, best_lag):
 #             plt.show()       
 # =============================================================================
 
-def resp_overcell(df, cell_idx):
+def resp_overcell(df, cell_idx, saveplot=False):
     '''average response with same parameter, e.g. bandwidth through all cells'''
     cell_note = pd.read_csv('cell_note_all.csv')
     bd_overcell=[[],[],[],[],[],[],[]]
-    cf_overcell=[[],[],[],[],[],[],[],[],[],[]]
+    cf_overcell=[[],[],[],[],[],[],[],[],[]]
     mod_overcell=[[],[],[],[],[],[]]
-     
     
     for df_loc in cell_idx:
         i = int([i for i,a in enumerate(cell_idx) if a == df_loc][0])
@@ -688,6 +687,7 @@ def resp_overcell(df, cell_idx):
             else:    
                 bd_overcell[idx].append(res_mean)
         
+        
         '''center frequency'''
         for idx,res in enumerate(resp_cf):
             res = np.array(res)
@@ -698,7 +698,11 @@ def resp_overcell(df, cell_idx):
             res = np.apply_along_axis(res_crop, 1, res, window)
             res_mean = np.mean(res)
 
-            cf_overcell[idx].append(res_mean)
+            if version==1 and idx == 0:
+                pass
+            else:
+                idx = idx-1   
+                cf_overcell[idx].append(res_mean)
     
     
         '''mod rate'''
@@ -717,54 +721,61 @@ def resp_overcell(df, cell_idx):
             else:    
                 mod_overcell[idx].append(res_mean)
     
+    if saveplot:
+        mean = [np.mean(res) for res in bd_overcell]
+        std = [stats.sem(res) for res in bd_overcell]
+        x = np.arange(0,len(mean))
+        
+        fig, ax = plt.subplots()
+        ax.errorbar(x,mean,std, capsize=5)
+        ax.set_xlabel('band width (octave)')
+        ax.set_ylabel('membrane potential (mV)')
+        ax.set_title('offset')
+        ax.set_xticks(np.arange(0,len(x)))
+        ax.set_xticklabels([0.04167, 0.08333, 0.16667, 0.33333, 1.5, 3.0, 7.0])
+        plt.savefig('bandwidth_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.show()
+        plt.clf()
+        plt.close(fig)
+        
+        mean = [np.mean(res) for res in cf_overcell]
+        std = [stats.sem(res) for res in cf_overcell]
+        x = np.arange(0,len(mean))
+        
+        fig, ax = plt.subplots()
+        ax.errorbar(x,mean,std, capsize=5)
+        ax.set_xlabel('center frequency (kHz)')
+        ax.set_ylabel('membrane potential (mV)')
+        ax.set_title('offset')
+        ax.set_xticks(np.arange(0,len(x)))
+        ax.set_xticklabels([4.24, 6.0, 8.48, 12.0, 16.97, 24.0, 33.94, 48.0, 67.88])
+        plt.savefig('centerfreq_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.show()
+        plt.clf()
+        plt.close(fig)
+        
+        mean = [np.mean(res) for res in mod_overcell]
+        std = [stats.sem(res) for res in mod_overcell]
+        x = np.arange(0,len(mean))
+        
+        fig, ax = plt.subplots()
+        ax.errorbar(x,mean,std, capsize=5)
+        ax.set_xlabel('mod rate (Hz)')
+        ax.set_ylabel('membrane potential (mV)')
+        ax.set_title('offset')
+        ax.set_xticks(np.arange(0,len(x)))
+        ax.set_xticklabels([1.0, 2.0, 8.0, 16.0, 64.0, 128.0])
+        plt.savefig('modrate_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.show()
+        plt.clf()
+        plt.close(fig)
     
-    mean = [np.mean(res) for res in bd_overcell]
-    std = [stats.sem(res) for res in bd_overcell]
-    x = np.arange(0,len(mean))
-    
-    fig, ax = plt.subplots()
-    ax.errorbar(x,mean,std, capsize=5)
-    ax.set_xlabel('band width (octave)')
-    ax.set_ylabel('membrane potential (mV)')
-    ax.set_title('offset')
-    ax.set_xticks(np.arange(0,len(x)))
-    ax.set_xticklabels([0.04167, 0.08333, 0.16667, 0.33333, 1.5, 3.0, 7.0])
-    plt.savefig('bandwidth_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
-    plt.show()
-    plt.clf()
-    plt.close(fig)
-    
-    mean = [np.mean(res) for res in cf_overcell]
-    std = [stats.sem(res) for res in cf_overcell]
-    x = np.arange(0,len(mean))
-    
-    fig, ax = plt.subplots()
-    ax.errorbar(x,mean,std, capsize=5)
-    ax.set_xlabel('center frequency (kHz)')
-    ax.set_ylabel('membrane potential (mV)')
-    ax.set_title('offset')
-    ax.set_xticks(np.arange(0,len(x)))
-    ax.set_xticklabels([3.0, 4.24, 6.0, 8.48, 12.0, 16.97, 24.0, 33.94, 48.0, 67.88])
-    plt.savefig('centerfreq_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
-    plt.show()
-    plt.clf()
-    plt.close(fig)
-    
-    mean = [np.mean(res) for res in mod_overcell]
-    std = [stats.sem(res) for res in mod_overcell]
-    x = np.arange(0,len(mean))
-    
-    fig, ax = plt.subplots()
-    ax.errorbar(x,mean,std, capsize=5)
-    ax.set_xlabel('mod rate (Hz)')
-    ax.set_ylabel('membrane potential (mV)')
-    ax.set_title('offset')
-    ax.set_xticks(np.arange(0,len(x)))
-    ax.set_xticklabels([1.0, 2.0, 8.0, 16.0, 64.0, 128.0])
-    plt.savefig('modrate_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
-    plt.show()
-    plt.clf()
-    plt.close(fig)
+    bd = pd.DataFrame(bd_overcell)
+    cf = pd.DataFrame(cf_overcell)
+    mod = pd.DataFrame(mod_overcell)
+    bd.to_csv('bd_offset.csv', index=False)
+    cf.to_csv('cf_offset.csv', index=False)
+    mod.to_csv('mod_offset.csv', index=False)
     
 def stim_resp(i, stim, resp, para, filename, saveplot=False):
     fig, ax1 = plt.subplots()
