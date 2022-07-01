@@ -85,6 +85,13 @@ def transient_remove(arr):
     
     return arr   
 
+def remove_none_stim(arr):
+    if (len(arr)>37500):
+        arr = [a if i < 38750 else np.nan for i,a in enumerate(arr)]
+    else:
+        arr = [a if i < 26250 else np.nan for i,a in enumerate(arr)]
+
+
 def get_instfreq(stim):
     fs = 200000
     """cwt decimation rate is 800 to 250Hz"""
