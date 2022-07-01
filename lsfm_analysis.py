@@ -23,24 +23,31 @@ if  __name__ == "__main__":
     idx_lsfm = df.index[df['type']=='Log sFM']
     tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,73,74,76,78,81,82]
 
-    #lsfm.resp_overcell(df, tlsfm)
+    lsfm.resp_overcell(df, tlsfm)
     
-    df_loc = 78
-    if df_loc == 78:
-    #for i in range(len(tlsfm)):
-    #for df_loc in tlsfm:
-        i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
-        filename = df['filename'][df_loc]
-        version = df['Version'][df_loc]
-        cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
+# =============================================================================
+#     #df_loc = 35
+#     #if df_loc == 35:
+#     #for i in range(len(tlsfm)):
+#     for df_loc in tlsfm:
+#         i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
+#         filename = df['filename'][df_loc]
+#         version = df['Version'][df_loc]
+#         cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
+#         
+#         para = cell_data.item().get('para')
+#         stim = cell_data.item().get('stim')
+#         resp = cell_data.item().get('resp')
+#         slope_lags = cell_data.item().get('slope_lag')
+# =============================================================================
         
-        para = cell_data.item().get('para')
-        stim = cell_data.item().get('stim')
-        resp = cell_data.item().get('resp')
-        slope_lags = cell_data.item().get('slope_lag')
+
         
-        for i,p in enumerate(para):
-            lsfm.stim_resp(i, stim[i], resp[i], p[:3], filename)
+# =============================================================================
+#         for i,p in enumerate(para):
+#             if i == 328:
+#                 lsfm.stim_resp(i, stim[i], resp[i], p[:3], filename, saveplot=True)
+# =============================================================================
         
             
 # =============================================================================
