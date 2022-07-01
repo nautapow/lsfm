@@ -14,6 +14,7 @@ import mne
 import math
 from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
+import lsfm_slope
 
 def best_freq(resp_tune, para):
     """
@@ -36,8 +37,6 @@ def best_freq(resp_tune, para):
     
     def sum_above0(arr):
         return sum(i for i in arr if i > 0)
-    
-    freq_sum = np.apply_along_axis(sum_above0, 0, resp_tune)
     
     def gauss(x, H, A, x0, sigma):
         return H + A * np.exp(-(x - x0) ** 2 / (2 * sigma ** 2))
@@ -68,6 +67,7 @@ def best_freq(resp_tune, para):
         popt, pcov = curve_fit(gauss, x, y, p0=[min(y), max(y), mean, sigma])
         return popt
     
+    freq_sum = np.apply_along_axis(sum_above0, 0, resp_tune)
     _, freq, _ = zip(*para)
     freq = sorted(set(freq))
     x = [math.log(f, 2) for f in freq]
@@ -76,12 +76,12 @@ def best_freq(resp_tune, para):
     peak = popt[0]+popt[1]
     bf = 2**popt[2]
     band = abs(2.355*popt[3])
-    tone_charact = {'best_frequency': bf, 'bandwidth': band, 'Fit': popt}
+    tone_charact = {'best_frequency': bf, 'bandwidth': band, 'fit': popt, 'resp_sum': freq_sum}
     
     return tone_charact
 
 
-def tunning(resp, para, filename='', set_x_intime=False, saveplot=False, **kwargs):
+def tunning(resp, para, filename='', saveplot=False, **kwargs):
     """
     Generate tunning curve.
 
@@ -159,6 +159,11 @@ def tunning(resp, para, filename='', set_x_intime=False, saveplot=False, **kwarg
 #     else:
 #         plt.show() 
 # =============================================================================
+    bf = best_freq(resp_on, para)
+    freq_sum = bf['resp_sum']
+    fit = bf['fit']
+    x = [math.log(f, 2) for f in freq]
+    y = fit[0] + fit[1] * np.exp(-(x - fit[2]) ** 2 / (2 * fit[3] ** 2))
     
     
     method = 'gaussian'
@@ -170,7 +175,10 @@ def tunning(resp, para, filename='', set_x_intime=False, saveplot=False, **kwarg
     xtick = np.arange(0.5,Nx-0.4,1)
     ytick = np.arange(0.5,Ny-0.4,1)
     
-    fig, ax1 = plt.subplots()
+    fig = plt.figure()
+    grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
+    
+    ax1 = fig.add_subplot(grid[0])
     im = plt.imshow(resp_on, interpolation=method, origin='lower', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
     ax1.add_image(im)
     ax1.set_xticks(xtick)
@@ -179,13 +187,25 @@ def tunning(resp, para, filename='', set_x_intime=False, saveplot=False, **kwarg
     ax1.set_yticklabels(ylabel)
     ax1.set_title(f'{filename}_onset')
     ax1.set_xlabel('Frequency kHz')
-    ax1.set_ylabel('dB SPL')
+    ax1.set_ylabel('dB SPL')    
+    
+    ax2 = fig.add_subplot(grid[1])
+
+    ax2.plot(x,freq_sum)
+    ax2.plot(x,y)
+    label = [f/1000 for f in freq]
+    ax2.set_xticks(x[::5])
+    ax2.set_xticklabels(label[::5], rotation=45)
+    ax2.axes.get_yaxis().set_visible(False)
+    pos = [ax1.get_position().x0, ax2.get_position().y0, ax1.get_position().width, ax2.get_position().height]
+    ax2.set_position(pos)
     
     cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
     cbar = plt.colorbar(im, cax=cax)
     cbar.ax.set_ylabel('mV')
+        
     if saveplot:
-        plt.savefig(f'{filename}_on.png', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_on.pdf', dpi=500, format='pdf', bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:
@@ -216,7 +236,7 @@ def tunning(resp, para, filename='', set_x_intime=False, saveplot=False, **kwarg
     cbar = plt.colorbar(im, cax=cax)
     cbar.ax.set_ylabel('mV')
     if saveplot:
-        plt.savefig(f'{filename}_off.png', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_off.pdf', dpi=500, format='pdf', bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:
@@ -254,7 +274,7 @@ def psth(resp, filename, set_x_intime=False, saveplot=False):
         ax.set_xlabel('data point (2500/100ms)')
         
     if saveplot:
-        plt.savefig(f'{filename}_tone-PSTH.png', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_tone-PSTH.pdf', dpi=500, format='pdf', bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:
@@ -435,7 +455,47 @@ def sound4strf(para, resp, sound):
     _n = max(_n)
 """
 
+def tone_inst_freq(stim):
+    fs=200000    
+    hil = signal.hilbert(stim)
+    phase = np.unwrap(np.angle(hil))
+    return np.diff(phase, prepend=0) / (2*np.pi) * fs
 
+def clear_out_range(arr):
+    arr[3000:] = [0]*len(arr[3000:])
+    arr[:500] = [0]*len(arr[:500])
+    std = np.std(arr[800:2750])
+    arr = [0 if a > max(arr[800:2750])+std else a for a in arr]
+    arr = [0 if a < min(arr[800:2750])-std else a for a in arr]
+      
+    return arr
+
+def tone_stim_resp(i, stim, resp, para, filename):
+    fig, ax1 = plt.subplots()
+    ax1.plot()
+    
+    inst_freq = tone_inst_freq(stim)
+    y1 = clear_out_range(signal.resample(inst_freq, int(len(inst_freq)/8)))
+    x = range(0,len(y1))
+    ax1.plot(x,y1, color='red', alpha=0.7)
+    ax1.set_title(f'{filename}_#{i}_{para}')
+    ax1.set_ylabel('frequency (Hz)')
+    ax1.set_xlim(0,len(x))
+    
+    ax1.set_xticks(np.linspace(0,len(x),9))
+    ax1.set_xticklabels(np.linspace(0,400,9), rotation=45)
+    ax1.set_xlabel('time (ms)')
+    
+    
+    ax2 = ax1.twinx()
+    y2 = TFTool.butter(resp, 3, 2000, 'lowpass', 25000)
+    y2 = lsfm_slope.baseline(y2)
+    ax2.plot(x,y2, color='k')
+    ax2.set_ylabel('membrane potential (mV)')
+    
+    plt.show()
+    plt.clf()
+    plt.close(fig)
     
 # =============================================================================
 #     resp_80, sound_80 = sound4strf(para, resp, sound)
