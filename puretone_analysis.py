@@ -18,34 +18,54 @@ import math
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_puretone = df.index[df['type']=='Pure Tones']
-    idx_tone = [26,29,31,34,36,44,48,50,61,72,75,77,80]
+    idx_tone = [26,29,31,34,36,44,48,61,72,75,77,80]
     df['best_frequency'] = np.nan
     df['bandwidth'] = np.nan
     
-    df_loc = 34
-    if df_loc == 34:
-    #for df_loc in idx_tone:
-        
-        fdir = df['path'][df_loc]
+    #df_loc = 34
+    #if df_loc == 34:
+    for df_loc in idx_tone:
+        i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
         version = df['Version'][df_loc]
-        if version == 1:
-            t = Tdms_V1()
-            t.loadtdms(fdir, protocol=1, load_sound=False, precise_timing=True)
-        if version == 2:
-            t = Tdms_V2()
-            t.loadtdms(fdir, protocol=1, load_sound=False)
-            
-
-        para = t.Para
-        resp = np.array(t.Rdpk)
-        #sound = t.rawS
-        stim = t.Sound
+        cell_data = np.load(f'{filename}_tone_data.npy', allow_pickle=True)
         
-
+        para = cell_data.item().get('para')
+        stim = cell_data.item().get('stim')
+        resp = cell_data.item().get('resp')
         
-        bf = puretone.tunning(resp, para, filename=filename, set_x_intime=False, saveplot=False)
-        puretone.psth(resp, filename, set_x_intime=False, saveplot=False)
+# =============================================================================
+#         for i,p in enumerate(para):
+#             puretone.tone_stim_resp(i, stim[i], resp[i], p[:2], filename)
+# =============================================================================
+        
+        bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
+        #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
+        
+# =============================================================================
+#         
+#         fdir = df['path'][df_loc]
+#         filename = df['filename'][df_loc]
+#         version = df['Version'][df_loc]
+#         if version == 1:
+#             t = Tdms_V1()
+#             t.loadtdms(fdir, protocol=1, load_sound=True, precise_timing=True)
+#         if version == 2:
+#             t = Tdms_V2()
+#             t.loadtdms(fdir, protocol=1, load_sound=True)
+#             
+# 
+#         para = t.Para
+#         resp = np.array(t.Rdpk)
+#         stim = t.Sound
+#         
+#         cell_data = {'stim':stim, 'resp':resp, 'para':para}
+#         np.save(f'{filename}_tone_data.npy', cell_data)
+# =============================================================================
+        
+        
+        #bf = puretone.tunning(resp, para, filename=filename, set_x_intime=False, saveplot=False)
+        #puretone.psth(resp, filename, set_x_intime=False, saveplot=False)
         #df_copy = df.copy()
         #df_copy['best_frequency'].iloc[df_loc] = bf
         #df.iloc[df_loc, df.columns.get_loc('best_frequency')] = bf['best_frequency']
