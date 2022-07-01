@@ -547,6 +547,7 @@ def at_freq_lag(resp_at_freq, filename='', plot=True, saveplot=False):
         
         for i in range(len(slope)):
             """iter through all crossing within a stimulus"""
+            """restrain i if only want to get certain cross e.g. first crossing i==0"""
             
             all_resp_lag.append(resp_lag[i])
             
@@ -635,6 +636,7 @@ def at_freq_ncross(resp_at_freq, best_lag):
 # =============================================================================
 
 def resp_overcell(df, cell_idx):
+    '''average response with same parameter, e.g. bandwidth through all cells'''
     cell_note = pd.read_csv('cell_note_all.csv')
     bd_overcell=[[],[],[],[],[],[],[]]
     cf_overcell=[[],[],[],[],[],[],[],[],[],[]]
@@ -665,7 +667,7 @@ def resp_overcell(df, cell_idx):
         windows = cell_note['window'].loc[i].split(', ')
         
         """0: onset, 1:sustain, 2:offset"""
-        window = eval(windows[0])   
+        window = eval(windows[2])   
         
         '''bandwidth'''
         for idx,res in enumerate(resp_bd):
@@ -722,9 +724,12 @@ def resp_overcell(df, cell_idx):
     
     fig, ax = plt.subplots()
     ax.errorbar(x,mean,std, capsize=5)
-    ax.set_title('band width')
+    ax.set_xlabel('band width (octave)')
+    ax.set_ylabel('membrane potential (mV)')
+    ax.set_title('offset')
     ax.set_xticks(np.arange(0,len(x)))
     ax.set_xticklabels([0.04167, 0.08333, 0.16667, 0.33333, 1.5, 3.0, 7.0])
+    plt.savefig('bandwidth_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
     plt.show()
     plt.clf()
     plt.close(fig)
@@ -735,9 +740,12 @@ def resp_overcell(df, cell_idx):
     
     fig, ax = plt.subplots()
     ax.errorbar(x,mean,std, capsize=5)
-    ax.set_title('center frequency')
+    ax.set_xlabel('center frequency (kHz)')
+    ax.set_ylabel('membrane potential (mV)')
+    ax.set_title('offset')
     ax.set_xticks(np.arange(0,len(x)))
     ax.set_xticklabels([3.0, 4.24, 6.0, 8.48, 12.0, 16.97, 24.0, 33.94, 48.0, 67.88])
+    plt.savefig('centerfreq_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
     plt.show()
     plt.clf()
     plt.close(fig)
@@ -748,14 +756,17 @@ def resp_overcell(df, cell_idx):
     
     fig, ax = plt.subplots()
     ax.errorbar(x,mean,std, capsize=5)
-    ax.set_title('mod rate')
+    ax.set_xlabel('mod rate (Hz)')
+    ax.set_ylabel('membrane potential (mV)')
+    ax.set_title('offset')
     ax.set_xticks(np.arange(0,len(x)))
     ax.set_xticklabels([1.0, 2.0, 8.0, 16.0, 64.0, 128.0])
+    plt.savefig('modrate_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
     plt.show()
     plt.clf()
     plt.close(fig)
     
-def stim_resp(i, stim, resp, para, filename):
+def stim_resp(i, stim, resp, para, filename, saveplot=False):
     fig, ax1 = plt.subplots()
     ax1.plot()
     
@@ -781,8 +792,10 @@ def stim_resp(i, stim, resp, para, filename):
     y2 = lsfm_slope.baseline(y2)
     ax2.plot(x,y2, color='k')
     ax2.set_ylabel('membrane potential (mV)')
-    
-    plt.show()
+    if saveplot:
+        plt.savefig(f'{filename}_stim-resp_{i}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+    else:
+        plt.show()
     plt.clf()
     plt.close(fig)
     
