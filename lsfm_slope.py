@@ -284,6 +284,34 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
     
     return bin_slope_lags
 
+
+def direction_contour(direction_lags, filename, plot=True, saveplot=False):
+    lags = np.linspace(0,100,51)
+    x_edges = [3000,4240,6000,8480,12000,16970,24000,33940,48000,67880,96000]
+    y_edges = np.linspace(0,20,26)
+    XX, YY = np.meshgrid(x_edges,y_edges)
+    v_max = np.nanmax(direction_lags) 
+    
+    for i,lag in enumerate(lags):
+        fig, ax1 = plt.subplots()
+        pcm = ax1.pcolormesh(XX, YY, direction_lags[i], cmap='RdBu_r', vmax=v_max, vmin=-1*v_max)
+        ax1.set_xscale('log')
+        fig.colorbar(pcm, ax=ax1)
+        ax1.set_title(f'{filename}_direction_Lag:{lag}ms')
+        
+        if saveplot:
+            plt.savefig(f'{filename}_direction_Lag_{lag}ms.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{filename}_direction_Lag_{lag}ms.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            if plot:
+                plt.show()
+            plt.clf()
+            plt.close(fig)
+            
+        elif plot:
+            plt.show()
+            plt.close(fig)
+
+    
 def m_index(slope_lag):
     if slope_lag.ndim == 1:
         pos = slope_lag[25:]
@@ -306,6 +334,21 @@ def m_index(slope_lag):
 
 
 def slope_index(slope_lags, best_freq):
+    """
+    Bootstrap to acquire mean and std of slope-lags index and their std.
+
+    Parameters
+    ----------
+    slope_lags : TYPE
+        DESCRIPTION.
+    best_freq : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
     m_mean, m_mean_bf = [],[]
     m_std, m_std_bf = [],[]  
     boot_mean, boot_mean_std,  = [],[]
@@ -390,7 +433,7 @@ def plot_slope_index(m, m_bf, filename, saveplot=False):
         plt.close(fig)
 
 
-def plot_both_index(m, m_bf, d, d_bf, filename, saveplot=False):
+def plot_both_index(m, m_bf, d, d_bf, filename, plot=True, saveplot=False):
     x1 = np.arange(0,len(m['mean']))
     y1 = m['std']
     err1 = np.array(m['std_std'])
@@ -404,40 +447,48 @@ def plot_both_index(m, m_bf, d, d_bf, filename, saveplot=False):
     err2_bf = np.array(d_bf['std_std'])
     
     fig = plt.figure()
-    grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[1,1])
+    grid = plt.GridSpec(2, 1, hspace=0.4, height_ratios=[1,1])
     ax1 = fig.add_subplot(grid[0])
     ax1.plot(x1,y1, c='red', linewidth=3, label='All')
     ax1.fill_between(x1, y1+err1, y1-err1, color='red', alpha=0.3)
     ax1.plot(x1,y1_bf, c='orange', linewidth=3, label='Bf')
     ax1.fill_between(x1, y1_bf+err1_bf, y1_bf-err1_bf, color='orange', alpha=0.3)
     ax1.legend(loc='upper right')    
-    ax1.set_title(f'{filename}_SD-slope')
+    ax1.set_title('SD-slope')
     ax1.set_xticks([0,10,20,30,40,50])
     ax1.set_xticklabels([0,20,40,60,80,100])
     ax1.set_xlim(0,50)
-    ax1.set_xlabel('lag ms')
-    
     
     ax2 = fig.add_subplot(grid[1], sharex=ax1)
     ax2.plot(x2,y2, c='red', linewidth=3, label='All')
     ax2.fill_between(x2, y2+err2, y2-err2, color='red', alpha=0.3)
     ax2.plot(x2,y2_bf, c='orange', linewidth=3, label='Bf')
     ax2.fill_between(x2, y2_bf+err2_bf, y2_bf-err2_bf, color='orange', alpha=0.3)
-    ax2.legend(loc='upper right')
-    ax1.set_title(f'{filename}_SD-direction')
+    #ax2.legend(loc='upper right')
+    ax2.set_title('SD-direction')
+    ax2.set_xlabel('lag (ms)')
+    fig.supylabel('standard deviation')
+    
 # =============================================================================
 #     ax1.set_xticks([0,10,20,30,40,50])
 #     ax1.set_xticklabels([0,20,40,60,80,100])
 #     ax1.set_xlim(0,50)
 #     ax1.set_xlabel('lag ms')
 # =============================================================================
-    
-    plt.show()
-    plt.clf()
-    plt.close(fig)
-    
-
+    if saveplot:
+        plt.savefig(f'{filename}_slope_lag_std.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.savefig(f'{filename}_slope_lag_std.png', dpi=500, bbox_inches='tight')
+        if plot:
+            plt.show()
+        plt.clf()
+        plt.close(fig)
+    if plot:
+        plt.show()
+        plt.clf()
+        plt.close(fig)
+        
 def direction_map(slope_lags):       
+    """ equivalent to slope-lags for positive-negative comparison index"""
     direction_lags = []
     for s in slope_lags:
         if s.ndim == 1:
@@ -455,6 +506,24 @@ def direction_map(slope_lags):
 
 
 def direction_index(direction_lags, best_freq):
+    """
+    Using bootstarp to acquire mean and std and their std of index comparing positive and negative slope-lags.
+
+    Parameters
+    ----------
+    direction_lags : TYPE
+        DESCRIPTION.
+    best_freq : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    direct : TYPE
+        DESCRIPTION.
+    direct_bf : TYPE
+        DESCRIPTION.
+
+    """
     boot_mean, boot_mean_std,  = [],[]
     boot_mean_bf, boot_mean_bf_std = [],[]
     boot_std, boot_std_std=[],[]
