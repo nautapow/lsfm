@@ -776,6 +776,7 @@ def resp_overcell(df, cell_idx, saveplot=False):
     bd.to_csv('bd_offset.csv', index=False)
     cf.to_csv('cf_offset.csv', index=False)
     mod.to_csv('mod_offset.csv', index=False)
+
     
 def stim_resp(i, stim, resp, para, filename, saveplot=False):
     fig, ax1 = plt.subplots()
@@ -809,4 +810,21 @@ def stim_resp(i, stim, resp, para, filename, saveplot=False):
         plt.show()
     plt.clf()
     plt.close(fig)
+
+
+def resp_bf_or_not(resp, para, bf):
+    resp_bf_in, resp_bf_ex = [],[]
+    para_bf_in, para_bf_ex = [],[]
+    for i,p in enumerate(para):
+        freq_max = p[0]*1000 * (2**(p[1]/2))
+        freq_min = p[0]*1000 / (2**(p[1]/2))
+        if bf > freq_min and bf < freq_max:
+            resp_bf_in.append(resp[i])
+            para_bf_in.append(p)
+        else:
+            resp_bf_ex.append(resp[i])
+            para_bf_ex.append(p)
     
+    return resp_bf_in, resp_bf_ex, para_bf_in, para_bf_ex
+
+
