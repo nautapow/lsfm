@@ -4,7 +4,7 @@ import matplotlib.colors as colors
 from scipy import stats
 import TFTool
 import pandas as pd
-
+import lsfm
 
 class Psth_New():
     def __init__(self, resp, para, filename):
@@ -109,6 +109,7 @@ class Psth_New():
             plt.clf()
             plt.close(fig)
         
+        return x,y,err
         
 # =============================================================================
 #         plt.plot(x,y)
@@ -534,9 +535,6 @@ class Psth_New():
 
 
 
-
-
-
 class Psth():
     def __init__(self, resp, para, filename):
         #exclude carrier less than 3kHz and puretone
@@ -640,7 +638,7 @@ class Psth():
             plt.clf()
             plt.close(fig)
                 
-            
+        return x,y,err   
     
     def psth_para(self, plot=False, saveplot=False) -> dict:
         """
@@ -1041,3 +1039,70 @@ class Psth():
                 plt.show()
         if savenotes:
             self.features.to_csv(f'{self.filename}--feature_notes.csv', index=False)
+            
+            
+            
+def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
+    resp_in, resp_ex, para_in, para_ex = lsfm.resp_bf_or_not(resp, para, bf)
+    
+    if version == 1:
+        p1 = Psth(resp_in, para_in, filename)
+        p2 = Psth(resp_ex, para_ex, filename)
+        
+        x1,y1,err1 = p1.psth_all(plot=False, saveplot=False)
+        x2,y2,err2 = p2.psth_all(plot=False, saveplot=False)
+        #resp_by_para = p.psth_para(plot=True, saveplot=False)
+        #p.psth_trend(saveplot=False)
+        
+        fig, ax = plt.subplots()
+        ax.plot(x1,y1,color='midnightblue', label='w/_bf')
+        ax.fill_between(x1, y1+err1, y1-err1, color='cornflowerblue', alpha=0.6)
+        ax.plot(x2,y2,color='firebrick', label='w/o_bf')
+        ax.fill_between(x2, y2+err2, y2-err2, color='salmon', alpha=0.6)
+        
+        [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [1250,38750]]
+        ax.set_xlim(0,len(x1))
+        label = list(np.round(np.linspace(0, 2.0, 21), 2))
+        ax.set_xticks(np.linspace(0,50000,21))
+        ax.set_xticklabels(label, rotation = 45)
+        #ax.xticks(rotation = 45)
+        ax.set_title(f'{filename}_PSTH_BF')
+        ax.set_xlabel('time (sec)')
+        ax.set_ylabel('average response (mV)')
+
+        plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        #plt.show()
+        plt.clf()
+        plt.close(fig)
+    
+    elif version == 2:
+        p1 = Psth_New(resp_in, para_in, filename)
+        p2 = Psth_New(resp_ex, para_ex, filename)
+    
+        x1,y1,err1 = p1.psth_all(plot=False, saveplot=False)
+        x2,y2,err2 = p2.psth_all(plot=False, saveplot=False)
+        #resp_by_para = p.psth_para(plot=True, saveplot=False)
+        #p.psth_trend(saveplot=False)
+        
+        fig, ax = plt.subplots()
+        ax.plot(x1,y1,color='navy', label='w/_bf')
+        ax.fill_between(x1, y1+err1, y1-err1, color='cornflowerblue', alpha=0.6)
+        ax.plot(x2,y2,color='firebrick', label='w/o_bf')
+        ax.fill_between(x2, y2+err2, y2-err2, color='salmon', alpha=0.6)
+        
+        [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [1250,26250]]
+        ax.set_xlim(0,len(x1))
+        label = list(np.round(np.linspace(0, 1.5, 16), 2))
+        ax.set_xticks(np.linspace(0,37500,16))
+        ax.set_xticklabels(label, rotation = 45)
+        #ax.xticks(rotation = 45)
+        ax.set_title(f'{filename}_PSTH_BF')
+        ax.set_xlabel('time (sec)')
+        ax.set_ylabel('average response (mV)')
+
+        plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        #plt.show()
+        plt.clf()
+        plt.close(fig)
