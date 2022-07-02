@@ -19,8 +19,7 @@ if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_puretone = df.index[df['type']=='Pure Tones']
     idx_tone = [26,29,31,34,36,44,48,61,72,75,77,80]
-    df['best_frequency'] = np.nan
-    df['bandwidth'] = np.nan
+    cell_note = pd.read_csv('cell_note_all.csv')
     
     #df_loc = 34
     #if df_loc == 34:
@@ -34,12 +33,21 @@ if  __name__ == "__main__":
         stim = cell_data.item().get('stim')
         resp = cell_data.item().get('resp')
         
+        try:
+            n = cell_note.index[cell_note['associate tone']==filename][0]
+        except:    
+            pass
+        if n:    
+            bf = cell_note['best frequency'].loc[n]
+            puretone.psth_bf(resp, para, bf, filename, set_x_intime=True, saveplot=True)
+            
+        
 # =============================================================================
 #         for i,p in enumerate(para):
 #             puretone.tone_stim_resp(i, stim[i], resp[i], p[:2], filename)
 # =============================================================================
         
-        bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
+        #bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
         #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
         
 # =============================================================================
