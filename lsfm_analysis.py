@@ -26,10 +26,9 @@ if  __name__ == "__main__":
     #lsfm.resp_overcell(df, tlsfm, saveplot=True)
     
     
-    df_loc = 76
-    if df_loc == 76:
-    #for i in range(len(tlsfm)):
-    #for df_loc in tlsfm:
+    #df_loc = 60
+    #if df_loc == 60:
+    for df_loc in tlsfm:
         i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
         filename = df['filename'][df_loc]
         version = df['Version'][df_loc]
@@ -48,8 +47,17 @@ if  __name__ == "__main__":
         n = cell_note.index[cell_note['filename']==filename][0]
         bf = cell_note['best frequency'].loc[n]
         
-        lsfm_slope.plot_both_index(*lsfm_slope.slope_index(slope_lags, bf), *lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bf), filename)
+# =============================================================================
+#         m, m_bf = lsfm_slope.slope_index(slope_lags, bf)
+#         d, d_bf = lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bf)
+#         lsfm_slope.plot_both_index(m, m_bf, d, d_bf, filename, plot=False, saveplot=True)
+#         #lsfm_slope.plot_both_index(*lsfm_slope.slope_index(slope_lags, bf), *lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bf), filename)
+# =============================================================================
         
+# =============================================================================
+#         direction_lag = lsfm_slope.direction_map(slope_lags)
+#         lsfm_slope.direction_contour(direction_lag, filename, plot=False, saveplot=True)
+# =============================================================================
         
 # =============================================================================
 #         for i,p in enumerate(para):
@@ -59,18 +67,8 @@ if  __name__ == "__main__":
         
             
         
-# =============================================================================
-#         if version == 1:
-#             p = lsfm_psth.Psth(resp, para, filename)
-#         elif version == 2:
-#             p = lsfm_psth.Psth_New(resp, para, filename)
-#         
-#         p.psth_all(plot=False, saveplot=True)
-#         resp_by_para = p.psth_para(plot=False, saveplot=True)
-#         #p.psth_trend(saveplot=True)
-#         cf = resp_by_para['centerfreq']
-#         print(i, len(cf), p.cf_label)
-# =============================================================================
+        
+        
         
 # =============================================================================
 #         lags = np.linspace(0, 100, 51)
