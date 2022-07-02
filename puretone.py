@@ -249,7 +249,7 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
 def baseline(resp_iter):    #correct baseline
     return (resp_iter - np.mean(resp_iter[:20*25]))*100
 
-def psth(resp, filename, set_x_intime=False, saveplot=False):
+def psth(resp, filename, set_x_intime=False, saveplot=False, **kwargs):
     
     resp_base = np.apply_along_axis(baseline, 1, resp)
     y = np.mean(resp_base, axis=0)
@@ -282,9 +282,51 @@ def psth(resp, filename, set_x_intime=False, saveplot=False):
         plt.close(fig)
 
 
-def psth_window(resp, filename, window):
-    pass
-
+def psth_bf(resp, para, bf, filename, set_x_intime=False, saveplot=False, **kwargs):
+    loud, freq, _ = zip(*para)
+    loud = sorted(set(loud))
+    freq = np.array(sorted(set(freq)))
+    
+    idx = [i for i,a in enumerate(np.diff(np.sign(freq - bf))) if a > 0][0]
+    target_freq = [freq[idx], freq[idx+1]]
+    
+    target_resp=[]
+    for i, p in enumerate(para):
+        if p[1] in target_freq:
+            target_resp.append(baseline(resp[i]))
+    
+    target_PSTH = np.mean(target_resp, axis=0)
+    err = stats.sem(target_resp, axis=0)
+    x = np.arange(len(target_PSTH))
+    y = target_PSTH
+    
+    fig, ax = plt.subplots()
+    ax.plot(x,target_PSTH)
+    ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+    [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
+    [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
+    #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,6000,50)]
+    #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.7) for _x in np.arange(0,6000,250)]
+    ax.set_title(f'{filename}_tone-PSTH-bf')   
+    ax.set_xlim(0,10000)
+    ax.set_ylabel('membrane potential (mV)')
+    
+    if set_x_intime:
+        label = np.linspace(-20,380,6)
+        ax.set_xticks(np.linspace(0,10000,6),label)
+        ax.set_xlabel('time (ms)')
+    else:
+        ax.set_xticks([0,500,1500,3000,5000,7000,9000])
+        ax.set_xlabel('data point (2500/100ms)')
+        
+    if saveplot:
+        plt.savefig(f'{filename}_tone-PSTH_bf.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.clf()
+        plt.close(fig)
+    else:
+        plt.show()
+        plt.close(fig)
+    
 
 def mem_V(stim, para, resp, filename='', saveplot=False):
     on_r, off_r = [],[]
