@@ -495,6 +495,30 @@ class RespAtFreq():
 
 
 def resp_freq(stim, resp, para, lags, best_freq):
+    """
+    Get information of stim and lagged responses when stim cross best_freq
+
+    Parameters
+    ----------
+    stim : TYPE
+        DESCRIPTION.
+    resp : TYPE
+        DESCRIPTION.
+    para : TYPE
+        DESCRIPTION.
+    lags : TYPE
+        DESCRIPTION.
+    best_freq : float
+        DESCRIPTION.
+
+    Returns
+    -------
+    resp_at_freq : list of dictionary
+        '#':# of stim, 'para': stim para, 'location': location of crossing in data point, 
+        'resp_lag': resps at lags seperated by stim#, 'slope':stim slope at crossing seperated by stim#.
+
+    """
+    
     idx=[i for i, a in enumerate(para) if a[2] not in [0.0,16.0,64.0,128.0]]
     fs=25000
     lag_points = [int(n*(fs/1000)) for n in lags]
@@ -522,9 +546,73 @@ def resp_freq(stim, resp, para, lags, best_freq):
     return resp_at_freq
         
 
+def resp_freq_restrain(stim, resp, para, lags, bf):
+    """ get resp when cf is around bf with fixed mod_rate"""
+    cf,_,_,_ = zip(*para)
+    cf = np.array(sorted(set(cf)))
+    tgt_freq_idx = np.argmin(np.abs(cf*1000-bf))
+    
+    idx = [i for i,a in enumerate(para) if a[0]==cf[tgt_freq_idx] and a[2] == 8.0]
+    fs=25000
+    lag_points = [int(n*(fs/1000)) for n in lags]
+    resp_at_freq_restrain = []
+    
+    for i in idx:
+        """iterate through all stimuli and responses"""
+        inst_freq, slopes = lsfm_slope.get_stimslope(stim[i])
+        cross = np.abs(np.diff(np.sign(inst_freq - bf)))
+        x_idx = [i for i,a in enumerate(cross) if a > 0]
+        
+        resp_base_correct = lsfm_slope.baseline(resp[i])
+        
+        if x_idx:
+            resp_lag_each_stim=[]
+            slope_each_stim=[]
+            for x in x_idx:
+                """iterate through stim when cross best freq at each x"""
+                resp_lag_each_stim.append([resp_base_correct[x+lag] for lag in lag_points])
+                slope_each_stim.append(slopes[x])
+                
+            case = {'#':i, 'para':para[i][:3], 'location':x_idx, 'resp_lag':resp_lag_each_stim, 'slope':slope_each_stim}
+            resp_at_freq_restrain.append(case)
+        
+    return resp_at_freq_restrain
+
+
+def nXing_cell(resp_at_freq_cell):
+    """
+    plot n_xing of all cells.
+    use resp_at_freq_cell to listing a dictionary contain resp_at_freq from reso_freq_restrain and best_lag from 
+
+    Parameters
+    ----------
+    resp_at_freq_cell : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+    resp_best_lag = []
+    
+    for cell in resp_at_freq_cell:
+        best_lag = cell['best_lag']
+        resp_at_freq = cell['resp_at_freq']
+        
+        for n_stim in resp_at_freq:
+            #swap axis to make (lags, N_cross)
+            resp_at_lag = np.swapaxes(n_stim['resp_lag'], 1, 0)[best_lag]
+            resp_best_lag.append(resp_at_lag)
+    
+    return resp_best_lag
+        
+
+
 def at_freq_lag(resp_at_freq, filename='', plot=True, saveplot=False):
     """
     plot instant response at each lag time after stimulus cross best frequency
+    (for bf_Xing)
 
     Parameters
     ----------
@@ -533,9 +621,10 @@ def at_freq_lag(resp_at_freq, filename='', plot=True, saveplot=False):
 
     Returns
     -------
+    a_mean : ndarray
+        averaged resp at lags
     best_lag : int
-        lag that gives highest potential
-
+        best lag according to cross bf
     """
     
     n_stim = len(resp_at_freq)
@@ -548,26 +637,30 @@ def at_freq_lag(resp_at_freq, filename='', plot=True, saveplot=False):
         for i in range(len(slope)):
             """iter through all crossing within a stimulus"""
             """restrain i if only want to get certain cross e.g. first crossing i==0"""
-            
             all_resp_lag.append(resp_lag[i])
             
     a_mean = np.mean(all_resp_lag, axis=0)
     a_std = stats.sem(all_resp_lag, axis=0)
-    best_lag = np.argmax(a_mean)
+    local_max = signal.argrelextrema(a_mean, np.greater, order=20)
+    best_lag = local_max[0][0]
     
     x = range(len(a_mean))
     fig, ax = plt.subplots()
     ax.plot(x, a_mean)
     ax.fill_between(x, a_mean+a_std, a_mean-a_std, color='orange', alpha=0.5)
-    ax.set_title(f'{filename}_best_lag:{best_lag*2}ms')
+    ax.set_title(f'{filename}_allX_outside BF')
+    #ax.set_title(f'{filename}_allX_best_lag:{best_lag*2}ms')
     ax.set_xlim(0,50)
     ax.set_xticks([0,10,20,30,40,50])
     ax.set_xticklabels([0,20,40,60,80,100])
-    ax.set_xlabel('lag ms')
-    ax.set_ylabel('average response at lag mV')
+    ax.set_xlabel('lag (ms)')
+    ax.set_ylabel('potential at lag (mV)')
     
     if saveplot:
-        plt.savefig(f'{filename}_at_best_freq_lag.png', dpi=500, bbox_inches='tight')
+        #plt.savefig(f'{filename}_bf-lag_allX.png', dpi=500, bbox_inches='tight')
+        #plt.savefig(f'{filename}_bf-lag_allX.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.savefig(f'{filename}_outside-BF_allX.png', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_outside-BF_allX.pdf', dpi=500, format='pdf', bbox_inches='tight')
         if plot:
             plt.show()
         plt.clf()
@@ -576,7 +669,7 @@ def at_freq_lag(resp_at_freq, filename='', plot=True, saveplot=False):
         plt.show()
         plt.close(fig)
     
-    return best_lag
+    return a_mean, best_lag
     
 def at_freq_ncross(resp_at_freq, best_lag):
     n_stim = len(resp_at_freq)
@@ -594,10 +687,11 @@ def at_freq_ncross(resp_at_freq, best_lag):
         
     ncross_comb=[]
     for n in ncross_stim:
-        ncross_comb = TFTool.list_comb(n, ncross_comb,)
+        ncross_comb = TFTool.list_comb(n, ncross_comb)
     ncross_comb = list(ncross_comb)
     
     ncross_avg = np.nanmean(ncross_comb, axis=1)
+    '''std currently not working with zip_longest'''
     ncross_std = np.nanstd(ncross_comb, axis=1)    
     
     return ncross_stim, ncross_avg
@@ -637,6 +731,7 @@ def at_freq_ncross(resp_at_freq, best_lag):
 
 def resp_overcell(df, cell_idx, saveplot=False):
     '''average response with same parameter, e.g. bandwidth through all cells'''
+    ''' for modulation parameter dependece plots'''
     cell_note = pd.read_csv('cell_note_all.csv')
     bd_overcell=[[],[],[],[],[],[],[]]
     cf_overcell=[[],[],[],[],[],[],[],[],[]]
@@ -813,6 +908,31 @@ def stim_resp(i, stim, resp, para, filename, saveplot=False):
 
 
 def resp_bf_or_not(resp, para, bf):
+    """
+    devide response by whether stimulus ever crossed best frequency or not.
+
+    Parameters
+    ----------
+    resp : TYPE
+        DESCRIPTION.
+    para : TYPE
+        DESCRIPTION.
+    bf : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    resp_bf_in : TYPE
+        resp with stimulus crossed bf.
+    resp_bf_ex : TYPE
+        resp without stimulus ever crossing bf.
+    para_bf_in : TYPE
+        para for resp_bf_in.
+    para_bf_ex : TYPE
+        para for resp_bf_ex.
+
+    """
+    
     resp_bf_in, resp_bf_ex = [],[]
     para_bf_in, para_bf_ex = [],[]
     for i,p in enumerate(para):
