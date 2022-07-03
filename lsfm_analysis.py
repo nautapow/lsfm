@@ -24,28 +24,39 @@ if  __name__ == "__main__":
     tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,73,74,76,78,81,82]
     cell_note = pd.read_csv('cell_note_all.csv')
     #lsfm.resp_overcell(df, tlsfm, saveplot=True)
+    resp_at_freq_cell=[]
+    
+    lag_all = cell_note['best_lag_all']
+    lag_first = cell_note['best_lag_bf']
     
     
-    #df_loc = 60
-    #if df_loc == 60:
-    for df_loc in tlsfm:
-        i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
-        filename = df['filename'][df_loc]
-        version = df['Version'][df_loc]
-        cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
+# =============================================================================
+#     df_loc = 30
+#     if df_loc == 30:
+#     #for df_loc in tlsfm:
+#         i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
+#         filename = df['filename'][df_loc]
+#         version = df['Version'][df_loc]
+#         cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
+#         
+#         para = cell_data.item().get('para')
+#         stim = cell_data.item().get('stim')
+#         resp = cell_data.item().get('resp')
+#         slope_lags = cell_data.item().get('slope_lags')
+#         
+#         cf,band,modrate,_=zip(*para)
+#         band = sorted(set(band))
+#         cf = sorted(set(cf))
+#         modrate = sorted(set(modrate))
+#         
+#         n = cell_note.index[cell_note['filename']==filename][0]
+#         bf = cell_note['best frequency'].loc[n]
+# =============================================================================
         
-        para = cell_data.item().get('para')
-        stim = cell_data.item().get('stim')
-        resp = cell_data.item().get('resp')
-        slope_lags = cell_data.item().get('slope_lags')
-        
-        cf,band,modrate,_=zip(*para)
-        band = sorted(set(band))
-        cf = sorted(set(cf))
-        modrate = sorted(set(modrate))
-        
-        n = cell_note.index[cell_note['filename']==filename][0]
-        bf = cell_note['best frequency'].loc[n]
+        #resp_at_freq_cell = np.load('restrain_resp_at_freq_cell.npy', allow_pickle=True)
+        #test = lsfm.nXing_cell(resp_at_freq_cell)
+                
+        #lsfm_psth.psth_wwo_bf(resp, para, bf, version, filename, saveplot=True)
         
 # =============================================================================
 #         m, m_bf = lsfm_slope.slope_index(slope_lags, bf)
@@ -61,13 +72,19 @@ if  __name__ == "__main__":
         
 # =============================================================================
 #         for i,p in enumerate(para):
-#             if i == 328:
-#                 lsfm.stim_resp(i, stim[i], resp[i], p[:3], filename, saveplot=True)
+#             lsfm.stim_resp(i, stim[i], resp[i], p[:3], filename, saveplot=False)
 # =============================================================================
         
+
             
+# =============================================================================
+#         lags = np.linspace(0, 100, 51)
+#         resp_at_freq = lsfm.resp_freq(stim, resp, para, lags, bf)
+#         _, best_lag = lsfm.at_freq_lag(resp_at_freq, filename=filename, plot=True, saveplot=True)
+# =============================================================================
         
-        
+                
+
         
         
 # =============================================================================
@@ -78,10 +95,12 @@ if  __name__ == "__main__":
 #         
 # =============================================================================
 
+        
 # =============================================================================
-#         resp_at_freq = lsfm.resp_freq(stim, resp, para, lags, bfs[i])
-#         best_lag = lsfm.at_freq_lag(resp_at_freq, filename=filename, plot=False, saveplot=True)
+#         resp_at_freq = lsfm.resp_freq(stim, resp, para, lags, bf)
+#         _ = lsfm.at_freq_lag(resp_at_freq, filename=filename, plot=True, saveplot=True)
 # =============================================================================
+        
 # =============================================================================
 #         slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=False, saveplot=True)
 #         
