@@ -1043,6 +1043,32 @@ class Psth():
             
             
 def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
+    '''
+    plot PSTH using stim with any crossing with bf and without. 
+
+    Parameters
+    ----------
+    resp : TYPE
+        DESCRIPTION.
+    para : TYPE
+        DESCRIPTION.
+    bf : TYPE
+        DESCRIPTION.
+    version : TYPE
+        DESCRIPTION.
+    filename : TYPE
+        DESCRIPTION.
+    plot : TYPE, optional
+        DESCRIPTION. The default is True.
+    saveplot : TYPE, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    None.
+
+    '''
+    
     resp_in, resp_ex, para_in, para_ex = lsfm.resp_bf_or_not(resp, para, bf)
     
     if version == 1:
@@ -1051,8 +1077,6 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
         
         x1,y1,err1 = p1.psth_all(plot=False, saveplot=False)
         x2,y2,err2 = p2.psth_all(plot=False, saveplot=False)
-        #resp_by_para = p.psth_para(plot=True, saveplot=False)
-        #p.psth_trend(saveplot=False)
         
         fig, ax = plt.subplots()
         ax.plot(x1,y1,color='midnightblue', label='w/_bf')
@@ -1069,12 +1093,18 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
         ax.set_title(f'{filename}_PSTH_BF')
         ax.set_xlabel('time (sec)')
         ax.set_ylabel('average response (mV)')
-
-        plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
-        plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
-        #plt.show()
-        plt.clf()
-        plt.close(fig)
+        
+        if saveplot:
+            plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            if plot:
+                plt.show()
+            plt.clf()
+            plt.close(fig)
+        if plot:
+            plt.show()
+            plt.clf()
+            plt.close(fig)
     
     elif version == 2:
         p1 = Psth_New(resp_in, para_in, filename)
@@ -1086,7 +1116,7 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
         #p.psth_trend(saveplot=False)
         
         fig, ax = plt.subplots()
-        ax.plot(x1,y1,color='navy', label='w/_bf')
+        ax.plot(x1,y1,color='midnightblue', label='w/_bf')
         ax.fill_between(x1, y1+err1, y1-err1, color='cornflowerblue', alpha=0.6)
         ax.plot(x2,y2,color='firebrick', label='w/o_bf')
         ax.fill_between(x2, y2+err2, y2-err2, color='salmon', alpha=0.6)
@@ -1100,9 +1130,15 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
         ax.set_title(f'{filename}_PSTH_BF')
         ax.set_xlabel('time (sec)')
         ax.set_ylabel('average response (mV)')
-
-        plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
-        plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
-        #plt.show()
-        plt.clf()
-        plt.close(fig)
+        
+        if saveplot:
+            plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            if plot:
+                plt.show()
+            plt.clf()
+            plt.close(fig)
+        if plot:
+            plt.show()
+            plt.clf()
+            plt.close(fig)
