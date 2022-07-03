@@ -20,6 +20,8 @@ if  __name__ == "__main__":
     idx_puretone = df.index[df['type']=='Pure Tones']
     idx_tone = [26,29,31,34,36,44,48,61,72,75,77,80]
     cell_note = pd.read_csv('cell_note_all.csv')
+    bf_cell=[[],[]]
+    kk=[]
     
     #df_loc = 34
     #if df_loc == 34:
@@ -39,8 +41,14 @@ if  __name__ == "__main__":
             pass
         if n:    
             bf = cell_note['best frequency'].loc[n]
-            puretone.psth_bf(resp, para, bf, filename, set_x_intime=True, saveplot=True)
-            
+            #puretone.psth_bf(resp, para, bf, filename, set_x_intime=True, saveplot=True)
+        
+        bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
+        
+        kk.append(bf)
+        bf_cells = pd.DataFrame(kk)
+        bf_cells.to_csv('best_frequency_cell_negative.csv', index=False)
+        
         
 # =============================================================================
 #         for i,p in enumerate(para):
