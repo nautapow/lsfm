@@ -270,7 +270,7 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
             if window:
                 plt.savefig(f'{filename}_window-{window}_Lag-{lag}ms.png', dpi=500)
             else:
-                plt.savefig(f'{filename}_Lag_{lag}ms.png', dpi=500)
+                plt.savefig(f'{filename}_Lag_{lag}ms.pdf', dpi=500, format='pdf', bbox_inches='tight')
             if plot:
                 plt.show()
             plt.clf()
@@ -447,17 +447,18 @@ def plot_both_index(m, m_bf, d, d_bf, filename, plot=True, saveplot=False):
     err2_bf = np.array(d_bf['std_std'])
     
     fig = plt.figure()
-    grid = plt.GridSpec(2, 1, hspace=0.4, height_ratios=[1,1])
+    grid = plt.GridSpec(2, 1, hspace=0.5, height_ratios=[1,1])
     ax1 = fig.add_subplot(grid[0])
     ax1.plot(x1,y1, c='red', linewidth=3, label='All')
     ax1.fill_between(x1, y1+err1, y1-err1, color='red', alpha=0.3)
     ax1.plot(x1,y1_bf, c='orange', linewidth=3, label='Bf')
     ax1.fill_between(x1, y1_bf+err1_bf, y1_bf-err1_bf, color='orange', alpha=0.3)
-    ax1.legend(loc='upper right')    
-    ax1.set_title('SD-slope')
+    ax1.legend(loc='center right', fontsize=14)    
+    ax1.set_title('SD-slope', fontsize=16)
     ax1.set_xticks([0,10,20,30,40,50])
-    ax1.set_xticklabels([0,20,40,60,80,100])
+    ax1.set_xticklabels([0,20,40,60,80,100], fontsize=16)
     ax1.set_xlim(0,50)
+    ax1.tick_params(axis='both', which='major', labelsize=14)
     
     ax2 = fig.add_subplot(grid[1], sharex=ax1)
     ax2.plot(x2,y2, c='red', linewidth=3, label='All')
@@ -465,9 +466,10 @@ def plot_both_index(m, m_bf, d, d_bf, filename, plot=True, saveplot=False):
     ax2.plot(x2,y2_bf, c='orange', linewidth=3, label='Bf')
     ax2.fill_between(x2, y2_bf+err2_bf, y2_bf-err2_bf, color='orange', alpha=0.3)
     #ax2.legend(loc='upper right')
-    ax2.set_title('SD-direction')
-    ax2.set_xlabel('lag (ms)')
-    fig.supylabel('standard deviation')
+    ax2.set_title('SD-direction', fontsize=16)
+    ax2.set_xlabel('lag (ms)', fontsize=16)
+    ax2.tick_params(axis='both', which='major', labelsize=14)
+    fig.supylabel('standard deviation', fontsize=16)
     
 # =============================================================================
 #     ax1.set_xticks([0,10,20,30,40,50])
