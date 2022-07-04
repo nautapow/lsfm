@@ -43,11 +43,7 @@ if  __name__ == "__main__":
             bf = cell_note['best frequency'].loc[n]
             #puretone.psth_bf(resp, para, bf, filename, set_x_intime=True, saveplot=True)
         
-        bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
-        
-        kk.append(bf)
-        bf_cells = pd.DataFrame(kk)
-        bf_cells.to_csv('best_frequency_cell_negative.csv', index=False)
+        #bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
         
         
 # =============================================================================
@@ -56,7 +52,7 @@ if  __name__ == "__main__":
 # =============================================================================
         
         #bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
-        #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
+        puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
         
 # =============================================================================
 #         
