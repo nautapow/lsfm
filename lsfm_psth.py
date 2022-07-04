@@ -69,12 +69,14 @@ class Psth_New():
         ax.set_xticks(np.linspace(0,37500,16))
         ax.set_xticklabels(label, rotation = 45)
         #ax.xticks(rotation = 45)
-        ax.set_title(f'{self.filename}_PSTH-time')
-        ax.set_xlabel('time (sec)')
-        ax.set_ylabel('average response (mV)')
+        ax.set_title(f'{self.filename}_PSTH-time', fontsize=14)
+        ax.set_xlabel('time (sec)', fontsize=16)
+        ax.set_ylabel('average response (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
         
         if saveplot:
             plt.savefig(f'{self.filename}_PSTH_time.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{self.filename}_PSTH_time.pdf', dpi=500, format='pdf', bbox_inches='tight')
             if plot:
                 plt.show()
             plt.clf()
@@ -93,12 +95,14 @@ class Psth_New():
         ax.set_xlim(0,len(x))
         ax.set_xticks(np.linspace(0,37500,16))
         plt.xticks(rotation=45)
-        ax.set_title(f'{self.filename}_PSTH')
-        ax.set_xlabel('data point (2500/100ms)')
-        ax.set_ylabel('average response (mV)')
+        ax.set_title(f'{self.filename}_PSTH', fontsize=14)
+        ax.set_xlabel('data point (2500/100ms)', fontsize=16)
+        ax.set_ylabel('average response (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
         
         if saveplot:
             plt.savefig(f'{self.filename}_PSTH.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{self.filename}_PSTH.pdf', dpi=500, format='pdf', bbox_inches='tight')
             if plot:
                 plt.show()
             plt.clf()
@@ -594,16 +598,18 @@ class Psth():
         ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
         [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [1250,38750]]
         ax.set_xlim(0,len(x))
-        label = list(np.round(np.linspace(0, 2.0, 21), 2))
-        ax.set_xticks(np.linspace(0,50000,21))
+        label = list(np.round(np.linspace(0, 2.0, 11), 2))
+        ax.set_xticks(np.linspace(0,50000,11))
         ax.set_xticklabels(label, rotation = 45)
         #ax.xticks(rotation = 45)
-        ax.set_title(f'{self.filename}_PSTH-time')
-        ax.set_xlabel('time (sec)')
-        ax.set_ylabel('average response (mV)')
+        ax.set_title(f'{self.filename}_PSTH-time', fontsize=14)
+        ax.set_xlabel('time (sec)', fontsize=16)
+        ax.set_ylabel('average response (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
         
         if saveplot:
             plt.savefig(f'{self.filename}_PSTH_time.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{self.filename}_PSTH_time.pdf', dpi=500, format='pdf', bbox_inches='tight')
             if plot:
                 plt.show()
             plt.clf()
@@ -622,12 +628,14 @@ class Psth():
         ax.set_xlim(0,len(x))
         ax.set_xticks(np.linspace(0,50000,21))
         plt.xticks(rotation=45)
-        ax.set_title(f'{self.filename}_PSTH')
-        ax.set_xlabel('data point (2500/100ms)')
-        ax.set_ylabel('average response (mV)')
+        ax.set_title(f'{self.filename}_PSTH', fontsize=14)
+        ax.set_xlabel('data point (2500/100ms)', fontsize=16)
+        ax.set_ylabel('average response (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
         
         if saveplot:
             plt.savefig(f'{self.filename}_PSTH.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{self.filename}_PSTH.pdf', dpi=500, format='pdf', bbox_inches='tight')
             if plot:
                 plt.show()
             plt.clf()
@@ -1086,13 +1094,15 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
         
         [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [1250,38750]]
         ax.set_xlim(0,len(x1))
-        label = list(np.round(np.linspace(0, 2.0, 21), 2))
-        ax.set_xticks(np.linspace(0,50000,21))
+        label = list(np.round(np.linspace(0, 2, 11), 2))
+        ax.set_xticks(np.linspace(0,50000,11))
         ax.set_xticklabels(label, rotation = 45)
         #ax.xticks(rotation = 45)
-        ax.set_title(f'{filename}_PSTH_BF')
-        ax.set_xlabel('time (sec)')
-        ax.set_ylabel('average response (mV)')
+        ax.set_title(f'{filename}_PSTH_BF', fontsize=14)
+        ax.set_xlabel('time (sec)', fontsize=16)
+        ax.set_ylabel('average response (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
+        ax.legend(loc='upper left', fontsize=14)
         
         if saveplot:
             plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
@@ -1127,9 +1137,10 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
         ax.set_xticks(np.linspace(0,37500,16))
         ax.set_xticklabels(label, rotation = 45)
         #ax.xticks(rotation = 45)
-        ax.set_title(f'{filename}_PSTH_BF')
-        ax.set_xlabel('time (sec)')
-        ax.set_ylabel('average response (mV)')
+        ax.set_title(f'{filename}_PSTH_BF', fontsize=14)
+        ax.set_xlabel('time (sec)', fontsize=16)
+        ax.set_ylabel('average response (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
         
         if saveplot:
             plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
