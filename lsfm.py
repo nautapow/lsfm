@@ -637,30 +637,36 @@ def at_freq_lag(resp_at_freq, filename='', plot=True, saveplot=False):
         for i in range(len(slope)):
             """iter through all crossing within a stimulus"""
             """restrain i if only want to get certain cross e.g. first crossing i==0"""
+            
             all_resp_lag.append(resp_lag[i])
             
     a_mean = np.mean(all_resp_lag, axis=0)
     a_std = stats.sem(all_resp_lag, axis=0)
     local_max = signal.argrelextrema(a_mean, np.greater, order=20)
-    best_lag = local_max[0][0]
-    
+    try:
+        best_lag = local_max[0][0]
+    except:
+        best_lag = np.nan
+        
     x = range(len(a_mean))
     fig, ax = plt.subplots()
     ax.plot(x, a_mean)
     ax.fill_between(x, a_mean+a_std, a_mean-a_std, color='orange', alpha=0.5)
-    ax.set_title(f'{filename}_allX_outside BF')
-    #ax.set_title(f'{filename}_allX_best_lag:{best_lag*2}ms')
+    #ax.set_title(f'{filename}_allX_outside BF')
+    ax.set_title(f'{filename}_allX_best_lag:{best_lag*2}ms', fontsize=12)
     ax.set_xlim(0,50)
     ax.set_xticks([0,10,20,30,40,50])
     ax.set_xticklabels([0,20,40,60,80,100])
-    ax.set_xlabel('lag (ms)')
-    ax.set_ylabel('potential at lag (mV)')
+    ax.set_xlabel('lag (ms)', fontsize=16)
+    ax.set_ylabel('potential at lag (mV)', fontsize=12)
+    ax.tick_params(axis='x', which='major', labelsize=16)
+    ax.tick_params(axis='x', which='major', labelsize=12)
     
     if saveplot:
-        #plt.savefig(f'{filename}_bf-lag_allX.png', dpi=500, bbox_inches='tight')
-        #plt.savefig(f'{filename}_bf-lag_allX.pdf', dpi=500, format='pdf', bbox_inches='tight')
-        plt.savefig(f'{filename}_outside-BF_allX.png', dpi=500, bbox_inches='tight')
-        plt.savefig(f'{filename}_outside-BF_allX.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.savefig(f'{filename}_bf-lag_allX.png', dpi=500, bbox_inches='tight')
+        plt.savefig(f'{filename}_bf-lag_allX.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        #plt.savefig(f'{filename}_outside-BF_allX.png', dpi=500, bbox_inches='tight')
+        #plt.savefig(f'{filename}_outside-BF_allX.pdf', dpi=500, format='pdf', bbox_inches='tight')
         if plot:
             plt.show()
         plt.clf()
@@ -669,7 +675,7 @@ def at_freq_lag(resp_at_freq, filename='', plot=True, saveplot=False):
         plt.show()
         plt.close(fig)
     
-    return a_mean, best_lag
+    return a_mean, a_std, best_lag
     
 def at_freq_ncross(resp_at_freq, best_lag):
     n_stim = len(resp_at_freq)
@@ -760,8 +766,9 @@ def resp_overcell(df, cell_idx, saveplot=False):
         i = cell_note.index[cell_note['filename']==filename][0]
         windows = cell_note['window'].loc[i].split(', ')
         
+        """Change the index for different region of interest"""
         """0: onset, 1:sustain, 2:offset"""
-        window = eval(windows[2])   
+        window = eval(windows[1])   
         
         '''bandwidth'''
         for idx,res in enumerate(resp_bd):
@@ -822,13 +829,15 @@ def resp_overcell(df, cell_idx, saveplot=False):
         x = np.arange(0,len(mean))
         
         fig, ax = plt.subplots()
-        ax.errorbar(x,mean,std, capsize=5)
-        ax.set_xlabel('band width (octave)')
-        ax.set_ylabel('membrane potential (mV)')
-        ax.set_title('offset')
+        ax.errorbar(x,mean,std, capsize=8, linewidth=3, elinewidth=2)
+        ax.set_xlabel('band width (octave)', fontsize=14)
+        ax.set_ylabel('membrane potential (mV)', fontsize=14)
+        #ax.set_title('offset', fontsize=14)
         ax.set_xticks(np.arange(0,len(x)))
-        ax.set_xticklabels([0.04167, 0.08333, 0.16667, 0.33333, 1.5, 3.0, 7.0])
-        plt.savefig('bandwidth_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        #ax.set_xticklabels([0.04167, 0.08333, 0.16667, 0.33333, 1.5, 3.0, 7.0])
+        ax.set_xticklabels([0.04, 0.08, 0.17, 0.33, 1.5, 3.0, 7.0])
+        ax.tick_params(axis='both', which='major', labelsize=14)
+        plt.savefig('bandwidth_sustain.pdf', dpi=500, format='pdf', bbox_inches='tight')
         plt.show()
         plt.clf()
         plt.close(fig)
@@ -838,13 +847,14 @@ def resp_overcell(df, cell_idx, saveplot=False):
         x = np.arange(0,len(mean))
         
         fig, ax = plt.subplots()
-        ax.errorbar(x,mean,std, capsize=5)
-        ax.set_xlabel('center frequency (kHz)')
-        ax.set_ylabel('membrane potential (mV)')
-        ax.set_title('offset')
+        ax.errorbar(x,mean,std, capsize=5, linewidth=3, elinewidth=2)
+        ax.set_xlabel('center frequency (kHz)', fontsize=14)
+        ax.set_ylabel('membrane potential (mV)', fontsize=14)
+        #ax.set_title('offset', fontsize=14)
         ax.set_xticks(np.arange(0,len(x)))
-        ax.set_xticklabels([4.24, 6.0, 8.48, 12.0, 16.97, 24.0, 33.94, 48.0, 67.88])
-        plt.savefig('centerfreq_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        ax.set_xticklabels([4.24, 6.0, 8.48, 12.0, 16.97, 24.0, 33.94, 48.0, 67.88], rotation=15)
+        ax.tick_params(axis='both', which='major', labelsize=14)
+        plt.savefig('centerfreq_sustain.pdf', dpi=500, format='pdf', bbox_inches='tight')
         plt.show()
         plt.clf()
         plt.close(fig)
@@ -854,13 +864,14 @@ def resp_overcell(df, cell_idx, saveplot=False):
         x = np.arange(0,len(mean))
         
         fig, ax = plt.subplots()
-        ax.errorbar(x,mean,std, capsize=5)
-        ax.set_xlabel('mod rate (Hz)')
-        ax.set_ylabel('membrane potential (mV)')
-        ax.set_title('offset')
+        ax.errorbar(x,mean,std, capsize=5, linewidth=3, elinewidth=2)
+        ax.set_xlabel('mod rate (Hz)', fontsize=14)
+        ax.set_ylabel('membrane potential (mV)', fontsize=14)
+        #ax.set_title('offset', fontsize=14)
         ax.set_xticks(np.arange(0,len(x)))
         ax.set_xticklabels([1.0, 2.0, 8.0, 16.0, 64.0, 128.0])
-        plt.savefig('modrate_offset.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        ax.tick_params(axis='both', which='major', labelsize=14)
+        plt.savefig('modrate_sustain.pdf', dpi=500, format='pdf', bbox_inches='tight')
         plt.show()
         plt.clf()
         plt.close(fig)
@@ -879,6 +890,10 @@ def stim_resp(i, stim, resp, para, filename, saveplot=False):
     
     inst_freq = lsfm_slope.get_instfreq(stim)
     y1 = lsfm_slope.transient_remove(signal.resample(inst_freq, int(len(inst_freq)/8)))
+    y1 = [a if a>0 else np.nan for a in y1]
+    non_nan = [i for i,a in enumerate(y1) if not math.isnan(a)]
+    y1[non_nan[0]-1] = 0
+    y1[non_nan[-1]+1] = 0
     x = range(0,len(y1))
     ax1.plot(x,y1, color='red', alpha=0.7)
     ax1.set_title(f'{filename}_#{i}_{para}')
@@ -886,11 +901,11 @@ def stim_resp(i, stim, resp, para, filename, saveplot=False):
     ax1.set_xlim(0,len(x))
     
     if len(resp) < 45000:
-        ax1.set_xticks(np.linspace(0,len(x),15))
-        ax1.set_xticklabels(np.arange(0,15,1)/10, rotation=45)
+        ax1.set_xticks(np.linspace(0,len(x),16))
+        ax1.set_xticklabels(np.arange(0,16,1)/10, rotation=45)
     else:
-        ax1.set_xticks(np.linspace(0,len(x),10))
-        ax1.set_xticklabels(np.arange(0,20,2)/10, rotation=45)
+        ax1.set_xticks(np.linspace(0,len(x),11))
+        ax1.set_xticklabels(np.arange(0,21,2)/10, rotation=45)
     ax1.set_xlabel('time (sec)')
     
     
@@ -901,6 +916,7 @@ def stim_resp(i, stim, resp, para, filename, saveplot=False):
     ax2.set_ylabel('membrane potential (mV)')
     if saveplot:
         plt.savefig(f'{filename}_stim-resp_{i}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.savefig(f'{filename}_stim-resp_{i}.png', dpi=500, bbox_inches='tight')
     else:
         plt.show()
     plt.clf()
@@ -948,3 +964,40 @@ def resp_bf_or_not(resp, para, bf):
     return resp_bf_in, resp_bf_ex, para_bf_in, para_bf_ex
 
 
+def best_lags():
+    """
+    Plot best lags from resp_at_freq.
+
+    Returns
+    -------
+    None.
+
+    """
+    cell_note = pd.read_csv('cell_note_all.csv')
+    bf = cell_note['best frequency']
+    lag_all = cell_note['best_lag_all']
+    lag_first = cell_note['best_lag_bf']
+    bf_scale = [i/1000 for i in bf]
+    
+    
+    fig, ax1 = plt.subplots(figsize=(4,6))
+    im = ax1.scatter(np.zeros(len(lag_all)), lag_all, zorder=10, c=bf_scale, cmap='plasma', s=100)
+    im = ax1.scatter(np.ones(len(lag_first)), lag_first, zorder=10, c=bf_scale, cmap='plasma', s=100)
+    cbar = plt.colorbar(im)
+    cbar.ax.set_ylabel('best frequency (kHz)', fontsize=16)
+    cbar.ax.tick_params(axis='y', which='major', labelsize=14)
+    for i in range(len(lag_all)):
+        ax1.plot([0,1], [lag_all[i], lag_first[i]], c='k', zorder=0)
+    plt.locator_params(axis='x', nbins=2)    
+    ax1.set_xlim(-0.5,1.5)
+    ax1.set_ylabel('lags (ms)', fontsize=16)
+    ax1.set_xticks([0,1])
+    ax1.set_xticklabels(['All Cross', 'First Cross'])
+    ax1.tick_params(axis='both', which='major', labelsize=14)
+    
+    plt.savefig('best_lags.pdf', dpi=500, format='pdf', bbox_inches='tight')
+    plt.show()
+    plt.clf()
+    plt.close(fig)
+    
+    
