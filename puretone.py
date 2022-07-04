@@ -263,12 +263,13 @@ def psth(resp, filename, set_x_intime=False, saveplot=False, **kwargs):
     [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
     ax.set_title(f'{filename}_tone-PSTH')   
     ax.set_xlim(0,10000)
-    ax.set_ylabel('membrane potential (mV)')
-
+    ax.set_ylabel('membrane potential (mV)', fontsize=16)
+    ax.tick_params(axis='both', which='major', labelsize=14)
+    
     if set_x_intime:
         label = np.linspace(-20,380,6)
         ax.set_xticks(np.linspace(0,10000,6),label)
-        ax.set_xlabel('time (ms)')
+        ax.set_xlabel('time (ms)', fontsize=16)
     else:
         ax.set_xticks([0,500,1500,3000,5000,7000,9000])
         ax.set_xlabel('data point (2500/100ms)')
