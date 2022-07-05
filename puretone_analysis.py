@@ -23,8 +23,8 @@ if  __name__ == "__main__":
     bf_cell=[[],[]]
     kk=[]
     
-    #df_loc = 34
-    #if df_loc == 34:
+    #df_loc = 72
+    #if df_loc == 72:
     for df_loc in idx_tone:
         i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
@@ -51,8 +51,8 @@ if  __name__ == "__main__":
 #             puretone.tone_stim_resp(i, stim[i], resp[i], p[:2], filename)
 # =============================================================================
         
-        #bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
-        puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
+        bf = puretone.tunning(resp, para, filename=filename, saveplot=True)
+        #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
         
 # =============================================================================
 #         
