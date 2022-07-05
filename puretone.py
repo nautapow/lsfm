@@ -126,7 +126,8 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     resp_mesh = np.reshape(resp, (len(loud),len(freq),-1))
     resp_on = np.apply_along_axis(on_avg, 2, resp_mesh)
     resp_off = np.apply_along_axis(off_avg, 2, resp_mesh)
-
+    
+    resp_filt = TFTool.pascal_filter(resp_on)
     
 # =============================================================================
 #     XX,YY = np.meshgrid(freq, loud)
@@ -166,7 +167,13 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     y = fit[0] + fit[1] * np.exp(-(x - fit[2]) ** 2 / (2 * fit[3] ** 2))
     
     
-    method = 'gaussian'
+# =============================================================================
+#     methods = ['none', 'bicubic', 'spline16',
+#            'hamming', 'quadric',
+#            'catrom', 'gaussian', 'bessel', 'mitchell', 'sinc', 'lanczos']
+# =============================================================================
+    method='lanczos'
+    
     xlabel = freq[::int((len(freq)-1)/10)]
     xlabel = [i/1000 for i in xlabel]
     ylabel = [int(i) for i in loud]
@@ -175,11 +182,12 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     xtick = np.arange(0.5,Nx-0.4,1)
     ytick = np.arange(0.5,Ny-0.4,1)
     
+
     fig = plt.figure()
     grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
     
     ax1 = fig.add_subplot(grid[0])
-    im = plt.imshow(resp_on, interpolation=method, origin='lower', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
+    im = plt.imshow(resp_filt, interpolation=method, origin='lower', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
     ax1.add_image(im)
     ax1.set_xticks(xtick)
     ax1.set_xticklabels(xlabel, rotation=45)
