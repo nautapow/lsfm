@@ -24,9 +24,9 @@ if  __name__ == "__main__":
     tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,73,74,76,78,81,82]
     #tlsfm = [37, 60]
     cell_note = pd.read_csv('cell_note_all.csv')
-    lsfm.resp_overcell(df, tlsfm, saveplot=True)
-    resp_at_freq_cell=[]
-    
+    #lsfm.resp_overcell(df, tlsfm, saveplot=False)
+    #resp_cell = [[],[],[],[],[],[]]
+    #band_cell_mean=[]
     #lsfm.best_lags()
 # =============================================================================
 #     bf = cell_note['best frequency']
@@ -49,10 +49,11 @@ if  __name__ == "__main__":
 #     ax1.set_xticklabels(['All Cross', 'First Cross'])
 #     ax1.tick_params(axis='both', which='major', labelsize=14)
 # =============================================================================
+
     
-    df_loc = 28
-    if df_loc == 28:
-    #for df_loc in tlsfm:
+    #df_loc = 28
+    #if df_loc == 28:
+    for df_loc in tlsfm:
         i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
         filename = df['filename'][df_loc]
         version = df['Version'][df_loc]
@@ -70,25 +71,44 @@ if  __name__ == "__main__":
         
         n = cell_note.index[cell_note['filename']==filename][0]
         bf = cell_note['best frequency'].loc[n]
+        features = cell_note['feature'].loc[n]
+        windows = cell_note['window'].loc[n].split(', ')
         
+        """0: onset, 1:sustain, 2:offset"""
+        window = eval(windows[2])
         #resp_at_freq_cell = np.load('restrain_resp_at_freq_cell.npy', allow_pickle=True)
         #test = lsfm.nXing_cell(resp_at_freq_cell)
-        
+        tune = (round(bf/2/1000,1), round(bf*2/1000,1))
 
 
 # =============================================================================
 #         """PSTH"""
-#         if version == 1:
-#             p = lsfm_psth.Psth(resp, para, filename)
-#         elif version == 2:
-#             p = lsfm_psth.Psth_New(resp, para, filename)
-#             
-#         _,_,_ = p.psth_all(plot=False, saveplot=False)
-#         lsfm_psth.psth_wwo_bf(resp, para, bf, version, filename, saveplot=True)
+#         p = lsfm_psth.Psth(resp, para, filename, version=version)
+#         #_,_,_ = p.psth_all(plot=False, saveplot=False)
+#         #lsfm_psth.psth_wwo_bf(resp, para, bf, version, filename, saveplot=True)
+#         #p.psth_trend(tuning=tune, plot=True, saveplot=False)
+#         #p.psth_para(plot=True, saveplot=False)
 # =============================================================================
         
-        
-        
+# =============================================================================
+#         for i,bd in enumerate([0.04167, 0.08333, 0.33333, 1.5, 3.0, 7.0]):
+#             for resp_idx, p in enumerate(para):
+#                 if p[1] == bd:
+#                     freq_max = p[0]*1000 * (2**(p[1]/2))
+#                     freq_min = p[0]*1000 / (2**(p[1]/2))
+#                     
+#                     if bf > freq_min and bf < freq_max:
+#                         resp_cell[i].append(lsfm_slope.baseline(resp[resp_idx]))
+#         
+#     for resp_bd in resp_cell:
+#         cell_mean=[]
+#         for res in resp_bd:
+#             cell_mean.append(np.mean(res))
+#         
+#         band_cell_mean.append(np.mean(cell_mean))
+#     
+# =============================================================================
+    
 # =============================================================================
 #         fdir = df['path'][df_loc]
 #         filename = df['filename'][df_loc]
