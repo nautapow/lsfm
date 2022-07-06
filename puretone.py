@@ -18,8 +18,8 @@ import lsfm_slope
 
 def best_freq(resp_tune, para):
     """
-    Acquiring best frequency by summing excited potential of each frequency band
-    than perform guassian fit.
+    Acquiring best frequency by summing depolarized part of each frequency band
+    then perform a Guassian fit.
 
     Parameters
     ----------
@@ -83,7 +83,7 @@ def best_freq(resp_tune, para):
 
 def tunning(resp, para, filename='', saveplot=False, **kwargs):
     """
-    Generate tunning curve.
+    Generate tunning map.
 
     Parameters
     ----------
@@ -98,8 +98,9 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
 
     Returns
     -------
-    None
-
+    bf : dictionary
+    {'best_frequency': peak location of fit, 'bandwidth': HMFW of fit, 
+     'fit':fit parametes from best_freq(), 'resp_sum':sum of deloparization}
     """
     
     window = kwargs.get('window')
@@ -252,7 +253,7 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
         plt.close(fig)
         
         
-    return best_freq(resp_on, para)    
+    return bf    
     
 def baseline(resp_iter):    #correct baseline
     return (resp_iter - np.mean(resp_iter[:20*25]))*100
