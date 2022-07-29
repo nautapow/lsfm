@@ -215,6 +215,7 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
         
     if saveplot:
         plt.savefig(f'{filename}_on.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.savefig(f'{filename}_on.png', dpi=500, bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:
@@ -246,6 +247,7 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     cbar.ax.set_ylabel('mV')
     if saveplot:
         plt.savefig(f'{filename}_off.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.savefig(f'{filename}_off.png', dpi=500, bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:
