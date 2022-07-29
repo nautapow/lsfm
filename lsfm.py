@@ -933,8 +933,8 @@ def resp_bf_or_not(resp, para, bf):
         DESCRIPTION.
     para : TYPE
         DESCRIPTION.
-    bf : TYPE
-        DESCRIPTION.
+    bf : float
+        Best frequency in Hz.
 
     Returns
     -------
