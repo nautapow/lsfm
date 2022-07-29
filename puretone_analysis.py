@@ -51,7 +51,7 @@ if  __name__ == "__main__":
 #             puretone.tone_stim_resp(i, stim[i], resp[i], p[:2], filename)
 # =============================================================================
         
-        bf = puretone.tunning(resp, para, filename=filename, saveplot=True)
+        _ = puretone.tunning(resp, para, filename=filename, saveplot=True)
         #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
         
 # =============================================================================
