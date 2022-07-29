@@ -1,4 +1,4 @@
-from TDMS_ver3 import Tdms_V1, Tdms_V2
+from TDMS_ver4 import Tdms_V1, Tdms_V2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -28,6 +28,7 @@ if  __name__ == "__main__":
     #resp_cell = [[],[],[],[],[],[]]
     #band_cell_mean=[]
     #lsfm.best_lags()
+    
 # =============================================================================
 #     bf = cell_note['best frequency']
 #     lag_all = cell_note['best_lag_all']
@@ -51,9 +52,12 @@ if  __name__ == "__main__":
 # =============================================================================
 
     
-    #df_loc = 28
-    #if df_loc == 28:
-    for df_loc in tlsfm:
+    df_loc = 62
+    if df_loc == 62 :
+    #for df_loc in tlsfm:
+        
+        
+        
         i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
         filename = df['filename'][df_loc]
         version = df['Version'][df_loc]
@@ -90,26 +94,9 @@ if  __name__ == "__main__":
 #         #p.psth_para(plot=True, saveplot=False)
 # =============================================================================
         
+        
 # =============================================================================
-#         for i,bd in enumerate([0.04167, 0.08333, 0.33333, 1.5, 3.0, 7.0]):
-#             for resp_idx, p in enumerate(para):
-#                 if p[1] == bd:
-#                     freq_max = p[0]*1000 * (2**(p[1]/2))
-#                     freq_min = p[0]*1000 / (2**(p[1]/2))
-#                     
-#                     if bf > freq_min and bf < freq_max:
-#                         resp_cell[i].append(lsfm_slope.baseline(resp[resp_idx]))
-#         
-#     for resp_bd in resp_cell:
-#         cell_mean=[]
-#         for res in resp_bd:
-#             cell_mean.append(np.mean(res))
-#         
-#         band_cell_mean.append(np.mean(cell_mean))
-#     
-# =============================================================================
-    
-# =============================================================================
+#         """load from TDMS"""
 #         fdir = df['path'][df_loc]
 #         filename = df['filename'][df_loc]
 #         version = df['Version'][df_loc]
@@ -120,10 +107,11 @@ if  __name__ == "__main__":
 #             t = Tdms_V2()
 #             t.loadtdms(fdir, protocol=0, load_sound=True)
 #         
-#         #para = t.Para
-#         #resp = np.array(t.Rdpk)
-#         sound = t.rawS
-#         #stim = t.Sound
+# =============================================================================
+
+
+# =============================================================================
+#         """reverse FIR"""
 #         target_FIR = f'E:\in-vivo_patch\FIR_list\FIR_{df["FIR"][df_loc]}.txt'
 #         
 #         with open(target_FIR, 'r') as file:
@@ -143,11 +131,15 @@ if  __name__ == "__main__":
 #         #lsfm_slope.plot_both_index(*lsfm_slope.slope_index(slope_lags, bf), *lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bf), filename)
 # =============================================================================
         
-# =============================================================================
-#         direction_lag = lsfm_slope.direction_map(slope_lags)
-#         lsfm_slope.direction_contour(direction_lag, filename, plot=False, saveplot=True)
-# =============================================================================
-        
+        """slope"""
+        lags = np.linspace(0, 100, 51)
+        slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=False)
+
+        #direction_lag = lsfm_slope.direction_map(slope_lags)
+        #lsfm_slope.direction_contour(direction_lag, filename, plot=False, saveplot=True)
+    
+    
+    
 # =============================================================================
 #         for i,p in enumerate(para):
 #             if i in [63,64,328]:
@@ -167,10 +159,7 @@ if  __name__ == "__main__":
 
 
         
-# =============================================================================
-#         lags = np.linspace(0, 100, 51)
-#         slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=False, saveplot=True)
-# =============================================================================
+
         
         
 # =============================================================================
