@@ -80,6 +80,19 @@ def best_freq(resp_tune, para):
     
     return tone_charact
 
+def center_mass(resp_tune, freq, loud):
+    freq_log = [math.log(i, 2) for i in freq]
+    Xv, Yv = np.meshgrid(freq_log, loud)
+    massX = Xv*resp_tune
+    massY = Yv*resp_tune
+    mass_sum = np.sum(resp_tune)
+    mass_Xsum = np.sum(massX)
+    mass_Ysum = np.sum(massY)
+    Xm = mass_Xsum/mass_sum
+    Ym = mass_Ysum/mass_sum
+    Xm = 2**Xm
+    
+    return Xm, Ym
 
 def tunning(resp, para, filename='', saveplot=False, **kwargs):
     """
@@ -128,6 +141,23 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     resp_on = np.apply_along_axis(on_avg, 2, resp_mesh)
     resp_off = np.apply_along_axis(off_avg, 2, resp_mesh)
     
+    mask = resp_on < 0
+    import copy
+    
+    resp_pos = copy.deepcopy(resp_on) 
+    resp_pos[mask] = 0
+    
+    bf_x, bf_y = center_mass(resp_pos, freq, loud)
+    
+# =============================================================================
+#     resp_low = resp_on[0:4]
+#     resp_high = resp_on[4:7]
+#     loud_low = loud[0:4]
+#     loud_high = loud[4:7]
+#     bf_xl, bf_yl = center_mass(resp_low, freq, loud_low)
+#     bf_xh, bf_yh = center_mass(resp_high, freq, loud_high)
+# =============================================================================
+    
     resp_filt = TFTool.pascal_filter(resp_on)
     
 # =============================================================================
@@ -175,39 +205,48 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
 # =============================================================================
     method='lanczos'
     
-    xlabel = freq[::int((len(freq)-1)/10)]
-    xlabel = [i/1000 for i in xlabel]
+    xfreq = freq[::int((len(freq)-1)/10)]
+    xlabel = [i/1000 for i in xfreq]
     ylabel = [int(i) for i in loud]
     Nx = len(xlabel)
     Ny = len(ylabel)
-    xtick = np.arange(0.5,Nx-0.4,1)
-    ytick = np.arange(0.5,Ny-0.4,1)
+    #xtick = np.arange(0.5,Nx-0.4,1)
+    xtick = np.linspace(0,Nx,Nx)
+    ytick = np.linspace(0.5,Ny-0.5,Ny)
     
-
+    scaleX = Nx/((math.log(xfreq[-1],2) - math.log(xfreq[0],2)))
+    bf_x_scale = (math.log(bf_x,2) - math.log(xfreq[0],2)) * scaleX
+    bf_y_scale = (bf_y - ylabel[0])/10 + 0.5
+    
     fig = plt.figure()
     grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
     
     ax1 = fig.add_subplot(grid[0])
-    im = plt.imshow(resp_filt, interpolation=method, origin='lower', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
-    ax1.add_image(im)
+    im = plt.imshow(resp_filt, interpolation=method, origin='lower', aspect='auto', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
+    ax1.add_image(im)    
     ax1.set_xticks(xtick)
     ax1.set_xticklabels(xlabel, rotation=45)
     ax1.set_yticks(ytick)
     ax1.set_yticklabels(ylabel)
     ax1.set_title(f'{filename}_onset')
-    ax1.set_xlabel('Frequency kHz')
-    ax1.set_ylabel('dB SPL')    
+    ax1.set_xlabel('Frequency (kHz)')
+    ax1.set_ylabel('Loudness (dB SPL)')
     
-    ax2 = fig.add_subplot(grid[1])
+    ax1.scatter(bf_x_scale, bf_y_scale, marker='X', c='limegreen')
 
-    ax2.plot(x,freq_sum)
-    ax2.plot(x,y)
-    label = [f/1000 for f in freq]
-    ax2.set_xticks(x[::5])
-    ax2.set_xticklabels(label[::5], rotation=45)
-    ax2.axes.get_yaxis().set_visible(False)
-    pos = [ax1.get_position().x0, ax2.get_position().y0, ax1.get_position().width, ax2.get_position().height]
-    ax2.set_position(pos)
+    
+# =============================================================================
+#     ax2 = fig.add_subplot(grid[1])
+# 
+#     ax2.plot(x,freq_sum)
+#     ax2.plot(x,y)
+#     label = [f/1000 for f in freq]
+#     ax2.set_xticks(x[::5])
+#     ax2.set_xticklabels(label[::5], rotation=45)
+#     ax2.axes.get_yaxis().set_visible(False)
+#     pos = [ax1.get_position().x0, ax2.get_position().y0, ax1.get_position().width, ax2.get_position().height]
+#     ax2.set_position(pos)
+# =============================================================================
     
     cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
     cbar = plt.colorbar(im, cax=cax)
@@ -222,40 +261,42 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
         plt.show()
         plt.close(fig)
     
-    method = 'gaussian'
-    xlabel = freq[::int((len(freq)-1)/10)]
-    xlabel = [i/1000 for i in xlabel]
-    ylabel = [int(i) for i in loud]
-    Nx = len(xlabel)
-    Ny = len(ylabel)
-    xtick = np.arange(0.5,Nx-0.4,1)
-    ytick = np.arange(0.5,Ny-0.4,1)
-    
-    fig, ax1 = plt.subplots()
-    im = plt.imshow(resp_off, interpolation=method, origin='lower', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
-    ax1.add_image(im)
-    ax1.set_xticks(xtick)
-    ax1.set_xticklabels(xlabel, rotation=45)
-    ax1.set_yticks(ytick)
-    ax1.set_yticklabels(ylabel)
-    ax1.set_title(f'{filename}_offset')
-    ax1.set_xlabel('Frequency kHz')
-    ax1.set_ylabel('dB SPL')
-    
-    cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
-    cbar = plt.colorbar(im, cax=cax)
-    cbar.ax.set_ylabel('mV')
-    if saveplot:
-        plt.savefig(f'{filename}_off.pdf', dpi=500, format='pdf', bbox_inches='tight')
-        plt.savefig(f'{filename}_off.png', dpi=500, bbox_inches='tight')
-        plt.clf()
-        plt.close(fig)
-    else:
-        plt.show()
-        plt.close(fig)
+# =============================================================================
+#     method = 'gaussian'
+#     xlabel = freq[::int((len(freq)-1)/10)]
+#     xlabel = [i/1000 for i in xlabel]
+#     ylabel = [int(i) for i in loud]
+#     Nx = len(xlabel)
+#     Ny = len(ylabel)
+#     xtick = np.arange(0.5,Nx-0.4,1)
+#     ytick = np.arange(0.5,Ny-0.4,1)
+#     
+#     fig, ax1 = plt.subplots()
+#     im = plt.imshow(resp_off, interpolation=method, origin='lower', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
+#     ax1.add_image(im)
+#     ax1.set_xticks(xtick)
+#     ax1.set_xticklabels(xlabel, rotation=45)
+#     ax1.set_yticks(ytick)
+#     ax1.set_yticklabels(ylabel)
+#     ax1.set_title(f'{filename}_offset')
+#     ax1.set_xlabel('Frequency kHz')
+#     ax1.set_ylabel('dB SPL')
+#     
+#     cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
+#     cbar = plt.colorbar(im, cax=cax)
+#     cbar.ax.set_ylabel('mV')
+#     if saveplot:
+#         plt.savefig(f'{filename}_off.pdf', dpi=500, format='pdf', bbox_inches='tight')
+#         plt.savefig(f'{filename}_off.png', dpi=500, bbox_inches='tight')
+#         plt.clf()
+#         plt.close(fig)
+#     else:
+#         plt.show()
+#         plt.close(fig)
+# =============================================================================
         
         
-    return bf    
+    return [bf_x, bf_y]    
     
 def baseline(resp_iter):    #correct baseline
     return (resp_iter - np.mean(resp_iter[:20*25]))*100
