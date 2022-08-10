@@ -187,6 +187,7 @@ def get_stimslope(stim):
     log_if = [math.log(i,2) if i>0 else 0 for i in inst_freq]
     slope = np.diff(log_if, prepend=0)
     slope = [f*200000 for f in slope]
+    slope = smooth(slope)
     
     n = int(len(inst_freq))
     inst_freq_res = transient_remove(inst_freq)
@@ -208,9 +209,11 @@ def data_at_lag(inst_freq, slope, resp, lag, **kwargs):
     resp = signal.filtfilt(b,a,resp)
     
     if len(resp) == 50000:
-        endpoint = 38500
+        #endpoint = 38500
+        endpoint = 38000
     elif len(resp) == 37500:
-        endpoint = 26000
+        #endpoint = 26000
+        endpoint = 25500
     
     window = kwargs.get('window')
     if window:
@@ -218,9 +221,9 @@ def data_at_lag(inst_freq, slope, resp, lag, **kwargs):
         y = slope[window[0]:window[1]]
         z = resp[window[0]+delay_point:window[1]+delay_point] 
     else:
-        x = inst_freq[1400:endpoint]
-        y = slope[1400:endpoint]
-        z = resp[1400+delay_point:endpoint+delay_point]
+        x = inst_freq[1750:endpoint]
+        y = slope[1750:endpoint]
+        z = resp[1750+delay_point:endpoint+delay_point]
         
     return [x,y,z]
 
@@ -259,9 +262,9 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
     """       
     
     """index after parameter exclusion"""
-    idx=[i for i, a in enumerate(para) if a[2] not in [0.0,16.0,64.0,128.0]]
+    idx=[i for i, a in enumerate(para) if a[2] not in [0.0,32.0,64.0,128.0]]
     
-    inst_freqs, slopes, resps = [],[],[] 
+    inst_freqs, slopes, resps, paras = [],[],[],[] 
     """get instant frequency and slope for each stimulus"""
     window = kwargs.get('window')
     
@@ -270,12 +273,13 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
         inst_freqs.append(inst_freq)
         slopes.append(slope)
         resps.append(baseline(resp[i]))
+        paras.append(para[i][0:3])
 
     v_max = np.mean(resps, axis=1).max()
     bin_slope_lags=[]
-    x_edges = np.linspace(math.log(3000,2), math.log(90000,2), 30)
+    x_edges = np.linspace(math.log(3000,2), math.log(90000,2), 200)
     x_edges = [round(2**i, 0) for i in x_edges]
-    y_edges = np.linspace(-80,80,41)
+    y_edges = np.linspace(-80,80,301)
     
     for lag in lags:
         """data stores x,y,z from each stimulus"""
@@ -288,48 +292,52 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
                 data = data_at_lag(inst_freqs[i], slopes[i], resps[i], lag)
                 
             ret = stats.binned_statistic_2d(data[0], data[1], data[2], 'mean', bins=[x_edges,y_edges])
-            mask = np.isnan(ret[0])
-            ret_filt = np.array(ret[0])
-            ret_filt[mask] = 0
-            ret_filt = TFTool.pascal_filter(ret_filt)
-            all_stim.append(ret_filt)
+            
             
 # =============================================================================
-#             pp = ret[0].T
-#             plt.imshow(pp)
-#             plt.title(para[idx[i]])
-#             xx = [round(i/1000,0) for i in x_edges]      
-#             plt.xticks(range(0,len(x_edges)), xx)
-#             plt.yticks(range(0,len(y_edges)), y_edges)
-#             plt.show()
+#             mask = np.isnan(ret[0])
+#             ret[0][mask] = 0
 # =============================================================================
+
+            from astropy.convolution import convolve
             
-        all_stim = np.array(all_stim)
-        return all_stim
-        bin_avg = np.nanmean(all_stim, axis=0)
+            kernel = np.array([[1,0,0,0,0,0,0],[1,1,0,0,0,0,0],[1,2,1,0,0,0,0],[1,3,3,1,0,0,0],[1,4,6,4,1,0,0],[1,5,10,10,5,1,0],[1,6,15,20,15,6,1]])
+            ret_filt = TFTool.pascal_filter(ret[0])
+
+   
+            all_stim.append(ret[0])
+        
+        
+        bin_avg = np.nanmean(np.array(all_stim), axis=0).T
+        nan_mask = np.ma.array(bin_avg, mask=np.isnan(bin_avg))
         XX, YY = np.meshgrid(x_edges,y_edges)
-        #XX, YY = np.meshgrid(ret[1], ret[2])
+        
+        
+
         
         fig, ax1 = plt.subplots()
-        pcm = ax1.pcolormesh(XX, YY, bin_avg.T, cmap='RdBu_r', vmax=v_max, vmin=-1*v_max)
+        pcm = ax1.pcolormesh(XX, YY, bin_avg, cmap='RdBu_r', vmax=v_max, vmin=-1*v_max, zorder=10)
+        ax2 = ax1.twinx().twiny()
+        ax2.pcolormesh(XX, YY, nan_mask, cmap='YlGn', zorder=10)
+        
+        import matplotlib
+        current_map = matplotlib.cm.get_cmap()
+        current_map.set_bad(color='green')
+        #pcm = ax1.pcolormesh(XX, YY, bin_avg, cmap='RdBu_r')
         #pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', vmax=1000, vmin=0)
         #pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())
         
         ax1.set_xscale('log')
+        
         if window:
             ax1.set_title(f'{filename}_window:{window}_Lag:{lag}ms')
         else:
             ax1.set_title(f'{filename}_Lag:{lag}ms')
         
-# =============================================================================
-#         ax2 = plt.subplot()
-#         txt = (f'{filename}-Lag:{lag}ms')
-#         ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
-# =============================================================================
         ax1.set_xlabel('binned frequency (kHz)', fontsize=12)
         ax1.set_ylabel('FM sweep rate (oct/sec)', fontsize=12)
-        ax1.set_xticks([3000,6000,12000,24000,48000,96000])
-        ax1.set_xticklabels([3,6,12,24,48,96], fontsize=12)
+        ax1.set_xticks([3000,6000,12000,24000,48000,90000])
+        ax1.set_xticklabels([3,6,12,24,48,90], fontsize=12)
         cbar = fig.colorbar(pcm, ax=ax1)
         cbar.ax.set_ylabel('membrane potential (mV)')
         ax1.tick_params(axis='both', which='major', labelsize=12)
@@ -339,7 +347,7 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
                 plt.savefig(rf'fig\{filename}\{filename}_window-{window}_Lag-{lag}ms.png', dpi=500)
                 plt.savefig(rf'fig\{filename}\pdf\{filename}_window-{window}_Lag-{lag}ms.pdf', dpi=500, format='pdf', bbox_inches='tight')
             else:
-                plt.savefig(rf'fig\{filename}\pdf\{filename}_Lag_{lag}ms.pdf', dpi=500, format='pdf', bbox_inches='tight')
+                #plt.savefig(rf'fig\{filename}\pdf\{filename}_Lag_{lag}ms.pdf', dpi=500, format='pdf', bbox_inches='tight')
                 plt.savefig(rf'fig\{filename}\{filename}_Lag_{lag}ms.png', dpi=500, bbox_inches='tight')
             if plot:
                 plt.show()
