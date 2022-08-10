@@ -23,9 +23,9 @@ if  __name__ == "__main__":
     bf_cell=[[],[]]
     kk=[]
     
-    #df_loc = 72
-    #if df_loc == 72:
-    for df_loc in idx_tone:
+    df_loc = 36
+    if df_loc == 36:
+    #for df_loc in idx_tone:
         i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
         version = df['Version'][df_loc]
@@ -43,7 +43,8 @@ if  __name__ == "__main__":
             bf = cell_note['best frequency'].loc[n]
             #puretone.psth_bf(resp, para, bf, filename, set_x_intime=True, saveplot=True)
         
-        #bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
+        bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
+        print(f'{filename}: {bf}')
         
         
 # =============================================================================
@@ -51,7 +52,7 @@ if  __name__ == "__main__":
 #             puretone.tone_stim_resp(i, stim[i], resp[i], p[:2], filename)
 # =============================================================================
         
-        _ = puretone.tunning(resp, para, filename=filename, saveplot=True)
+        #_ = puretone.tunning(resp, para, filename=filename, saveplot=True)
         #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
         
 # =============================================================================
