@@ -166,7 +166,8 @@ class Tdms_V1():
         for i in range(len(base_left)):
             m[base_left[i]:base_right[i]] = True
             
-        nopeak = resp_all[:]
+        import copy
+        nopeak = copy.deepcopy(resp_all)
         nopeak[m] = np.nan
         nopeak = pd.Series(nopeak)
         nopeak = list(nopeak.interpolate(limit_direction='both', kind='cubic'))
@@ -393,8 +394,8 @@ class Tdms_V1():
         
         if os.path.isfile(sound_path):
             sound_file = TdmsFile.open(sound_path)
-            sound = np.array(sound_file.groups()[0].channels()[0])
-            self.stim_raw = sound
+            sound_all = np.array(sound_file.groups()[0].channels()[0])
+            self.stim_raw = sound_all
         else:
             raise FileNotFoundError('No sound file in the directory')
       
@@ -408,10 +409,10 @@ class Tdms_V1():
             
             if x1<0:
                 lst = np.zeros(abs(x1)*8)
-                so = np.concatenate((lst,sound[:x2*8]), axis = 0)
+                so = np.concatenate((lst,sound_all[:x2*8]), axis = 0)
                 self.sound.append(so)
             else:
-                self.sound.append(sound[x1*8:x2*8])
+                self.sound.append(sound_all[x1*8:x2*8])
         
         return self.sound
             
@@ -436,11 +437,10 @@ class Tdms_V1():
 class Tdms_V2():
     
     def __init__(self):
-        self.S, self.R = [],[]
-        self.Para = {}
-        self.Sound = []
+        self.stim, self.resp, self.sound = [],[],[]
+        self.para = {}
         self.misc = []
-        self.Rdpk = []
+        self.resp_dpk = []
         
     def loadtdms(self, path = '', protocol = 0, load_sound = True, base_correct=True, dePeak=True):
         """
@@ -474,12 +474,12 @@ class Tdms_V2():
         elif not self.path.is_file():
             raise FileNotFoundError('No Such File in the Directory')
         else:
-            filename = str(self.path)
+            fdir = str(self.path)
             
     
         
         
-        tdms_file = TdmsFile.open(filename)
+        tdms_file = TdmsFile.open(fdir)
         
         #sampling rate = 25kHz; 1 ms = 25 points
         fs = 25000
@@ -487,64 +487,64 @@ class Tdms_V2():
 
         """load tdms file"""
         groups = tdms_file['Untitled']
-        stim = groups['Sound'][:]
-        resp = groups['PatchPrimary'][:]
+        stim_all = groups['Sound'][:]
+        resp_all = groups['PatchPrimary'][:]
         trial_startT = groups['AI Start ms'][:]
         stim_startT = groups['Stimulus Start ms'][:]
         timing = groups['StimStart'][:]
-        stim = np.array(stim)
+        stim_all = np.array(stim_all)
         stim_startT = stim_startT - trial_startT
         _channel = 'Tone Parameters'
         
+        self.resp_raw = resp_all
         
         """0.1Hz highpass butterworth filter to correct baseline drifting"""
         if base_correct:
             b,a = signal.butter(1, 0.1, btype='high', fs=25000)
-            resp = signal.filtfilt(b,a,resp)
+            resp_all = signal.filtfilt(b,a,resp_all)
         
         
         """remove spilkes for membrain potential anaylsis"""
-        if dePeak:
-            peaks,_ = signal.find_peaks(resp, prominence=0.2, height=[None, None], rel_height=0.1, width=[0,100])
-            base_left = []
-            base_right = []
-            m = np.zeros(len(resp), dtype=bool)
-            for peak in peaks:
-                    _re = resp[peak-50:peak+200]
-                    _re_diff = np.convolve(np.diff(_re), np.ones(10)/10, mode='same') 
-                    index = [i for i in range(len(_re_diff)) if np.abs(_re_diff[i] - 0) > 0.001]
-                    #boundary for extrime value
-                    if index:
-                        if index[0] > 40:
-                            index[0] = 25
-                        if index[-1] < 100:
-                            index[-1] = 150
-                        base_left.append(peak-50+index[0])
-                        base_right.append(peak-50+index[-1])
-                    else:
-                        pass
-            for i in range(len(base_left)):
-                m[base_left[i]:base_right[i]] = True
-                
-            nopeak = resp[:]
-            nopeak[m] = np.nan
-            nopeak = pd.Series(nopeak)
-            nopeak = list(nopeak.interpolate(limit_direction='both', kind='cubic'))
-        else:
-            nopeak = resp[:]
+        peaks,_ = signal.find_peaks(resp_all, prominence=0.2, height=[None, None], rel_height=0.1, width=[0,100])
+        base_left = []
+        base_right = []
+        m = np.zeros(len(resp_all), dtype=bool)
+        for peak in peaks:
+                _re = resp_all[peak-50:peak+200]
+                _re_diff = np.convolve(np.diff(_re), np.ones(10)/10, mode='same') 
+                index = [i for i in range(len(_re_diff)) if np.abs(_re_diff[i] - 0) > 0.001]
+                #boundary for extrime value
+                if index:
+                    if index[0] > 40:
+                        index[0] = 25
+                    if index[-1] < 100:
+                        index[-1] = 150
+                    base_left.append(peak-50+index[0])
+                    base_right.append(peak-50+index[-1])
+                else:
+                    pass
+        for i in range(len(base_left)):
+            m[base_left[i]:base_right[i]] = True
+            
+        import copy
+        nopeak = copy.deepcopy(resp_all)
+        nopeak[m] = np.nan
+        nopeak = pd.Series(nopeak)
+        nopeak = list(nopeak.interpolate(limit_direction='both', kind='cubic'))
+
             
         
         """load high-resolution sound file if exist"""
         if load_sound:
-            filename = str(self.path)
-            if filename[-6] == '_':
-                sound_path = filename[:-5] + 'Sound' + filename[-5:]
+            fdir = str(self.path)
+            if fdir[-6] == '_':
+                sound_path = fdir[:-5] + 'Sound' + fdir[-5:]
             else:
-                sound_path = filename[:-5] + '_Sound' + filename[-5:]
+                sound_path = fdir[:-5] + '_Sound' + fdir[-5:]
             
             if os.path.isfile(sound_path):
                 sound_file = TdmsFile.open(sound_path)
-                sound = np.array(sound_file.groups()[0].channels()[0])
+                sound_all = np.array(sound_file.groups()[0].channels()[0])
             else:
                 print('No sound file in the directory')
                 pass
@@ -596,27 +596,27 @@ class Tdms_V2():
                 self.misc.append(x1)
                 if x1 < 0:
                     lst = np.zeros(abs(x1))
-                    ss = np.concatenate((lst,stim[:x2]), axis = 0)
-                    rr = np.concatenate((lst,resp[:x2]), axis = 0)
+                    ss = np.concatenate((lst,stim_all[:x2]), axis = 0)
+                    rr = np.concatenate((lst,resp_all[:x2]), axis = 0)
                     nop = np.concatenate((lst,nopeak[:x2]), axis = 0)
-                    self.S.append(ss)
-                    self.R.append(rr)
-                    self.Rdpk.append(nop)
+                    self.stim.append(ss)
+                    self.resp.append(rr)
+                    self.resp_dpk.append(nop)
 
                 else:
-                    self.S.append(stim[x1:x2])
-                    self.R.append(resp[x1:x2])
-                    self.Rdpk.append(nopeak[x1:x2])
+                    self.stim.append(stim_all[x1:x2])
+                    self.resp.append(resp_all[x1:x2])
+                    self.resp_dpk.append(nopeak[x1:x2])
                     
                 if load_sound and os.path.isfile(sound_path):
                     if x1<0:
                         lst = np.zeros(abs(x1)*8)
-                        so = np.concatenate((lst,sound[:x2*8]), axis = 0)
-                        self.Sound.append(so)
+                        so = np.concatenate((lst,sound_all[:x2*8]), axis = 0)
+                        self.sound.append(so)
                     else:
-                        self.Sound.append(sound[x1*8:x2*8])
+                        self.sound.append(sound_all[x1*8:x2*8])
                 else:
-                    sound = self.S
+                    self.sound = []
                 
 
 
@@ -647,35 +647,34 @@ class Tdms_V2():
                 self.misc.append(x1)
                 if x1 < 0:
                     lst = np.zeros(abs(x1))
-                    ss = np.concatenate((lst,stim[:x2]), axis = 0)
-                    rr = np.concatenate((lst,resp[:x2]), axis = 0)
+                    ss = np.concatenate((lst,stim_all[:x2]), axis = 0)
+                    rr = np.concatenate((lst,resp_all[:x2]), axis = 0)
                     nop = np.concatenate((lst,nopeak[:x2]), axis = 0)
-                    self.S.append(ss)
-                    self.R.append(rr)
-                    self.Rdpk.append(nop)
+                    self.stim.append(ss)
+                    self.resp.append(rr)
+                    self.resp_dpk.append(nop)
 
                 else:
-                    self.S.append(stim[x1:x2])
-                    self.R.append(resp[x1:x2])
-                    self.Rdpk.append(nopeak[x1:x2])
+                    self.stim.append(stim_all[x1:x2])
+                    self.resp.append(resp_all[x1:x2])
+                    self.resp_dpk.append(nopeak[x1:x2])
                 
                 if load_sound and os.path.isfile(sound_path):
                     if x1<0:
                         lst = np.zeros(abs(x1)*8)
-                        so = np.concatenate((lst,sound[:x2*8]), axis = 0)
-                        self.Sound.append(so)
+                        so = np.concatenate((lst,sound_all[:x2*8]), axis = 0)
+                        self.sound.append(so)
                     else:
-                        self.Sound.append(sound[x1*8:x2*8])
+                        self.sound.append(sound_all[x1*8:x2*8])
                 else:
-                    sound = self.S
-                    self.Sound = sound
+                    self.sound = []
                       
         
         del tdms_file
-        self.Para = _para_sort
-        self.rawS = sound
-        self.rawR = resp
-        self.rawRdpk = nopeak
+        self.para = para
+        self.stim_raw = sound_all
+        
+        self.resp_dpk_raw = nopeak
         self.sRate = sRate
 
     def loadsound(self, protocol=0):
@@ -700,41 +699,41 @@ class Tdms_V2():
             list of array
 
         """
-        filename = str(self.path)
-        if filename[-6] == '_':
-            sound_path = filename[:-5] + 'Sound' + filename[-5:]
+        fdir = str(self.path)
+        if fdir[-6] == '_':
+            sound_path = fdir[:-5] + 'Sound' + fdir[-5:]
         else:
-            sound_path = filename[:-5] + '_Sound' + filename[-5:]
+            sound_path = fdir[:-5] + '_Sound' + fdir[-5:]
         
         if os.path.isfile(sound_path):
             sound_file = TdmsFile.open(sound_path)
-            sound = np.array(sound_file.groups()[0].channels()[0])
-            self.rawS = sound
+            sound_all = np.array(sound_file.groups()[0].channels()[0])
+            self.stim_raw = sound_all
         else:
             raise FileNotFoundError('No sound file in the directory')
       
-        self.Sound = []
+        self.dound = []
         
         for x1 in self.misc:
             if protocol == 0:
-                x2 = x1 + 2000*self.sRate
+                x2 = x1 + 1500*self.sRate
             elif protocol == 1:
                 x2 = x1 + 400*self.sRate
             
             if x1<0:
                 lst = np.zeros(abs(x1)*8)
-                so = np.concatenate((lst,sound[:x2*8]), axis = 0)
-                self.Sound.append(so)
+                so = np.concatenate((lst,sound_all[:x2*8]), axis = 0)
+                self.sound.append(so)
             else:
-                self.Sound.append(sound[x1*8:x2*8])
+                self.sound.append(sound_all[x1*8:x2*8])
         
-        return self.Sound
+        return self.sound
             
     def cut(self, arr, protocol=0):
         cutted = []        
         for x1 in self.misc:
             if protocol == 0:
-                x2 = x1 + 2000*self.sRate
+                x2 = x1 + 1500*self.sRate
             elif protocol == 1:
                 x2 = x1 + 400*self.sRate
             
