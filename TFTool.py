@@ -10,8 +10,10 @@ import pandas as pd
 
 
 def element(arr, *arg):
-    #find the location of element with content arg in an array 
-    return [x for x in range(0, len(arr)) if arr[x] == arg]
+    #find the location of element with content arg in an array
+    for i in range(len(arr)):
+         if all(e in arr[i] for e in arg):
+             return i
 
 def fft(arr, fs):
     fs = fs
@@ -38,7 +40,7 @@ def morlet(arr, fs, width):
     freq = np.linspace(1, fs/2, 100)
     widths = width*fs / (2*freq*np.pi)
     
-    cwtm = signal.cwt(arr, signal.morlet2, widths, width=width)
+    cwtm = signal.cwt(arr, signal.morlet2, widths)
     plt.pcolormesh(t, freq, np.abs(cwtm)**2, cmap='viridis', shading='gouraud')
     plt.show()
     
@@ -258,13 +260,13 @@ def list_comb(arr1, arr2):
     
     
 def pascal_filter(arr):
-    kernel = np.array([[1,0,0],[1,1,0],[1,2,1]])
+    #kernel = np.array([[1,0,0],[1,1,0],[1,2,1]])
     #kernel = np.array([[1,0,0,0,0],[1,1,0,0,0],[1,2,1,0,0],[1,3,3,1,0],[1,4,6,4,1]])
-    #kernel = np.array([[1,0,0,0,0,0,0],[1,1,0,0,0,0,0],[1,2,1,0,0,0,0],[1,3,3,1,0,0,0],[1,4,6,4,1,0,0],[1,5,10,10,5,1,0],[1,6,15,20,15,6,1]])
+    kernel = np.array([[1,0,0,0,0,0,0],[1,1,0,0,0,0,0],[1,2,1,0,0,0,0],[1,3,3,1,0,0,0],[1,4,6,4,1,0,0],[1,5,10,10,5,1,0],[1,6,15,20,15,6,1]])
     
     arr_filt = signal.convolve2d(arr, kernel, mode='same', boundary='fill', fillvalue=0)
-    arr_filt = arr_filt/7
+    #arr_filt = arr_filt/7
     #arr_filt = arr_filt/31
-    #arr_filt = arr_filt/127
+    arr_filt = arr_filt/127
     
     return arr_filt
