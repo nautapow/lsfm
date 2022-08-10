@@ -52,8 +52,8 @@ if  __name__ == "__main__":
 # =============================================================================
 
     
-    df_loc = 62
-    if df_loc == 62 :
+    df_loc = 60
+    if df_loc == 60:
     #for df_loc in tlsfm:
         
         
@@ -83,8 +83,18 @@ if  __name__ == "__main__":
         #resp_at_freq_cell = np.load('restrain_resp_at_freq_cell.npy', allow_pickle=True)
         #test = lsfm.nXing_cell(resp_at_freq_cell)
         tune = (round(bf/2/1000,1), round(bf*2/1000,1))
-
-
+        
+        cwt = scipy.io.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\cwt_sound.mat')
+        f = cwt['f']
+        wt = np.array(cwt['wt'][0])
+        f = f[::-1]
+        wt = [i[::-1] for i in wt]
+        
+        fig, ax = plt.subplots()
+        im = ax.imshow(wt[100], origin='lower')
+        ax.set_yticklabels(f)
+        
+        
 # =============================================================================
 #         """PSTH"""
 #         p = lsfm_psth.Psth(resp, para, filename, version=version)
@@ -107,21 +117,19 @@ if  __name__ == "__main__":
 #             t = Tdms_V2()
 #             t.loadtdms(fdir, protocol=0, load_sound=True)
 #         
-# =============================================================================
-
-
-# =============================================================================
+#         
+#         sound = t.stim_raw
+# 
 #         """reverse FIR"""
 #         target_FIR = f'E:\in-vivo_patch\FIR_list\FIR_{df["FIR"][df_loc]}.txt'
 #         
 #         with open(target_FIR, 'r') as file:
 #                  fir = np.array(file.read().split('\n')[:-1], dtype='float64')
 #         sound_re = lsfm.inv_fir(sound, fir)
-#         sound_re = lsfm.inv_fir(sound, fir)
 #         sound_re = t.cut(sound_re)
 #         scipy.io.savemat(f'{filename}_invfir4cwt.mat', {'stim':sound_re})
+#         
 # =============================================================================
-        
 
 # =============================================================================
 #         """plot SD-slope and SD-direction"""
@@ -131,13 +139,16 @@ if  __name__ == "__main__":
 #         #lsfm_slope.plot_both_index(*lsfm_slope.slope_index(slope_lags, bf), *lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bf), filename)
 # =============================================================================
         
-        """slope"""
-        lags = np.linspace(0, 100, 51)
-        slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=False)
-
-        #direction_lag = lsfm_slope.direction_map(slope_lags)
-        #lsfm_slope.direction_contour(direction_lag, filename, plot=False, saveplot=True)
-    
+# =============================================================================
+#         """slope"""
+#         lags = np.linspace(0, 100, 51)
+#         #slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=False)
+#         _ = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=False)
+# 
+#         #direction_lag = lsfm_slope.direction_map(slope_lags)
+#         #lsfm_slope.direction_contour(direction_lag, filename, plot=False, saveplot=True)
+#     
+# =============================================================================
     
     
 # =============================================================================
