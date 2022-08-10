@@ -214,6 +214,7 @@ def inv_fir(sound, fir):
     #theta = np.angle(_fir_fft, deg=False)
     inv_filt = r*np.cos(theta) + r*np.sin(theta)*1j
     inv_filt = np.real(np.fft.ifft(inv_filt))
+    
     return np.convolve(sound, np.abs(inv_filt), 'same')
 
 
@@ -885,6 +886,30 @@ def resp_overcell(df, cell_idx, saveplot=False):
 
     
 def stim_resp(i, stim, resp, para, filename, saveplot=False):
+    """
+    plot superimposed stimulus and response
+
+    Parameters
+    ----------
+    i : TYPE
+        DESCRIPTION.
+    stim : TYPE
+        DESCRIPTION.
+    resp : TYPE
+        DESCRIPTION.
+    para : TYPE
+        DESCRIPTION.
+    filename : TYPE
+        DESCRIPTION.
+    saveplot : TYPE, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    None.
+
+    """
+    
     fig, ax1 = plt.subplots()
     ax1.plot()
     
