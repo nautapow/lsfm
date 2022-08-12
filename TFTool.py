@@ -41,8 +41,12 @@ def morlet(arr, fs, width):
     widths = width*fs / (2*freq*np.pi)
     
     cwtm = signal.cwt(arr, signal.morlet2, widths)
-    plt.pcolormesh(t, freq, np.abs(cwtm)**2, cmap='viridis', shading='gouraud')
-    plt.show()
+    
+    return cwtm
+# =============================================================================
+#     plt.pcolormesh(t, freq, np.abs(cwtm)**2, cmap='viridis', shading='gouraud')
+#     plt.show()
+# =============================================================================
     
 def mat_out(filename, arr):
     filename = str(filename)

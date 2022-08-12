@@ -317,12 +317,16 @@ def freq_slope_contour(stim, resp, para, lags, binning=None, filename=None, plot
         
         fig, ax1 = plt.subplots()
         pcm = ax1.pcolormesh(XX, YY, bin_avg, cmap='RdBu_r', vmax=v_max, vmin=-1*v_max, zorder=10)
-        ax2 = ax1.twinx().twiny()
-        ax2.pcolormesh(XX, YY, nan_mask, cmap='YlGn', zorder=10)
+# =============================================================================
+#         ax2 = ax1.twinx().twiny()
+#         ax2.pcolormesh(XX, YY, nan_mask, cmap='YlGn', zorder=10)
+# =============================================================================
         
-        import matplotlib
-        current_map = matplotlib.cm.get_cmap()
-        current_map.set_bad(color='green')
+# =============================================================================
+#         import matplotlib
+#         current_map = matplotlib.cm.get_cmap()
+#         current_map.set_bad(color='green')
+# =============================================================================
         #pcm = ax1.pcolormesh(XX, YY, bin_avg, cmap='RdBu_r')
         #pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', vmax=1000, vmin=0)
         #pcm = ax1.pcolormesh(XX, YY, ret[0].T, cmap='RdBu_r', norm=colors.CenteredNorm())

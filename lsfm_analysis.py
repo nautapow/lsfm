@@ -15,7 +15,7 @@ import lsfm
 import lsfm_psth
 import lsfm_slope
 import math
-
+import lsfm_strf
 
     
 if  __name__ == "__main__":
@@ -84,25 +84,68 @@ if  __name__ == "__main__":
         #test = lsfm.nXing_cell(resp_at_freq_cell)
         tune = (round(bf/2/1000,1), round(bf*2/1000,1))
         
-        cwt = scipy.io.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\cwt_sound.mat')
+        import mat73
+        cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\cwt_sound.mat')
         f = cwt['f']
-        wt = np.array(cwt['wt'][0])
+        wt = cwt['wt']
         f = f[::-1]
         wt = [i[::-1] for i in wt]
         
-        fig, ax = plt.subplots()
-        im = ax.imshow(wt[100], origin='lower')
-        ax.set_yticklabels(f)
+        
+        strf_real = lsfm_strf.strf(resp, cwt, filename)
+        
+        """artificial STRF"""
+        delay = np.linspace(-0.1, 0.4, 12501)
+        grid = np.array(np.meshgrid(delay, f))
+        Xv, Yv = np.meshgrid(delay, f)
+        grid = grid.swapaxes(0, -1).swapaxes(0, 1)
+        means_inhib1 = [0.15, 5000]
+        means_excit = [0.17, 6000]
+        means_inhib2 = [0.1, 7000]
+        cov = [[.002,0], [0, 30000]]
+        cov2 = [[.004,0], [0, 30000]]
+        gauss_inhib1 = -1*stats.multivariate_normal.pdf(grid, means_inhib1, cov)
+        gauss_excit = stats.multivariate_normal.pdf(grid, means_excit, cov2)
+        gauss_inhib2 = -1*stats.multivariate_normal.pdf(grid, means_inhib2, cov)
+        strf = gauss_inhib1 + gauss_excit + gauss_inhib2
+        
+        plt.imshow(strf, aspect='auto', origin='lower')
+        ylabel = [round(i/1000, 2) for i in f[::20]]
+        plt.yticks(np.linspace(0,len(f), len(ylabel)), ylabel)
+        xlabel = np.linspace(-0.1,0.4,6)
+        xlabel = [round(i,2) for i in xlabel]
+        plt.xticks(np.linspace(0,12500,6), xlabel)
+        plt.colorbar()
+        
+        """Resp simulated by STRF"""
+        resp_simus=[]
+        
+        for i,stim_wt in enumerate(wt):
+            noise = np.random.randn(len(f), len(delay))/100
+            strf = gauss_inhib1 + gauss_excit + gauss_inhib2 + noise
+            strf = np.flip(strf, axis=1)
+            
+            fs=25000
+            npad = ((0,0), (int(0.4*fs), int(0.1*fs)))
+            stim_pad = np.pad(stim_wt, pad_width=npad, mode='constant', constant_values=0)
+            
+            freq_band_conv=[]
+            for j, f_band in enumerate(stim_pad):
+                fbc = signal.convolve(f_band, strf_real[j], mode='valid', method='direct')
+                freq_band_conv.append(fbc)
+            
+            freq_band_conv = np.array(freq_band_conv)
+            simulated = np.sum(freq_band_conv, axis=0)
+            resp_simus.append(simulated)
+            
         
         
-# =============================================================================
-#         """PSTH"""
-#         p = lsfm_psth.Psth(resp, para, filename, version=version)
-#         #_,_,_ = p.psth_all(plot=False, saveplot=False)
-#         #lsfm_psth.psth_wwo_bf(resp, para, bf, version, filename, saveplot=True)
-#         #p.psth_trend(tuning=tune, plot=True, saveplot=False)
-#         #p.psth_para(plot=True, saveplot=False)
-# =============================================================================
+        """PSTH"""
+        p = lsfm_psth.Psth(resp_simus, para, filename, version=version)
+        _,_,_ = p.psth_all(plot=True, saveplot=False)
+        #lsfm_psth.psth_wwo_bf(resp, para, bf, version, filename, saveplot=True)
+        #p.psth_trend(tuning=tune, plot=True, saveplot=False)
+        #p.psth_para(plot=True, saveplot=False)
         
         
 # =============================================================================
@@ -143,12 +186,12 @@ if  __name__ == "__main__":
 #         """slope"""
 #         lags = np.linspace(0, 100, 51)
 #         #slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=False)
-#         _ = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=False)
+#         _ = lsfm_slope.freq_slope_contour(stim, resp_simus, para, lags=lags, filename=filename, plot=True, saveplot=False)
 # 
 #         #direction_lag = lsfm_slope.direction_map(slope_lags)
 #         #lsfm_slope.direction_contour(direction_lag, filename, plot=False, saveplot=True)
-#     
 # =============================================================================
+    
     
     
 # =============================================================================

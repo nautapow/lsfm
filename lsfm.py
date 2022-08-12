@@ -221,9 +221,17 @@ def inv_fir(sound, fir):
 def strf(resp, cwt, filename, plot=True):
     resp_r = signal.resample(resp, 500, axis=1)
     
+# =============================================================================
+#     f = cwt['f']
+#     f = f[:,0]
+#     wt = cwt['wt'].T[:,0]
+# =============================================================================
+    
     f = cwt['f']
-    f = f[:,0]
-    wt = cwt['wt'].T[:,0]
+    wt = cwt['wt']
+    f = f[::-1]
+    wt = [i[::-1] for i in wt]
+    
     wt_a = []
     for w in wt:
         wt_a.append(w)
@@ -232,7 +240,7 @@ def strf(resp, cwt, filename, plot=True):
         
     """construct STRF"""
     t_for,t_lag = 0.1,0.4
-    fs = 250
+    fs = 25000
     wt_p = np.pad(wt_a, [(0,0), (0,0), (int(t_lag*fs),int(t_for*fs))], 'constant')
     
     epochs = len(wt_p)
