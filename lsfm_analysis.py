@@ -52,8 +52,8 @@ if  __name__ == "__main__":
 # =============================================================================
 
     
-    df_loc = 60
-    if df_loc == 60:
+    df_loc = 74
+    if df_loc == 74:
     #for df_loc in tlsfm:
         
         
@@ -94,36 +94,17 @@ if  __name__ == "__main__":
         
         strf_real = lsfm_strf.strf(resp, cwt, filename)
         
-        """artificial STRF"""
-        delay = np.linspace(-0.1, 0.4, 12501)
-        grid = np.array(np.meshgrid(delay, f))
-        Xv, Yv = np.meshgrid(delay, f)
-        grid = grid.swapaxes(0, -1).swapaxes(0, 1)
-        means_inhib1 = [0.15, 5000]
-        means_excit = [0.17, 6000]
-        means_inhib2 = [0.1, 7000]
-        cov = [[.002,0], [0, 30000]]
-        cov2 = [[.004,0], [0, 30000]]
-        gauss_inhib1 = -1*stats.multivariate_normal.pdf(grid, means_inhib1, cov)
-        gauss_excit = stats.multivariate_normal.pdf(grid, means_excit, cov2)
-        gauss_inhib2 = -1*stats.multivariate_normal.pdf(grid, means_inhib2, cov)
-        strf = gauss_inhib1 + gauss_excit + gauss_inhib2
+
         
-        plt.imshow(strf, aspect='auto', origin='lower')
-        ylabel = [round(i/1000, 2) for i in f[::20]]
-        plt.yticks(np.linspace(0,len(f), len(ylabel)), ylabel)
-        xlabel = np.linspace(-0.1,0.4,6)
-        xlabel = [round(i,2) for i in xlabel]
-        plt.xticks(np.linspace(0,12500,6), xlabel)
-        plt.colorbar()
+
         
         """Resp simulated by STRF"""
         resp_simus=[]
+        delay = np.linspace(-0.1, 0.4, 12501)
+        strf = lsfm_strf.fake_strf(cwt, plot=True)
         
         for i,stim_wt in enumerate(wt):
-            noise = np.random.randn(len(f), len(delay))/100
-            strf = gauss_inhib1 + gauss_excit + gauss_inhib2 + noise
-            strf = np.flip(strf, axis=1)
+           
             
             fs=25000
             npad = ((0,0), (int(0.4*fs), int(0.1*fs)))
@@ -131,7 +112,7 @@ if  __name__ == "__main__":
             
             freq_band_conv=[]
             for j, f_band in enumerate(stim_pad):
-                fbc = signal.convolve(f_band, strf_real[j], mode='valid', method='direct')
+                fbc = signal.convolve(f_band, coeff[j], mode='valid', method='fft')
                 freq_band_conv.append(fbc)
             
             freq_band_conv = np.array(freq_band_conv)
