@@ -2,7 +2,7 @@
 [~, f] = cwt(stim(1,:),200000, 'WaveletParameters',[32,1280]);
 
 parfor x=1:length(stim(:,1))
-    wt{x} = abs(cwt(stim(x,:),200000, 'WaveletParameters',[32,1280]));
+    wt{x} = abs(cwt(stim(x,:),200000, 'WaveletParameters',[32,1280], VoicePerOctave=6, FrequencyLimits=[3000,96000]));
     
     wt_t = zeros(length(f),500)
     
