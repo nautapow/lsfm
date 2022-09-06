@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 from scipy import signal
 from scipy import stats
 import scipy.io
@@ -14,8 +15,9 @@ class STRF():
         f = f[::-1]
         wt = [i[::-1] for i in wt]
         self.fs = fs
-        self.point = (forward+delay)*fs
+        self.point = int((forward+delay)*fs)
         self.stim = wt
+        self.resp = resp
         self.freq = f
         self.filename = filename
         self.t_for = forward
@@ -31,7 +33,7 @@ class STRF():
                 corr_siglestim=[]
                 for freq_band in stim_pad:
                     corr = signal.correlate(freq_band, self.resp[i], mode='valid', method='fft')
-                    corr_siglestim.append(corr/len(freq_band))
+                    corr_siglestim.append(corr)
                 
                 corr_allstim.append(corr_siglestim)
             
@@ -57,50 +59,58 @@ class STRF():
             else:
                 pass
             
-            self.strf = coeff
             return coeff
         
     
-    def fake_strf(self, plot=False):
+    def fake_strf(self, plot=False, saveplot=False):
         """artificial STRF"""
         
-        delay = np.linspace(-1*self.t_for, self.t_lag, self.point+1)
+        delay = np.linspace(-1*self.t_for, self.t_lag, int(self.point+1))
         grid = np.array(np.meshgrid(delay, self.freq))
         Xv, Yv = np.meshgrid(delay, self.freq)
         grid = grid.swapaxes(0, -1).swapaxes(0, 1)
+        rf_para = (0.15, 6000, .001, 1000)
+        
+        means_excit = [rf_para[0], rf_para[1]]
         means_inhib1 = [0.15, 5000]
-        means_excit = [0.17, 6000]
         means_inhib2 = [0.1, 7000]
-        cov = [[.002,0], [0, 30000]]
-        cov2 = [[.004,0], [0, 30000]]
-        gauss_inhib1 = -1*stats.multivariate_normal.pdf(grid, means_inhib1, cov)
-        gauss_excit = stats.multivariate_normal.pdf(grid, means_excit, cov2)
-        gauss_inhib2 = -1*stats.multivariate_normal.pdf(grid, means_inhib2, cov)
+        cov = [[rf_para[2],0], [0, rf_para[3]]]
+        cov2 = [[.004,0], [0, 100000]]
+        
+        gauss_excit = stats.multivariate_normal.pdf(grid, means_excit, cov)
+        gauss_inhib1 = -1*stats.multivariate_normal.pdf(grid, means_inhib1, cov2)
+        gauss_inhib2 = -1*stats.multivariate_normal.pdf(grid, means_inhib2, cov2)
         
         noise = np.random.randn(len(self.freq), len(delay))/100
         
         #strf = gauss_inhib1 + gauss_excit + gauss_inhib2
-        strf = gauss_inhib1 + gauss_excit + gauss_inhib2 + noise
+        strf = gauss_excit #+ noise
         strf = np.flip(strf, axis=1)
         
+
+        plt.imshow(strf, aspect='auto', origin='lower', norm=colors.CenteredNorm())
+        ylabel = [round(i/1000, 2) for i in self.freq[::20]]
+        plt.yticks(np.linspace(0,len(self.freq), len(ylabel)), ylabel)
+        xlabel = np.linspace(-0.1,0.4,6)
+        xlabel = [round(i,2) for i in xlabel]
+        plt.xticks(np.linspace(0,self.point+1,6), xlabel)
+        plt.colorbar()
         
+        if saveplot:
+            plt.savefig(f'{self.filename}_fake_strf.png', dpi=500, bbox_inches='tight')
+            if plot:
+                plt.show()
+            plt.clf()
+        elif plot:
+            plt.show()
+            plt.clf()
         
-        if plot:
-            plt.imshow(strf, aspect='auto', origin='lower')
-            ylabel = [round(i/1000, 2) for i in self.freq[::20]]
-            plt.yticks(np.linspace(0,len(self.freq), len(ylabel)), ylabel)
-            xlabel = np.linspace(-0.1,0.4,6)
-            xlabel = [round(i,2) for i in xlabel]
-            plt.xticks(np.linspace(0,self.point+1,6), xlabel)
-            plt.colorbar()
-        
-        self.strf_simu = strf
-        return strf
+        return strf, rf_para
     
     
-    def resp_simu(self):
+    def resp_simu(self, strf):
         """Resp simulated by STRF"""
-        strf = self.strf
+        self.strf = strf
         resp_simus=[]
         # delay = np.linspace(-1*self.t_for, self.t_lag, self.point+1)
         
