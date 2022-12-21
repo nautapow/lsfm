@@ -264,13 +264,20 @@ def list_comb(arr1, arr2):
     
     
 def pascal_filter(arr):
-    #kernel = np.array([[1,0,0],[1,1,0],[1,2,1]])
+    kernel = np.array([[1,0,0],[1,1,0],[1,2,1]])
     #kernel = np.array([[1,0,0,0,0],[1,1,0,0,0],[1,2,1,0,0],[1,3,3,1,0],[1,4,6,4,1]])
-    kernel = np.array([[1,0,0,0,0,0,0],[1,1,0,0,0,0,0],[1,2,1,0,0,0,0],[1,3,3,1,0,0,0],[1,4,6,4,1,0,0],[1,5,10,10,5,1,0],[1,6,15,20,15,6,1]])
+    #kernel = np.array([[1,0,0,0,0,0,0],[1,1,0,0,0,0,0],[1,2,1,0,0,0,0],[1,3,3,1,0,0,0],[1,4,6,4,1,0,0],[1,5,10,10,5,1,0],[1,6,15,20,15,6,1]])
     
     arr_filt = signal.convolve2d(arr, kernel, mode='same', boundary='fill', fillvalue=0)
-    #arr_filt = arr_filt/7
+    arr_filt = arr_filt/7
     #arr_filt = arr_filt/31
-    arr_filt = arr_filt/127
+    #arr_filt = arr_filt/127
     
     return arr_filt
+
+def stim_spec(stim):
+    base = np.mean(stim[-20000:])
+    stim = signal.hilbert(stim - base)
+    plt.plot(abs(stim))
+    plt.show()
+    
