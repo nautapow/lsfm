@@ -80,6 +80,15 @@ def best_freq(resp_tune, para):
     
     return tone_charact
 
+def center_mass_layer(resp_loud, freq):
+    freq_log = [math.log(i, 2) for i in freq]
+    massX = freq_log*resp_loud
+    mass_sum = np.sum(resp_loud)
+    mass_Xsum = np.sum(massX)
+    Xm = 2**(mass_Xsum/mass_sum)
+    
+    return Xm
+
 def center_mass(resp_tune, freq, loud):
     freq_log = [math.log(i, 2) for i in freq]
     Xv, Yv = np.meshgrid(freq_log, loud)
@@ -94,7 +103,7 @@ def center_mass(resp_tune, freq, loud):
     
     return Xm, Ym
 
-def tunning(resp, para, filename='', saveplot=False, **kwargs):
+def tuning(resp, para, filename='', saveplot=False, **kwargs):
     """
     Generate tunning map.
 
@@ -127,12 +136,13 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
         def on_avg(arr):
             base = np.mean(arr[:500])
             arr = (arr-base)*100            
-            return np.mean(arr[500:3000])  
+            return np.mean(arr[500:3000])
     
     def off_avg(arr):
         base = np.mean(arr[:500])
         arr = (arr-base)*100            
         return np.mean(arr[3000:5500])
+    
     
     loud, freq, _ = zip(*para)
     loud = sorted(set(loud))
@@ -141,13 +151,17 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     resp_on = np.apply_along_axis(on_avg, 2, resp_mesh)
     resp_off = np.apply_along_axis(off_avg, 2, resp_mesh)
     
-    mask = resp_on < 0
-    import copy
+    def set_hyper2zero(arr):
+        mask = arr < 0
+        import copy
+        arr_pos = copy.deepcopy(arr)
+        arr_pos[mask] = 0
+        
+        return arr_pos
     
-    resp_pos = copy.deepcopy(resp_on) 
-    resp_pos[mask] = 0
-    
-    bf_x, bf_y = center_mass(resp_pos, freq, loud)
+    resp_filt = TFTool.pascal_filter(resp_on)
+    resp_pos = set_hyper2zero(resp_filt)    
+    #bf_x, bf_y = center_mass(resp_pos, freq, loud)
     
 # =============================================================================
 #     resp_low = resp_on[0:4]
@@ -158,7 +172,6 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
 #     bf_xh, bf_yh = center_mass(resp_high, freq, loud_high)
 # =============================================================================
     
-    resp_filt = TFTool.pascal_filter(resp_on)
     
 # =============================================================================
 #     XX,YY = np.meshgrid(freq, loud)
@@ -191,19 +204,23 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
 #     else:
 #         plt.show() 
 # =============================================================================
-    bf = best_freq(resp_on, para)
-    freq_sum = bf['resp_sum']
-    fit = bf['fit']
-    x = [math.log(f, 2) for f in freq]
-    y = fit[0] + fit[1] * np.exp(-(x - fit[2]) ** 2 / (2 * fit[3] ** 2))
-    
-    
+# =============================================================================
+#     bf = best_freq(resp_on, para)
+#     freq_sum = bf['resp_sum']
+#     fit = bf['fit']
+#     x = [math.log(f, 2) for f in freq]
+#     y = fit[0] + fit[1] * np.exp(-(x - fit[2]) ** 2 / (2 * fit[3] ** 2))
+# =============================================================================
+    bf_loud = []
+    for i,x in enumerate(resp_pos):
+        bf_loud.append(center_mass_layer(x, freq))
+        
 # =============================================================================
 #     methods = ['none', 'bicubic', 'spline16',
 #            'hamming', 'quadric',
 #            'catrom', 'gaussian', 'bessel', 'mitchell', 'sinc', 'lanczos']
 # =============================================================================
-    method='lanczos'
+    method='none'
     
     xfreq = freq[::int((len(freq)-1)/10)]
     xlabel = [i/1000 for i in xfreq]
@@ -215,9 +232,15 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     ytick = np.linspace(0.5,Ny-0.5,Ny)
     
     scaleX = Nx/((math.log(xfreq[-1],2) - math.log(xfreq[0],2)))
-    bf_x_scale = (math.log(bf_x,2) - math.log(xfreq[0],2)) * scaleX
-    bf_y_scale = (bf_y - ylabel[0])/10 + 0.5
-    
+    bf_x_scale, bf_y_scale = [],[]
+    for y,x in enumerate(bf_loud):    
+        bf_x_scale.append((math.log(x,2) - math.log(xfreq[0],2)) * scaleX)
+        bf_y_scale.append(y+0.5)
+# =============================================================================
+#     #x, y from center of mass for entire receptive area
+#     bf_x_scale = (math.log(bf_x,2) - math.log(xfreq[0],2)) * scaleX
+#     bf_y_scale = (bf_y - ylabel[0])/10 + 0.5
+# =============================================================================
     fig = plt.figure()
     grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
     
@@ -232,7 +255,7 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     ax1.set_xlabel('Frequency (kHz)')
     ax1.set_ylabel('Loudness (dB SPL)')
     
-    ax1.scatter(bf_x_scale, bf_y_scale, marker='X', c='limegreen')
+    ax1.scatter(bf_x_scale, bf_y_scale, marker='o', c='limegreen')
 
     
 # =============================================================================
@@ -253,8 +276,12 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
     cbar.ax.set_ylabel('mV')
         
     if saveplot:
-        plt.savefig(f'{filename}_on.pdf', dpi=500, format='pdf', bbox_inches='tight')
-        plt.savefig(f'{filename}_on.png', dpi=500, bbox_inches='tight')
+        if window:
+            plt.savefig(f'{filename}_{window}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            plt.savefig(f'{filename}_{window}.png', dpi=500, bbox_inches='tight')
+        else:
+            plt.savefig(f'{filename}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            plt.savefig(f'{filename}.png', dpi=500, bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:
@@ -295,8 +322,6 @@ def tunning(resp, para, filename='', saveplot=False, **kwargs):
 #         plt.close(fig)
 # =============================================================================
         
-        
-    return [bf_x, bf_y]    
     
 def baseline(resp_iter):    #correct baseline
     return (resp_iter - np.mean(resp_iter[:20*25]))*100
@@ -653,6 +678,40 @@ def tone_stim_resp(i, stim, resp, para, filename):
 # =============================================================================
     
 
+def resp_merge(resp, para):
+    datapoints = len(resp[0])
+    resp_merge = np.mean(np.reshape(resp, (-1,2,datapoints)), axis=1)
+    _loud, _freq, _ = zip(*para)
+    para_merge = list(zip(_loud, _freq))[::2]
+    
+    return resp_merge, para_merge
 
+def significant(resp_mesh, window=(500,3000)):
+    def avg(arr):
+        base = np.mean(arr[:500])
+        arr = (arr-base)*100            
+        return np.mean(arr[window[0]:window[1]])
+    
+    base_plus, base_minus = [],[]
+    for min_loud in resp_mesh[0]:
+        resp_region = avg(min_loud)
+        #resp@tone_period
+        if resp_region>=0:
+            base_plus.append(resp_region)
+        elif resp_region<=0:
+            base_minus.append(resp_region)
+            
+    CI_plus = stats.t.interval(alpha=0.99, df=len(base_plus)-1, loc=np.mean(base_plus), scale=stats.sem(base_plus))
+    CI_minus = stats.t.interval(alpha=0.99, df=len(base_minus)-1, loc=np.mean(base_minus), scale=stats.sem(base_minus))
+    
+    resp_on = np.apply_along_axis(avg, 2, resp_mesh)
+    sig_plus = 1*(resp_on>CI_plus[1])
+    sig_minus = -1*(resp_on<CI_minus[0])
+    sig = sig_plus+sig_minus
+    
+    return sig
+
+    
+    
     
     
