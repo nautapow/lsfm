@@ -52,9 +52,9 @@ if  __name__ == "__main__":
 # =============================================================================
 
     
-    #df_loc = 76
-    #if df_loc == 76:
-    for df_loc in tlsfm:
+    df_loc = 76
+    if df_loc == 76:
+    #for df_loc in tlsfm:
         
         
         
@@ -89,7 +89,8 @@ if  __name__ == "__main__":
             cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20210730_002_cwt_sound.mat')
         elif version == 2:
             cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20220216_001_cwt_sound.mat')
-        s = lsfm_strf.STRF(cwt, resp, filename)
+
+        s = lsfm_strf.STRF(cwt, resp, filename=filename)
         #strf = s.strf(saveplot=False)
         #resp_simus = s.resp_simu(strf)
         strf_fake, rf_para = s.fake_strf(saveplot=False)
@@ -98,12 +99,21 @@ if  __name__ == "__main__":
         filename_real = f'{filename}_real'
         filename_fake = f'{filename}_fake'
          
-        """PSTH"""
-        p = lsfm_psth.Psth(resp_simus_fake, para, filename_real, version=version)
-        _,_,_ = p.psth_all(plot=True, saveplot=False)
-        #lsfm_psth.psth_wwo_bf(resp, para, bf, version, filename, saveplot=True)
-        #p.psth_trend(tuning=tune, plot=True, saveplot=False)
-        #p.psth_para(plot=True, saveplot=False)
+        import lsfm_strf
+        s = lsfm_strf.STRF(cwt, resp, filename=filename)
+        #strf_fake, rf_para = s.fake_strf(saveplot=False)
+        
+        s.test_strf()
+
+        
+# =============================================================================
+#         """PSTH"""
+#         p = lsfm_psth.Psth(resp_simus_fake, para, filename=f'{rf_para}', version=version)
+#         _,_,_ = p.psth_all(plot=False, saveplot=True)
+#         #lsfm_psth.psth_wwo_bf(resp, para, bf, version, filename, saveplot=True)
+#         #p.psth_trend(tuning=tune, plot=True, saveplot=False)
+#         #p.psth_para(plot=True, saveplot=False)
+# =============================================================================
 
         
 # =============================================================================
@@ -140,15 +150,17 @@ if  __name__ == "__main__":
 #         #lsfm_slope.plot_both_index(*lsfm_slope.slope_index(slope_lags, bf), *lsfm_slope.direction_index(lsfm_slope.direction_map(slope_lags), bf), filename)
 # =============================================================================
         
-        """slope"""
-        lags = np.linspace(0, 100, 51)
-        #slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=False, saveplot=True)
-        _ = lsfm_slope.freq_slope_contour(stim, resp_simus_fake, para, lags=lags, filename=f'{filename}_{rf_para}', plot=False, saveplot=True)
-
-        #direction_lag = lsfm_slope.direction_map(slope_lags)
-        #lsfm_slope.direction_contour(direction_lag, filename, plot=False, saveplot=True)
-        
-        #slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=False)
+# =============================================================================
+#         """slope"""
+#         lags = np.linspace(0, 100, 51)
+#         #slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=False, saveplot=True)
+#         _ = lsfm_slope.freq_slope_contour(stim, resp_simus_fake, para, lags=lags, filename=f'{rf_para}', plot=False, saveplot=True)
+# 
+#         #direction_lag = lsfm_slope.direction_map(slope_lags)
+#         #lsfm_slope.direction_contour(direction_lag, filename, plot=False, saveplot=True)
+#         
+#         #slope_lags = lsfm_slope.freq_slope_contour(stim, resp, para, lags=lags, filename=filename, plot=True, saveplot=False)
+# =============================================================================
 
     
 # =============================================================================
