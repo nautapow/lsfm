@@ -82,8 +82,9 @@ class Tdms_V1():
         self.para = {}
         self.misc = []
         self.resp_dpk = []
+        self.version
         
-    def loadtdms(self, path='', protocol=0, load_sound=True, base_correct=True, precise_timing=True):
+    def loadtdms(self, path='', version=1.5, protocol=0, load_sound=True, base_correct=True, precise_timing=True):
         """
         load .tdms file
     
@@ -118,7 +119,7 @@ class Tdms_V1():
             fdir = str(self.path)
             
     
-        
+        self.version = version
         
         tdms_file = TdmsFile.open(fdir)
         
@@ -442,7 +443,7 @@ class Tdms_V2():
         self.misc = []
         self.resp_dpk = []
         
-    def loadtdms(self, path = '', protocol = 0, load_sound = True, base_correct=True, dePeak=True):
+    def loadtdms(self, path = '', version=1.5, protocol=0, load_sound = True, base_correct=True, dePeak=True):
         """
         load .tdms file
     
@@ -476,7 +477,7 @@ class Tdms_V2():
         else:
             fdir = str(self.path)
             
-    
+        self.version = version
         
         
         tdms_file = TdmsFile.open(fdir)
