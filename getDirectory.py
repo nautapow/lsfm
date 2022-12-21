@@ -44,14 +44,20 @@ for i in range(len(folder)):
                     tdms_meta = TdmsFile.read_metadata(Path(path))
                     rtype = tdms_meta['Settings'].\
                         properties['Sound Configuration.Run Config.Tone Type']
+                    project_ver =  float(tdms_meta['Settings'].\
+                        properties['Software Version'])
                     n = path.find('_00')
                     if 'StimStart' in list(tdms_meta['Untitled']):
                         version = 2
                     else:
                         version = 1
+                    
+                    if project_ver >= 1.5:
+                        version = 3
+                    
                     fdict = {'date' : folder[i], '#' : str(path[n+1:n+4]), 'filename': str(f'{folder[i]}_{path[n+1:n+4]}'),
                              'path' : path, 'type' : rtype, 'CWT': 'no', 'FIR': asign_fir(df, folder[i]), 
-                             'Version' : version,}
+                             'LabView Ver' : project_ver, 'Py_Version' : version}
                     frame.append(fdict)
     else:
         continue
