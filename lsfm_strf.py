@@ -62,6 +62,23 @@ class STRF():
             return coeff
         
     
+    def test_strf(self):
+        delay = np.linspace(-0.1, 0.4, int(12501))
+        grid = np.array(np.meshgrid(delay, self.freq))
+        grid = grid.swapaxes(0, -1).swapaxes(0, 1)
+        miu = (0.2, 17000)
+        cov = [[0.01,0],[0,20000]]
+
+        pdf = stats.multivariate_normal.pdf(grid, miu, cov)
+        plt.imshow(pdf, aspect='auto', origin='lower', norm=colors.CenteredNorm())
+        ylabel = [round(i/1000, 2) for i in self.freq[::20]]
+        plt.yticks(np.linspace(0,len(self.freq), len(ylabel)), ylabel)
+        xlabel = np.linspace(-0.1,0.4,6)
+        xlabel = [round(i,2) for i in xlabel]
+        plt.xticks(np.linspace(0,self.point+1,6), xlabel)
+        plt.colorbar()
+        
+    
     def fake_strf(self, plot=False, saveplot=False):
         """artificial STRF"""
         
@@ -69,23 +86,24 @@ class STRF():
         grid = np.array(np.meshgrid(delay, self.freq))
         Xv, Yv = np.meshgrid(delay, self.freq)
         grid = grid.swapaxes(0, -1).swapaxes(0, 1)
-        rf_para = (0.15, 6000, .001, 1000)
+        rf_para = (0.15, 12000, .0001, 1000)
         
         means_excit = [rf_para[0], rf_para[1]]
-        means_inhib1 = [0.15, 5000]
-        means_inhib2 = [0.1, 7000]
-        cov = [[rf_para[2],0], [0, rf_para[3]]]
-        cov2 = [[.004,0], [0, 100000]]
+        rf2 = [0.2, 40000]
+         
+        cov = [[rf_para[2],0], [0.3, rf_para[3]]]
+        cov2 = [[.0001, 0], [0, 1000]]
         
         gauss_excit = stats.multivariate_normal.pdf(grid, means_excit, cov)
-        gauss_inhib1 = -1*stats.multivariate_normal.pdf(grid, means_inhib1, cov2)
-        gauss_inhib2 = -1*stats.multivariate_normal.pdf(grid, means_inhib2, cov2)
+        excite2 = stats.multivariate_normal.pdf(grid, rf2, cov2)
+        #gauss_inhib1 = -1*stats.multivariate_normal.pdf(grid, means_inhib1, cov2)
+        #gauss_inhib2 = -1*stats.multivariate_normal.pdf(grid, means_inhib2, cov2)
         
         noise = np.random.randn(len(self.freq), len(delay))/100
-        
+        print(np.max(excite2))
         #strf = gauss_inhib1 + gauss_excit + gauss_inhib2
-        strf = gauss_excit #+ noise
-        strf = np.flip(strf, axis=1)
+        strf = gauss_excit + excite2 #+ noise
+        #strf = np.flip(strf, axis=1)
         
 
         plt.imshow(strf, aspect='auto', origin='lower', norm=colors.CenteredNorm())
