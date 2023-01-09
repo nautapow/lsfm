@@ -102,6 +102,76 @@ def center_mass(resp_tune, freq, loud):
     Xm = 2**Xm
     
     return Xm, Ym
+        
+def tuning_range(resp_pos, resp_sum, bf, freq):   
+    """
+    finding range around center of mass that contains fixed portion of total response
+
+    Parameters
+    ----------
+    resp_pos : TYPE
+        averaged response in resp_mesh, hyperpolarize brought to zero.
+    resp_sum : TYPE
+        summation of response, separated by loudness.
+    bf : TYPE
+        best frequency found by center of mass.
+    freq : TYPE
+        list of frequency.
+
+    Returns
+    -------
+    freq[left], freq[right] : float
+        lower and upper bound of frequency.
+
+    """
+    def find_next2bf(bf, freq):
+        for i,f in enumerate(freq):
+            if f < bf and freq[i+1] > bf:
+                return i
+                break
+    
+    left = find_next2bf(bf, freq)
+    right = left+1
+    resp_freq_sum = resp_pos[left]+resp_pos[right]
+    left-=1
+    right+=1
+    
+    while resp_freq_sum < 0.9*resp_sum:
+        """find range containing N proportion of total depolarization"""
+        count = 0
+        
+        if left == 0:
+            resp_freq_sum += resp_pos[right]
+            right += 1
+            count += 1
+        elif right == len(freq)-1:
+            resp_freq_sum += resp_pos[left]
+            left -= 1
+            count -= 1
+        else:            
+# =============================================================================
+#             if count >= math.log(freq[-1]/freq[0],2):
+#                 left -= 1
+#                 count = 0
+#             elif count <= math.log(freq[-1]/freq[0],0.5):
+#                 right += 1
+#                 count = 0
+# =============================================================================
+            
+            if resp_pos[left] > resp_pos[right]:
+                resp_freq_sum += resp_pos[left]
+                left -= 1
+                count -= 1
+            elif resp_pos[left] < resp_pos[right]:
+                resp_freq_sum += resp_pos[right]
+                right += 1
+                count += 1
+            else:
+                resp_freq_sum += resp_pos[left]+resp_pos[right]
+                left -= 1
+                right += 1
+    
+    return freq[left], freq[right]
 
 def tuning(resp, para, filename='', saveplot=False, **kwargs):
     """
@@ -214,6 +284,15 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
     bf_loud = []
     for i,x in enumerate(resp_pos):
         bf_loud.append(center_mass_layer(x, freq))
+    resp_sum = np.sum(resp_pos, axis=1)    
+    tuning_curve = []
+    for i in range(len(loud)):        
+        tuning_curve.append(tuning_range(resp_pos[i], resp_sum[i], bf_loud[i], freq))
+
+    curve_left, curve_right = [],[]
+    for curve in tuning_curve:
+        curve_left.append(curve[0])
+        curve_right.append(curve[1])
         
 # =============================================================================
 #     methods = ['none', 'bicubic', 'spline16',
@@ -222,7 +301,7 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
 # =============================================================================
     method='none'
     
-    xfreq = freq[::int((len(freq)-1)/10)]
+    xfreq = sorted(freq[::int((len(freq)-1)/10)])
     xlabel = [i/1000 for i in xfreq]
     ylabel = [int(i) for i in loud]
     Nx = len(xlabel)
@@ -236,6 +315,13 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
     for y,x in enumerate(bf_loud):    
         bf_x_scale.append((math.log(x,2) - math.log(xfreq[0],2)) * scaleX)
         bf_y_scale.append(y+0.5)
+        
+    curve_x_scale_left,  curve_x_scale_right=[],[]
+    for i in range(len(loud)):
+        curve_x_scale_left.append((math.log(curve_left[i],2) - math.log(xfreq[0],2)) * scaleX)
+        curve_x_scale_right.append((math.log(curve_right[i],2) - math.log(xfreq[0],2)) * scaleX)
+    curve_y_scale = np.arange(0,len(loud)) + 0.5
+        
 # =============================================================================
 #     #x, y from center of mass for entire receptive area
 #     bf_x_scale = (math.log(bf_x,2) - math.log(xfreq[0],2)) * scaleX
@@ -256,7 +342,8 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
     ax1.set_ylabel('Loudness (dB SPL)')
     
     ax1.scatter(bf_x_scale, bf_y_scale, marker='o', c='limegreen')
-
+    ax1.scatter(curve_x_scale_left, curve_y_scale, marker='x', c='blue')
+    ax1.scatter(curve_x_scale_right, curve_y_scale, marker='x', c='blue')
     
 # =============================================================================
 #     ax2 = fig.add_subplot(grid[1])
@@ -358,6 +445,8 @@ def psth(resp, filename, set_x_intime=False, saveplot=False, **kwargs):
     else:
         plt.show()
         plt.close(fig)
+        
+    return np.argmax(y)
 
 
 def psth_bf(resp, para, bf, filename, set_x_intime=False, saveplot=False, **kwargs):
@@ -711,6 +800,9 @@ def significant(resp_mesh, window=(500,3000)):
     
     return sig
 
+            
+    
+    
     
     
     
