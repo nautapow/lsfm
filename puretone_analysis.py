@@ -19,13 +19,11 @@ import math
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_puretone = df.index[df['type']=='Pure Tones']
-    #idx_tone = [26,29,31,34,36,44,48,61,72,75,77,80,83, 84, 85, 88, 90, 93, 94,
-    #96, 99]
-    idx_tone = [26,29,31,34,36,44,48,61]
+    idx_tone = [26,29,31,34,36,44,48,61,72,75,77,80,83,84,85,88,90,93,94,96,99]
     cell_note = pd.read_csv('cell_note_all.csv')
     
-    #df_loc = 90
-    #if df_loc == 90:
+    #df_loc = 88
+    #if df_loc == 88:
     for df_loc in idx_tone:
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
@@ -83,12 +81,23 @@ if  __name__ == "__main__":
             loud, freq, _ = zip(*para)
         
         
-        loud = sorted(set(loud))
-        freq = sorted(set(freq))
-        resp_mesh = np.reshape(resp_merge, (len(loud), len(freq), -1))
+# =============================================================================
+#         loud = sorted(set(loud))
+#         freq = sorted(set(freq))
+#         resp_mesh = np.reshape(resp_merge, (len(loud), len(freq), -1))
+# =============================================================================
+        peak_x = puretone.psth(resp_merge, filename)
+        if peak_x < 2000:
+            window_peak=[peak_x-250,peak_x+250]
+        else:
+            window_peak=[1250,1750]
         
-        puretone.tuning(resp_merge, para, filename=f'{filename}_peak', saveplot=True, window=[1400,1600])
-        puretone.tuning(resp_merge, para, filename=f'{filename}_sust', saveplot=True, window=[2500,3000])
+        try:
+            puretone.tuning(resp_merge, para, filename=f'{filename}_peak', saveplot=True, window=window_peak)
+            puretone.tuning(resp_merge, para, filename=f'{filename}_sust', saveplot=True, window=[2500,3000])
+        except:
+            pass
+
 
 # =============================================================================
 #         def peak_avg(arr):
