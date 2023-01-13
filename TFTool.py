@@ -21,6 +21,8 @@ def fft(arr, fs):
     p = np.abs(fhat)**2
     f = np.abs(np.fft.fftfreq(len(arr))*fs)
     plt.plot(f,p)
+    
+    return f,p
 
 
 def stft(arr, fs, n=100):
