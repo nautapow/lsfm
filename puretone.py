@@ -136,42 +136,65 @@ def tuning_range(resp_pos, resp_sum, bf, freq):
     left-=1
     right+=1
     
-    while resp_freq_sum < 0.9*resp_sum:
+    def continue_count(side, count):
+        if side == 'left':
+            if count <= 0:
+                count -= 1
+            else:
+                count = 0
+        
+        if side == 'right':
+            if count >= 0:
+                count += 1
+            else:
+                count = 0
+        
+        return count
+        
+    
+    while resp_freq_sum < 0.67*resp_sum:
         """find range containing N proportion of total depolarization"""
         count = 0
         
-        if left == 0:
+        if left <= 0:
             resp_freq_sum += resp_pos[right]
             right += 1
-            count += 1
-        elif right == len(freq)-1:
+            
+        elif right >= len(freq)-1:
             resp_freq_sum += resp_pos[left]
             left -= 1
-            count -= 1
+            
         else:            
-# =============================================================================
-#             if count >= math.log(freq[-1]/freq[0],2):
-#                 left -= 1
-#                 count = 0
-#             elif count <= math.log(freq[-1]/freq[0],0.5):
-#                 right += 1
-#                 count = 0
-# =============================================================================
+            if count >= math.log(freq[-1]/freq[0],2) and left > 1:
+                left -= 1
+                count = 0
+            elif count <= -1*math.log(freq[-1]/freq[0],2) and right < len(freq)-1:
+                right += 1
+                count = 0
             
             if resp_pos[left] > resp_pos[right]:
                 resp_freq_sum += resp_pos[left]
                 left -= 1
-                count -= 1
+                count = continue_count('left', count)
             elif resp_pos[left] < resp_pos[right]:
                 resp_freq_sum += resp_pos[right]
                 right += 1
-                count += 1
+                count = continue_count('right', count)
             else:
                 resp_freq_sum += resp_pos[left]+resp_pos[right]
                 left -= 1
                 right += 1
     
     return freq[left], freq[right]
+
+    def octave_from_bf(bf, freq):
+        oct_bf = []
+        for f in freq:
+            if f < bf:
+                oct_bf.append(-1*math.log((f/bf),2))
+                
+        return oct_bf
+
 
 def tuning(resp, para, filename='', saveplot=False, **kwargs):
     """
@@ -286,6 +309,7 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
         bf_loud.append(center_mass_layer(x, freq))
     resp_sum = np.sum(resp_pos, axis=1)    
     tuning_curve = []
+
     for i in range(len(loud)):        
         tuning_curve.append(tuning_range(resp_pos[i], resp_sum[i], bf_loud[i], freq))
 
@@ -331,7 +355,8 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
     grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
     
     ax1 = fig.add_subplot(grid[0])
-    im = plt.imshow(resp_filt, interpolation=method, origin='lower', aspect='auto', extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
+    im = plt.imshow(resp_filt, interpolation=method, origin='lower', aspect='auto', 
+                    extent=(0,Nx,0,Ny), cmap='RdBu_r', norm=colors.CenteredNorm())
     ax1.add_image(im)    
     ax1.set_xticks(xtick)
     ax1.set_xticklabels(xlabel, rotation=45)
