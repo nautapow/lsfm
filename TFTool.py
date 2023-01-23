@@ -228,6 +228,11 @@ def butter(arr, order, cutoff, filtertype, fs):
     b,a = signal.butter(order, cutoff, btype=filtertype, fs=fs)
     return signal.filtfilt(b,a, arr)
 
+def sixtyHz(arr, fs):
+    b, a = signal.iirnotch(60, 30, fs)
+    return signal.filtfilt(b,a, arr)
+
+
 def hilbert(arr):
     return signal.hilbert(arr)
 
@@ -283,3 +288,36 @@ def stim_spec(stim):
     plt.plot(abs(stim))
     plt.show()
     
+def total_fft(resp, fs):
+    p_all=[]
+    for r in resp:
+        fhat = np.fft.fft(r)
+        p = np.abs(fhat)**2
+        f = np.abs(np.fft.fftfreq(len(r))*fs)
+        
+        p_all.append(p)
+    
+    return p_all, f
+        
+def prefilter(resp, fs):
+    """
+    Apply notch filter at 60hz and second-ordered low-pass filter at 500hz
+
+    Parameters
+    ----------
+    resp : ndarray
+        response.
+    fs : float
+        sampling frequency in Hz.
+
+    Returns
+    -------
+    filt : ndarray
+        filtered response.
+
+    """
+    filt = []
+    for r in resp:
+        filt.append(butter(sixtyHz(r, fs), 2, 500, 'low', fs))
+        
+    return np.array(filt)
