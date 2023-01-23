@@ -197,6 +197,130 @@ def tuning_range(resp_pos, resp_sum, bf, freq):
 
 
 def tuning(resp, para, filename='', saveplot=False, **kwargs):
+    window = kwargs.get('window')
+    
+    if window:
+        def on_avg(arr, window):
+            base = np.mean(arr[:500])
+            arr = (arr-base)*100            
+            return np.mean(arr[window[0]:window[1]])       
+    else:
+        def on_avg(arr):
+            base = np.mean(arr[:500])
+            arr = (arr-base)*100            
+            return np.mean(arr[500:3000])
+    
+    def off_avg(arr):
+        base = np.mean(arr[:500])
+        arr = (arr-base)*100            
+        return np.mean(arr[3000:5500])
+    
+    def set_hyper2zero(arr):
+        mask = arr < 0
+        import copy
+        arr_pos = copy.deepcopy(arr)
+        arr_pos[mask] = 0
+        
+        return arr_pos
+    
+    if len(para[0])==3:
+        loud, freq, _ = zip(*para)
+    elif len(para[0])==2:
+        loud, freq = zip(*para)
+    else:
+        raise ValueError('parameters should be in the order of (loudness, frequency, (timing))')
+    loud = sorted(set(loud))
+    freq = sorted(set(freq))
+    
+    fs=25000
+    resp_filt = TFTool.prefilter(resp, fs)
+    resp_mesh = np.reshape(resp_filt, (len(loud),len(freq),-1))
+    
+    if 90 in loud:    
+        resp_mesh = np.delete(resp_mesh, -1, axis=0)
+        loud.pop()
+    
+    window = [2500,3000]
+    resp_on = np.apply_along_axis(on_avg, 2, resp_mesh, window)
+    resp_off = np.apply_along_axis(off_avg, 2, resp_mesh)
+    
+    x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
+    y300 = np.linspace(30,80,301)
+    
+    Nzero = int(300/(len(freq)-1))-1
+    zero2D = np.zeros((6,len(freq),Nzero))        
+    upsampleX = np.dstack((resp_on, zero2D)).reshape((6,-1))[:,:301]
+    
+    filt1D = ndimage.gaussian_filter1d(upsampleX, Nzero)
+    
+    resp_300 = np.swapaxes(filt1D, 0, 1)        
+    """swap frequency to the first axis to slice"""
+    
+    interpXY=[]
+    for freq_layer in resp_300:
+        interpXY.append(np.interp(y300, loud, freq_layer))
+    
+    interpXY = np.array(interpXY)
+    
+    resp_smooth = np.swapaxes(interpXY, 0, 1)   
+    resp_pos = set_hyper2zero(resp_smooth)
+    
+    bf_loud = []
+    for i,x in enumerate(resp_pos):
+        bf_loud.append(center_mass_layer(x, freq))
+    resp_sum = np.sum(resp_pos, axis=1)    
+    tuning_curve = []
+    for i in range(len(y300)):        
+        tuning_curve.append(tuning_range(resp_pos[i], resp_sum[i], bf_loud[i], freq))
+    
+    curve_left, curve_right = [],[]
+    for curve in tuning_curve:
+        curve_left.append(curve[0])
+        curve_right.append(curve[1])
+    
+    XX, YY = np.meshgrid(x300, y300)
+# =============================================================================
+#     plt.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
+#     plt.xscale('log')
+#     plt.colorbar()
+# =============================================================================
+    
+    fig = plt.figure()
+    grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
+    
+    ax1 = fig.add_subplot(grid[0])
+    im = plt.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
+    ax1.add_image(im)    
+    ax1.set_xticks(xtick)
+    ax1.set_xticklabels(xlabel, rotation=45)
+    ax1.set_yticks(ytick)
+    ax1.set_yticklabels(ylabel)
+    ax1.set_title(f'{filename}_onset')
+    ax1.set_xlabel('Frequency (kHz)')
+    ax1.set_ylabel('Loudness (dB SPL)')
+    
+    ax1.scatter(bf_x_scale, bf_y_scale, marker='o', c='limegreen')
+    ax1.scatter(curve_x_scale_left, curve_y_scale, marker='x', c='blue')
+    ax1.scatter(curve_x_scale_right, curve_y_scale, marker='x', c='blue')
+    cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
+    cbar = plt.colorbar(im, cax=cax)
+    cbar.ax.set_ylabel('mV')
+        
+    if saveplot:
+        if window:
+            plt.savefig(f'{filename}_{window}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            plt.savefig(f'{filename}_{window}.png', dpi=500, bbox_inches='tight')
+        else:
+            plt.savefig(f'{filename}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            plt.savefig(f'{filename}.png', dpi=500, bbox_inches='tight')
+        plt.clf()
+        plt.close(fig)
+    else:
+        plt.show()
+        plt.close(fig)
+        
+        
+def tuning_old(resp, para, filename='', saveplot=False, **kwargs):
     """
     Generate tunning map.
 
@@ -256,54 +380,6 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
     resp_pos = set_hyper2zero(resp_filt)    
     #bf_x, bf_y = center_mass(resp_pos, freq, loud)
     
-# =============================================================================
-#     resp_low = resp_on[0:4]
-#     resp_high = resp_on[4:7]
-#     loud_low = loud[0:4]
-#     loud_high = loud[4:7]
-#     bf_xl, bf_yl = center_mass(resp_low, freq, loud_low)
-#     bf_xh, bf_yh = center_mass(resp_high, freq, loud_high)
-# =============================================================================
-    
-    
-# =============================================================================
-#     XX,YY = np.meshgrid(freq, loud)
-#         
-#     fig, ax1 = plt.subplots()
-#     pcm = ax1.pcolormesh(XX, YY, resp_on, cmap='RdBu_r', norm=colors.CenteredNorm())
-#     ax1.set_xscale('log')
-#     ax2 = plt.subplot()
-#     txt = (f'{filename}_on')
-#     ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
-#     fig.colorbar(pcm, ax=ax1)
-#     if saveplot:
-#         plt.savefig(f'{filename}_on', dpi=500)
-#         plt.clf()
-#         plt.close()
-#     else:
-#         plt.show() 
-#     
-#     fig, ax1 = plt.subplots()
-#     pcm = ax1.pcolormesh(XX, YY, resp_off, cmap='RdBu_r', norm=colors.CenteredNorm())
-#     ax1.set_xscale('log')
-#     ax2 = plt.subplot()
-#     txt = (f'{filename}_off')
-#     ax2.text(0,1.02, txt, horizontalalignment='left', transform=ax2.transAxes)
-#     fig.colorbar(pcm, ax=ax1)
-#     if saveplot:
-#         plt.savefig(f'{filename}_off', dpi=500)
-#         plt.clf()
-#         plt.close()
-#     else:
-#         plt.show() 
-# =============================================================================
-# =============================================================================
-#     bf = best_freq(resp_on, para)
-#     freq_sum = bf['resp_sum']
-#     fit = bf['fit']
-#     x = [math.log(f, 2) for f in freq]
-#     y = fit[0] + fit[1] * np.exp(-(x - fit[2]) ** 2 / (2 * fit[3] ** 2))
-# =============================================================================
     bf_loud = []
     for i,x in enumerate(resp_pos):
         bf_loud.append(center_mass_layer(x, freq))
