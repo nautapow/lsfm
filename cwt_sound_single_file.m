@@ -14,4 +14,4 @@ for x=1:length(stim(:,1))
     x
 end
 
-save('cwt_sound.mat', 'f', 'wt'. '-v7.3');
+save('cwt_sound.mat', 'f', 'wt', '-v7.3');
