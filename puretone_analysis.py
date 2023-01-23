@@ -28,8 +28,8 @@ if  __name__ == "__main__":
     #pre-create 2d array to store response of resp_mesh from all neurons
     resp_all_pos_2bf = np.array([[0.0]*len(frequency)]*7)
     
-    df_loc = 94
-    if df_loc == 94:
+    df_loc = 36
+    if df_loc == 36:
     #for df_loc in idx_tone:
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
@@ -147,42 +147,88 @@ if  __name__ == "__main__":
             
             return np.argmin(abs(arr - num))
         
-        resp_mesh = np.reshape(resp, (len(loud),len(freq),-1))
+        fs=25000
+        resp_filt = TFTool.prefilter(resp, fs)
+        resp_mesh = np.reshape(resp_filt, (len(loud),len(freq),-1))
+        
+        if 90 in loud:    
+            resp_mesh = np.delete(resp_mesh, -1, axis=0)
+            loud.pop()
+            
         #window = [1250,1750]
         window = [2500,3000]
         resp_on = np.apply_along_axis(on_avg, 2, resp_mesh, window)
-            
-        resp_filt = TFTool.pascal_filter(resp_on)
-        resp_nan = set_hyper2nan(resp_filt)
-        resp_pos = set_hyper2zero(resp_filt)
+        resp_pos = set_hyper2zero(resp_on)
         
-        bf_loud = []
-        for i,x in enumerate(resp_pos):
-            bf_loud.append(puretone.center_mass_layer(x, freq))
-        #resp_sum = np.sum(resp_pos, axis=1)    
+        x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
+        y300 = np.linspace(30,80,301)
         
-        resp_oct2bf=[]
-        for i in range(len(loud)):        
-            resp_oct2bf.append(octave2bf(bf_loud[i], freq))
-            
-        resp_mesh = np.reshape(resp, (len(loud),len(freq),-1))
+        Nzero = int(300/(len(freq)-1))-1
+        zero2D = np.zeros((6,len(freq),Nzero))        
+        upsampleX = np.dstack((resp_on, zero2D)).reshape((6,-1))[:,:301]
         
-        #i for layering loudness, j for iterate through frequency
-        for i in range(len(loud)):
-            oct2bf = octave2bf(bf_loud[i], freq)
-            for j in range(len(freq)):
-                index = min_index(frequency, oct2bf[j])
-                base = resp_all_pos_2bf[i][index]
-                arr = np.array([base, resp_pos[i][j]])
-                resp_all_pos_2bf[i][index] = np.nanmean(arr)
-                
-    loudness = np.arange(30,100,10)
-    XX,YY = np.meshgrid(frequency, loudness)
-    resp2bf = np.array(resp_all_pos_2bf)
-    fig, ax1 = plt.subplots()
-    pcm = ax1.pcolormesh(XX,YY,resp2bf, vmax=5, vmin=0)
-    fig.colorbar(pcm, ax=ax1)
+        filt1D = scipy.ndimage.gaussian_filter1d(upsampleX, Nzero)
+        #test = np.apply_along_axis(TFTool.butter, 1, upsampleX, 1, 1/50, 'low', 1)
         
+# =============================================================================
+#         interpX, interpXY=[],[]
+#         for loud_layer in resp_on:
+#             interpX.append(np.interp(x300, freq, loud_layer))
+#         interpX = np.array(interpX)
+#         resp_300 = np.swapaxes(interpX, 0, 1)
+# =============================================================================
+        
+        resp_300 = np.swapaxes(filt1D, 0, 1)        
+        
+        interpXY=[]
+        for freq_layer in resp_300:
+            interpXY.append(np.interp(y300, loud, freq_layer))
+        
+        interpXY = np.array(interpXY)
+        interpXY = np.swapaxes(interpXY, 0, 1)
+        
+        XX, YY = np.meshgrid(x300, y300)
+        plt.pcolormesh(XX, YY, interpXY, cmap='RdBu_r', norm=colors.CenteredNorm())
+        plt.xscale('log')
+        plt.colorbar()
+        
+        puretone.tuning(resp, para, filename, window=(2500,3000))
+        
+# =============================================================================
+#         #resp_pas = TFTool.pascal_filter(resp_on)
+#         resp_nan = set_hyper2nan(resp_filt)
+#         resp_pos = set_hyper2zero(resp_on)
+#         
+#         
+#         
+#         bf_loud = []
+#         for i,x in enumerate(resp_pos):
+#             bf_loud.append(puretone.center_mass_layer(x, freq))
+#         #resp_sum = np.sum(resp_pos, axis=1)    
+#         
+#         resp_oct2bf=[]
+#         for i in range(len(loud)):        
+#             resp_oct2bf.append(octave2bf(bf_loud[i], freq))
+#             
+#         resp_mesh = np.reshape(resp, (len(loud),len(freq),-1))
+#         
+#         #i for layering loudness, j for iterate through frequency
+#         for i in range(len(loud)):
+#             oct2bf = octave2bf(bf_loud[i], freq)
+#             for j in range(len(freq)):
+#                 index = min_index(frequency, oct2bf[j])
+#                 base = resp_all_pos_2bf[i][index]
+#                 arr = np.array([base, resp_pos[i][j]])
+#                 resp_all_pos_2bf[i][index] = np.nanmean(arr)
+#                 
+#     loudness = np.arange(30,100,10)
+#     XX,YY = np.meshgrid(frequency, loudness)
+#     resp2bf = np.array(resp_all_pos_2bf)
+#     fig, ax1 = plt.subplots()
+#     pcm = ax1.pcolormesh(XX,YY,resp2bf, vmax=5, vmin=0)
+#     fig.colorbar(pcm, ax=ax1)
+# =============================================================================
+    
 # =============================================================================
 #         def peak_avg(arr):
 #             base = np.mean(arr[:500])
