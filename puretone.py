@@ -187,16 +187,28 @@ def tuning_range(resp_pos, resp_sum, bf, freq):
     
     return freq[left], freq[right]
 
-    def octave_from_bf(bf, freq):
-        oct_bf = []
-        for f in freq:
-            if f < bf:
-                oct_bf.append(-1*math.log((f/bf),2))
-                
-        return oct_bf
 
+def octave2bf(bf, freq):
+    oct_bf = []
+    for f in freq:
+        oct_bf.append(math.log((f/bf),2))
+    
+    return oct_bf
 
-def tuning(resp, para, filename='', saveplot=False, **kwargs):
+def min_index(arr, num):
+    arr = np.array(arr)
+    
+    return np.argmin(abs(arr - num))
+
+def set_hyper2zero(arr):
+    mask = arr < 0
+    import copy
+    arr_pos = copy.deepcopy(arr)
+    arr_pos[mask] = 0
+    
+    return arr_pos
+
+def tuning(resp, para, filename='', plot=True, saveplot=False, data_return=False, **kwargs):
     window = kwargs.get('window')
     
     if window:
@@ -205,6 +217,7 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
             arr = (arr-base)*100            
             return np.mean(arr[window[0]:window[1]])       
     else:
+        window = 'tone_on'
         def on_avg(arr):
             base = np.mean(arr[:500])
             arr = (arr-base)*100            
@@ -215,22 +228,20 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
         arr = (arr-base)*100            
         return np.mean(arr[3000:5500])
     
-    def set_hyper2zero(arr):
-        mask = arr < 0
-        import copy
-        arr_pos = copy.deepcopy(arr)
-        arr_pos[mask] = 0
-        
-        return arr_pos
     
     if len(para[0])==3:
         loud, freq, _ = zip(*para)
     elif len(para[0])==2:
         loud, freq = zip(*para)
     else:
-        raise ValueError('parameters should be in the order of (loudness, frequency, (timing))')
+        raise ValueError('parameters should be a tuple with a order of (loudness, frequency, (timing))')
     loud = sorted(set(loud))
     freq = sorted(set(freq))
+
+    if 0.0 in loud:
+        loud.remove(0.0)
+    if 0.0 in freq:
+        freq.remove(0.0)
     
     fs=25000
     resp_filt = TFTool.prefilter(resp, fs)
@@ -240,7 +251,6 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
         resp_mesh = np.delete(resp_mesh, -1, axis=0)
         loud.pop()
     
-    window = [2500,3000]
     resp_on = np.apply_along_axis(on_avg, 2, resp_mesh, window)
     resp_off = np.apply_along_axis(off_avg, 2, resp_mesh)
     
@@ -267,11 +277,15 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
     
     bf_loud = []
     for i,x in enumerate(resp_pos):
-        bf_loud.append(center_mass_layer(x, freq))
-    resp_sum = np.sum(resp_pos, axis=1)    
+        bf_loud.append(center_mass_layer(x, x300))
+    resp_sum = np.sum(resp_pos, axis=1)
+    
     tuning_curve = []
     for i in range(len(y300)):        
-        tuning_curve.append(tuning_range(resp_pos[i], resp_sum[i], bf_loud[i], freq))
+        tuning_curve.append(tuning_range(resp_pos[i], resp_sum[i], bf_loud[i], x300))
+    
+    width70 = math.log((tuning_curve[240][1]/tuning_curve[240][0]), 2)
+    """240 == 70db after upsampled to 300"""
     
     curve_left, curve_right = [],[]
     for curve in tuning_curve:
@@ -285,44 +299,57 @@ def tuning(resp, para, filename='', saveplot=False, **kwargs):
 #     plt.colorbar()
 # =============================================================================
     
-    fig = plt.figure()
-    grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
+    if plot:
+        xlabel = [3,6,12,24,48,96]
+        xtick = [i * 1000 for i in xlabel]
+        ytick = [30,40,50,60,70,80]
     
-    ax1 = fig.add_subplot(grid[0])
-    im = plt.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
-    ax1.add_image(im)    
-    ax1.set_xticks(xtick)
-    ax1.set_xticklabels(xlabel, rotation=45)
-    ax1.set_yticks(ytick)
-    ax1.set_yticklabels(ylabel)
-    ax1.set_title(f'{filename}_onset')
-    ax1.set_xlabel('Frequency (kHz)')
-    ax1.set_ylabel('Loudness (dB SPL)')
-    
-    ax1.scatter(bf_x_scale, bf_y_scale, marker='o', c='limegreen')
-    ax1.scatter(curve_x_scale_left, curve_y_scale, marker='x', c='blue')
-    ax1.scatter(curve_x_scale_right, curve_y_scale, marker='x', c='blue')
-    cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
-    cbar = plt.colorbar(im, cax=cax)
-    cbar.ax.set_ylabel('mV')
+        fig = plt.figure()
+        grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
         
-    if saveplot:
-        if window:
-            plt.savefig(f'{filename}_{window}.pdf', dpi=500, format='pdf', bbox_inches='tight')
-            plt.savefig(f'{filename}_{window}.png', dpi=500, bbox_inches='tight')
+        ax1 = fig.add_subplot(grid[0])
+        im = plt.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
+        
+        ax1.add_image(im)   
+        ax1.set_xscale('log')
+        ax1.set_xticks(xtick)
+        ax1.set_xticklabels(xlabel)
+        ax1.set_yticks(ytick)
+        #ax1.set_yticklabels(ylabel)
+        ax1.set_title(f'{filename}_{window}')
+        ax1.set_xlabel('Frequency (kHz)')
+        ax1.set_ylabel('Loudness (dB SPL)')
+        
+        ax1.scatter(bf_loud, y300, marker='|', c='limegreen', s=5)
+        ax1.fill_betweenx(y300, curve_left, curve_right, color='green', alpha=0.25)
+# =============================================================================
+#         ax1.scatter(curve_left, y300, marker='|', c='blue', s=5)
+#         ax1.scatter(curve_right, y300, marker='|', c='blue', s=5)
+# =============================================================================
+        cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
+        cbar = plt.colorbar(im, cax=cax)
+        cbar.ax.set_ylabel('mV')
+            
+        if saveplot:
+            if window:
+                plt.savefig(f'{filename}_{window}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+                plt.savefig(f'{filename}_{window}.png', dpi=500, bbox_inches='tight')
+            else:
+                plt.savefig(f'{filename}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+                plt.savefig(f'{filename}.png', dpi=500, bbox_inches='tight')
+            plt.clf()
+            plt.close(fig)
         else:
-            plt.savefig(f'{filename}.pdf', dpi=500, format='pdf', bbox_inches='tight')
-            plt.savefig(f'{filename}.png', dpi=500, bbox_inches='tight')
-        plt.clf()
-        plt.close(fig)
-    else:
-        plt.show()
-        plt.close(fig)
+            plt.show()
+            plt.close(fig)
+            
+    if data_return:
+        return x300, y300, resp_smooth, width70, bf_loud
         
         
 def tuning_old(resp, para, filename='', saveplot=False, **kwargs):
     """
-    Generate tunning map.
+    Generate tunning map without smoothing.
 
     Parameters
     ----------

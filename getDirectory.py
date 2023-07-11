@@ -24,12 +24,15 @@ folder = os.listdir(mdir)
 folder.sort()
 
 try:
-    df = pd.read_csv('patch_list.csv')
+    df = pd.read_csv('patch_list_new.csv')
 except:
-    df = pd.DataFrame(columns = ['date', '#', 'filename','path', 'type', 'CWT', 'FIR', 'Version'])  
+    df = pd.DataFrame(columns = ['date', '#', 'filename','path'])  
     
     
 frame = []
+exclude = [0,1,2,3,4,5,6,8,9,12,13,15,16,17,18,20,21,22,32,33,38,39,40,41,42,
+           43,45,47,48,50,52,53,54,55,56,57,58,59,64,65,66,67,68,69,70,79,88,89,
+           109,121,134,135,136,146,166,]
 
 for i in range(len(folder)):
     if folder[i] not in list(df['date']):
@@ -46,7 +49,8 @@ for i in range(len(folder)):
                         properties['Sound Configuration.Run Config.Tone Type']
                     project_ver =  float(tdms_meta['Settings'].\
                         properties['Software Version'])
-                    n = path.find('_00')
+                    n = path.find('_0')
+                    
                     if 'StimStart' in list(tdms_meta['Untitled']):
                         version = 2
                     else:
@@ -54,15 +58,32 @@ for i in range(len(folder)):
                     
                     if project_ver >= 1.5:
                         version = 3
-                    
+                        
+                    try: 
+                        p = int(folder[i])
+                        if p >= 20230607:
+                            project = 'Ic_map'
+                        elif p < 20230428 and p >= 20230302:
+                            project = 'Vc'
+                        elif p < 20210611:
+                            project = 'test'
+                        else:
+                            project = 'Ic'
+                        
+                    except:
+                        pass
+                            
+                                            
                     fdict = {'date' : folder[i], '#' : str(path[n+1:n+4]), 'filename': str(f'{folder[i]}_{path[n+1:n+4]}'),
                              'path' : path, 'type' : rtype, 'CWT': 'no', 'FIR': asign_fir(df, folder[i]), 
-                             'LabView Ver' : project_ver, 'Py_Version' : version}
+                             'LabView ver' : project_ver, 'Py_version' : version, 'project' : project}
                     frame.append(fdict)
     else:
         continue
 
 df = pd.DataFrame.from_dict(frame)
+for i in exclude:
+    df.loc[i, 'hard_exclude'] = 'exclude'
 #df = df.append(frame, ignore_index = True)  
 df.to_csv('patch_list_new.csv', index=False)
 

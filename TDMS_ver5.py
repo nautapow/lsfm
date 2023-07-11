@@ -593,7 +593,7 @@ class Tdms_V2():
             fc, bdwidth, mod_rate, stim_time = zip(*_para_sort)
             stim_time = np.array(stim_time)
             para = {'fc':fc, 'bdwidth':bdwidth, 'mod_rate':mod_rate, 'stim_time':stim_time}
-            
+            para_zip = list(zip(fc, bdwidth, mod_rate, stim_time))
             
             stim_startP = stim_time - 50*sRate
             #stim_endP = stim_startP + 1500*sRate + 500*sRate

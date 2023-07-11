@@ -21,8 +21,7 @@ import lsfm_strf
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_lsfm = df.index[df['type']=='Log sFM']
-    tlsfm = [23,24,25,28,30,35,37,45,49,60,62,71,73,74,76,78,81,82]
-    #tlsfm = [37, 60]
+    exclude = [20,21,32,33,40,42,54,56,58,59,53,65,67,70]
     cell_note = pd.read_csv('cell_note_all.csv')
     #lsfm.resp_overcell(df, tlsfm, saveplot=False)
     #resp_cell = [[],[],[],[],[],[]]
@@ -52,58 +51,93 @@ if  __name__ == "__main__":
 # =============================================================================
 
     
-    df_loc = 76
-    if df_loc == 76:
+    df_loc = 142
+    if df_loc == 142:
     #for df_loc in tlsfm:
         
         
         
-        i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
+        #i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
         filename = df['filename'][df_loc]
-        version = df['Version'][df_loc]
-        cell_data = np.load(f'{filename}_data.npy', allow_pickle=True)
+        version = df['Py_Version'][df_loc]
+        cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
         
         para = cell_data.item().get('para')
         stim = cell_data.item().get('stim')
         resp = cell_data.item().get('resp')
-        slope_lags = cell_data.item().get('slope_lags')
+        #slope_lags = cell_data.item().get('slope_lags')
         
         cf,band,modrate,_=zip(*para)
         band = sorted(set(band))
         cf = sorted(set(cf))
         modrate = sorted(set(modrate))
         
-        n = cell_note.index[cell_note['filename']==filename][0]
-        bf = cell_note['best frequency'].loc[n]
-        features = cell_note['feature'].loc[n]
-        windows = cell_note['window'].loc[n].split(', ')
+        lsfm.PSTH()
+        to_matlab = {'stim':stim, 'resp':resp, 'fc':cf, 'bandwidth':band, 'mod_rate': modrate}
+        scipy.io.savemat(f'{filename}_data.mat', to_matlab)
         
-        """0: onset, 1:sustain, 2:offset"""
-        window = eval(windows[2])
-        #resp_at_freq_cell = np.load('restrain_resp_at_freq_cell.npy', allow_pickle=True)
-        #test = lsfm.nXing_cell(resp_at_freq_cell)
-        tune = (round(bf/2/1000,1), round(bf*2/1000,1))
         
         import mat73
-        if version == 1:
-            cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20210730_002_cwt_sound.mat')
-        elif version == 2:
-            cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20220216_001_cwt_sound.mat')
-
-        s = lsfm_strf.STRF(cwt, resp, filename=filename)
-        #strf = s.strf(saveplot=False)
-        #resp_simus = s.resp_simu(strf)
-        strf_fake, rf_para = s.fake_strf(saveplot=False)
-        resp_simus_fake = s.resp_simu(strf_fake)
+        cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20220527_006_cwt.mat')
+# =============================================================================
+#         f = cwt['f']
+#         f = f[:,0]
+#         wt = cwt['wt'].T[:,0]
+#         wt_a = []
+#         for w in wt:
+#             wt_a.append(w)
+#         wt_a = np.array(wt_a)
+# =============================================================================
+        resp = TFTool.prefilter(resp, 25000)
+        resp = signal.resample(resp, 500, axis=1)
         
-        filename_real = f'{filename}_real'
-        filename_fake = f'{filename}_fake'
-         
-        import lsfm_strf
-        s = lsfm_strf.STRF(cwt, resp, filename=filename)
-        #strf_fake, rf_para = s.fake_strf(saveplot=False)
+# =============================================================================
+#         f = cwt['f']
+#         wt = np.array(cwt['wt'])
+#         wt = signal.resample(wt, 500, axis=2)
+#         wt = np.ndarray.tolist(wt)
+#         cwt = {'f':f, 'wt':wt}
+#         
+#         
+#         s = lsfm_strf.STRF(cwt, resp, filename=filename)
+#         s.strf()
+# =============================================================================
         
-        s.test_strf()
+# =============================================================================
+#         n = cell_note.index[cell_note['filename']==filename][0]
+#         bf = cell_note['best frequency'].loc[n]
+#         features = cell_note['feature'].loc[n]
+#         windows = cell_note['window'].loc[n].split(', ')
+#         
+#         """0: onset, 1:sustain, 2:offset"""
+#         window = eval(windows[2])
+#         #resp_at_freq_cell = np.load('restrain_resp_at_freq_cell.npy', allow_pickle=True)
+#         #test = lsfm.nXing_cell(resp_at_freq_cell)
+#         tune = (round(bf/2/1000,1), round(bf*2/1000,1))
+# =============================================================================
+        
+# =============================================================================
+#         import mat73
+#         if version == 1:
+#             cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20210730_002_cwt_sound.mat')
+#         elif version == 2:
+#             cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20220216_001_cwt_sound.mat')
+# 
+#         s = lsfm_strf.STRF(cwt, resp, filename=filename)
+#         #strf = s.strf(saveplot=False)
+#         #resp_simus = s.resp_simu(strf)
+#         strf_fake, rf_para = s.fake_strf(saveplot=False)
+#         resp_simus_fake = s.resp_simu(strf_fake)
+#         
+#         filename_real = f'{filename}_real'
+#         filename_fake = f'{filename}_fake'
+#          
+#         import lsfm_strf
+#         s = lsfm_strf.STRF(cwt, resp, filename=filename)
+#         #strf_fake, rf_para = s.fake_strf(saveplot=False)
+#         
+#         s.test_strf()
+# =============================================================================
 
         
 # =============================================================================
@@ -120,7 +154,7 @@ if  __name__ == "__main__":
 #         """load from TDMS"""
 #         fdir = df['path'][df_loc]
 #         filename = df['filename'][df_loc]
-#         version = df['Version'][df_loc]
+#         version = df['Py_Version'][df_loc]
 #         if version == 1:
 #             t = Tdms_V1()
 #             t.loadtdms(fdir, protocol=0, load_sound=True, precise_timing=True)
