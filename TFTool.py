@@ -321,3 +321,12 @@ def prefilter(resp, fs):
         filt.append(butter(sixtyHz(r, fs), 2, 500, 'low', fs))
         
     return np.array(filt)
+
+def puretone_resp_merge(resp, para, repeats):
+    resp_merge = []
+    for i in range(0, len(resp), repeats):
+        resp_merge.append(np.mean(resp[i:i+repeats], axis=0))
+        para_merge = para[::repeats]
+                    
+    return np.array(resp_merge), para_merge
+    

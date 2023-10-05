@@ -10,9 +10,7 @@ from scipy import stats
 from scipy.optimize import curve_fit
 from scipy import ndimage
 import TFTool
-import mne
 import math
-from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import lsfm_slope
 
@@ -567,7 +565,8 @@ def psth(resp, filename, set_x_intime=False, saveplot=False, **kwargs):
         ax.set_xlabel('data point (2500/100ms)')
         
     if saveplot:
-        plt.savefig(f'{filename}_tone-PSTH.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        #plt.savefig(f'{filename}_tone-PSTH.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.savefig(f'{filename}_tone-PSTH.png', dpi=500, bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:

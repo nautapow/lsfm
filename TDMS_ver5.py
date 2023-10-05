@@ -235,6 +235,8 @@ class Tdms_V1():
                     stim_time.append(stim_startT[i])
             
             stim_startT = stim_time[:]                    
+            if not len(fc) == len(bdwidth) == len(mod_rate) == len(stim_startT):
+                print('CAUTION: #parameters not equal')
             
             para = sorted(zip(fc, bdwidth, mod_rate, stim_startT), key=lambda x:x[0:3])
             fc, bdwidth, mod_rate, stim_startT = zip(*para)
@@ -307,9 +309,11 @@ class Tdms_V1():
             freq = groups[_channel][::2]
             loudness = groups[_channel][1::2]
             
+            if not len(freq) == len(loudness) == len(stim_startT):
+                print('CAUTION: #parameters not equal')
             
             para = sorted(zip(loudness, freq, stim_startT), key=lambda x:x[0:3])
-            
+                        
             """delete all stimuli with frequency lower than 3k Hz"""
             para[:] = [x for x in para if x[1]>=3000]
             loudness, freq, stim_startT = zip(*para)
@@ -588,7 +592,10 @@ class Tdms_V2():
             cross0 = np.diff(np.sign(timing-2)) > 0
             #stim_time = [i for i, a in enumerate(np.diff(timing, prepend=0)) if a > 3]
             stim_time = [i for i,a in enumerate(cross0) if a]
-                 
+            
+            if not len(fc) == len(bdwidth) == len(mod_rate) == len(stim_time):
+                print('CAUTION: #parameters not equal')
+            
             _para_sort = sorted(zip(fc, bdwidth, mod_rate, stim_time), key=lambda x:x[0:3])
             fc, bdwidth, mod_rate, stim_time = zip(*_para_sort)
             stim_time = np.array(stim_time)
@@ -636,9 +643,13 @@ class Tdms_V2():
             #stim_time = [i for i, a in enumerate(np.diff(timing, prepend=0)) if a > 3]
             stim_time = [i for i,a in enumerate(cross0) if a]
             
-            if self.version==1.5:
-                freq = np.array([int(x) for x in freq if x != 0.0])
-                loudness = np.array([int(x) for x in loudness if x != 0.0])
+            
+            if self.version>=1.5:
+                freq = np.array([int(x) for x in freq if x != 0])
+                loudness = np.array([int(x) for x in loudness if x != 0])
+                
+            if not len(freq) == len(loudness) == len(stim_time):
+                print('CAUTION: #parameters not equal')
             
             _para_sort = sorted(zip(loudness, freq, stim_time), key=lambda x:x[0:2])
             loudness, freq, stim_time = zip(*_para_sort)

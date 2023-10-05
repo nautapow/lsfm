@@ -8,9 +8,7 @@ from scipy import signal
 from scipy import stats
 from scipy import interpolate
 import scipy.io
-import mne
 import TFTool
-from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import puretone 
 import math
@@ -31,13 +29,12 @@ if  __name__ == "__main__":
     widthAt70=[]
     bf_list = []    
     
-    #df_loc = 147
-    #if df_loc == 147:
+# =============================================================================
+#     df_loc = 105
+#     if df_loc == 105:
+# =============================================================================
     
-    index = []
-    for i in idx_puretone:
-        if i not in exclude:
-            index.append(i)
+    index = [i for i in idx_puretone if i not in exclude and i > 146]
             
     
     for df_loc in index:
@@ -77,7 +74,7 @@ if  __name__ == "__main__":
 # =============================================================================
 #         fdir = df['path'][df_loc]
 #         filename = df['filename'][df_loc]
-#         version = df['Version'][df_loc]
+#         version = df['Py_version'][df_loc]
 #         if version == 1:
 #             t = Tdms_V1()
 #             t.loadtdms(fdir, protocol=1, load_sound=True, precise_timing=True)
@@ -97,7 +94,9 @@ if  __name__ == "__main__":
 #         else:
 #             resp_merge = resp
 #             loud, freq, _ = zip(*para)
-#             
+# =============================================================================
+            
+# =============================================================================
 #         data={'resp':resp_merge, 'stim':stim, 'para':para, 'loud':loud, 'freq':freq, 'Ver':LabView_ver}
 #         np.save(filename, data)
 # =============================================================================
@@ -117,11 +116,14 @@ if  __name__ == "__main__":
         resp_filt = TFTool.prefilter(resp, 25000)
         resp_adjust = [r - np.mean(r[400:500]) for r in resp_filt]
         
-        x = puretone.tuning(resp_adjust, para, filename, plot=True, saveplot=False, data_return=True, window=(500,3000))
-        bf70 = x[4][240]
-        bf_list.append((df_loc, filename, bf70))
-        df.loc[df_loc, 'best_frequency'] = bf70
-    
+        try:
+            x = puretone.tuning(resp_adjust, para, filename, plot=True, saveplot=True, data_return=True, window=(500,3000))
+            bf70 = x[4][240]
+            bf_list.append((df_loc, filename, bf70))
+            df.loc[df_loc, 'best_frequency'] = bf70
+        except:
+            pass
+        puretone.psth(resp_adjust, filename, set_x_intime=True, saveplot=False)
     df.to_csv('patch_list_with_bf.csv', index=False)     
         #second clamp
 # =============================================================================

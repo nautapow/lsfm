@@ -7,12 +7,10 @@ from scipy import signal
 from scipy import stats
 from scipy import interpolate
 import scipy.io
-import mne
 import TFTool
-from mne.decoding import ReceptiveField, TimeDelayingRidge
 import pandas as pd
 import lsfm
-import lsfm_psth
+from lsfm_psth import Psth
 import lsfm_slope
 import math
 import lsfm_strf
@@ -20,7 +18,7 @@ import lsfm_strf
     
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
-    idx_lsfm = df.index[df['type']=='Log sFM']
+    idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
     exclude = [20,21,32,33,40,42,54,56,58,59,53,65,67,70]
     cell_note = pd.read_csv('cell_note_all.csv')
     #lsfm.resp_overcell(df, tlsfm, saveplot=False)
@@ -49,17 +47,18 @@ if  __name__ == "__main__":
 #     ax1.set_xticklabels(['All Cross', 'First Cross'])
 #     ax1.tick_params(axis='both', which='major', labelsize=14)
 # =============================================================================
-
     
-    df_loc = 142
-    if df_loc == 142:
-    #for df_loc in tlsfm:
+    idx_lsfm = [i for i in idx_lsfm if i > 146]
+    
+    #df_loc = 142
+    #if df_loc == 142:
+    for df_loc in idx_lsfm:
         
         
         
         #i = int([i for i,a in enumerate(tlsfm) if a == df_loc][0])
         filename = df['filename'][df_loc]
-        version = df['Py_Version'][df_loc]
+        version = df['Py_version'][df_loc]
         cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
         
         para = cell_data.item().get('para')
@@ -71,14 +70,18 @@ if  __name__ == "__main__":
         band = sorted(set(band))
         cf = sorted(set(cf))
         modrate = sorted(set(modrate))
+        resp = TFTool.prefilter(resp, 25000)
         
-        lsfm.PSTH()
-        to_matlab = {'stim':stim, 'resp':resp, 'fc':cf, 'bandwidth':band, 'mod_rate': modrate}
-        scipy.io.savemat(f'{filename}_data.mat', to_matlab)
-        
-        
-        import mat73
-        cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20220527_006_cwt.mat')
+        psth = Psth(resp, para, filename, version)
+        x,y,err=psth.psth_all(plot=True)
+# =============================================================================
+#         to_matlab = {'stim':stim, 'resp':resp, 'fc':cf, 'bandwidth':band, 'mod_rate': modrate}
+#         scipy.io.savemat(f'{filename}_data.mat', to_matlab)
+#         
+#         
+#         import mat73
+#         cwt = mat73.loadmat(r'C:\Users\McGinley3\Documents\GitHub\lsfm\20220527_006_cwt.mat')
+# =============================================================================
 # =============================================================================
 #         f = cwt['f']
 #         f = f[:,0]
@@ -88,8 +91,7 @@ if  __name__ == "__main__":
 #             wt_a.append(w)
 #         wt_a = np.array(wt_a)
 # =============================================================================
-        resp = TFTool.prefilter(resp, 25000)
-        resp = signal.resample(resp, 500, axis=1)
+
         
 # =============================================================================
 #         f = cwt['f']

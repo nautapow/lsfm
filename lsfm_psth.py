@@ -121,7 +121,7 @@ class Psth():
                 plt.clf()
                 plt.close(fig)
                 
-        elif self.version == 2:
+        elif self.version >= 2:
             fig, ax = plt.subplots()
             ax.plot(x,y)
             ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
