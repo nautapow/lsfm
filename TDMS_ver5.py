@@ -593,7 +593,8 @@ class Tdms_V2():
             #stim_time = [i for i, a in enumerate(np.diff(timing, prepend=0)) if a > 3]
             stim_time = [i for i,a in enumerate(cross0) if a]
             
-            if not len(fc) == len(bdwidth) == len(mod_rate) == len(stim_time):
+            #stim_time does not contain stimulus with para 0-0-0
+            if not len(fc) == len(bdwidth) == len(mod_rate) == len(stim_time)+1:
                 print('CAUTION: #parameters not equal')
             
             _para_sort = sorted(zip(fc, bdwidth, mod_rate, stim_time), key=lambda x:x[0:3])
