@@ -242,8 +242,8 @@ def tuning(resp, para, filename='', plot=True, saveplot=False, data_return=False
         freq.remove(0.0)
     
     fs=25000
-    resp_filt = TFTool.prefilter(resp, fs)
-    resp_mesh = np.reshape(resp_filt, (len(loud),len(freq),-1))
+    #resp_filt = TFTool.prefilter(resp, fs)
+    resp_mesh = np.reshape(resp, (len(loud),len(freq),-1))
     
     if 90 in loud:    
         resp_mesh = np.delete(resp_mesh, -1, axis=0)
@@ -306,10 +306,13 @@ def tuning(resp, para, filename='', plot=True, saveplot=False, data_return=False
         grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
         
         ax1 = fig.add_subplot(grid[0])
-        im = plt.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
+        #im = plt.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
         
-        ax1.add_image(im)   
+        #ax1.add_collection(im)
+        
+        im = ax1.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
         ax1.set_xscale('log')
+        ax1.minorticks_off()
         ax1.set_xticks(xtick)
         ax1.set_xticklabels(xlabel)
         ax1.set_yticks(ytick)
@@ -894,11 +897,30 @@ def tone_stim_resp(i, stim, resp, para, filename):
 # =============================================================================
     
 
-def resp_merge(resp, para):
+def resp_merge(resp, para, repeat=2):
+    """
+    Averaging response with same tone pip parameters.
+    After LabView ver1.5 tone pip is played with a default of 2 reapeats. 
+
+    Parameters
+    ----------
+    resp : ndarray
+        response.
+    para : list of tuple
+        parameter in (loudness, frequency, (timing)).
+
+    Returns
+    -------
+    resp_merge : ndarray
+        averaged response.
+    para_merge : list of tuple
+        merged parameters.
+
+    """
     datapoints = len(resp[0])
-    resp_merge = np.mean(np.reshape(resp, (-1,2,datapoints)), axis=1)
+    resp_merge = np.mean(np.reshape(resp, (-1,repeat,datapoints)), axis=1)
     _loud, _freq, _ = zip(*para)
-    para_merge = list(zip(_loud, _freq))[::2]
+    para_merge = list(zip(_loud, _freq))[::repeat]
     
     return resp_merge, para_merge
 
