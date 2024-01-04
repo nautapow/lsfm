@@ -1,0 +1,42 @@
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy import signal,stats
+import TFTool
+import puretone
+import pandas as pd
+
+
+
+
+
+%matplotlib inline
+df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
+idx_puretone = df.index[(df['type']=='Pure Tones') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
+
+"""analysis type"""
+get_PSTH = True
+
+
+if get_PSTH:
+    index = [i for i in idx_puretone if i > 146]
+    for df_loc in index:
+        filename = df['filename'][df_loc]
+        version = df['Py_version'][df_loc]
+        mouseID = df['mouse_id'][df_loc]
+        fullname = mouseID+'_'+filename
+        data = np.load(f'{filename}.npy', allow_pickle=True)
+        resp = data.item()['resp']
+        loud = sorted(set(data.item()['loud']))
+        freq = sorted(set(data.item()['freq']))
+        try:
+            loud.remove(0.0)
+            freq.remove(0.0)
+        except:
+            pass
+                
+        para = data.item()['para']
+    
+        resp_merge, para_merge = puretone.resp_merge(resp, para)
+        resp_filt = TFTool.prefilter(resp_merge, 25000)
+        resp_adjust = [r - np.mean(r[400:500]) for r in resp_filt]
+            
