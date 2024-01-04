@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 
 
-cwt = scipy.io.loadmat('/Users/POW/Desktop/python_learning/cwt_sound.mat')
+cwt = scipy.io.loadmat('20210730_002_cwt_sound.mat')
 f = cwt['f']
 
 n_epochs = len(resp)
