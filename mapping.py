@@ -8,6 +8,7 @@ from pathlib import Path
 from joblib import Parallel, delayed
 from numba import jit, njit, cuda
 from PIL import Image, ImageSequence
+from scipy import signal
 
 def map_17(directory):
     """Mapping 1.7"""
@@ -70,9 +71,12 @@ def map_17(directory):
     return para, para_sort, act_sort, around_stim_sort
 
 
-def map_18(directory):
-    """Mapping 1.8"""
-    imgs = sorted(glob.glob(os.path.join(directory, '*.tif')), key = lambda x: int(x.split('.')[-2].split('_')[-1]))      
+def map_19(directory):
+    """Mapping 1.9"""
+    imgs = sorted(glob.glob(os.path.join(directory, '*.tif')), 
+                  key = lambda x: int(x.split('.')[-2].split('_')[-1]))      
+    
+    t1 = time.time()
     img_all = load_image(imgs)
     
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
@@ -86,6 +90,9 @@ def map_18(directory):
     para_sort = np.array(para)[para_argsort]
     act_sort = np.array(activities)[para_argsort]
     around_stim_sort = np.array(around_stim)[para_argsort]
+    
+    t2=time.time()
+    print(t2-t1)
     
     return para, para_sort, act_sort, around_stim_sort
 
@@ -110,7 +117,7 @@ def load_image(imgs):
         _im = 1
         while _im:
             _im = next(im, None)
-            if _im != None:
+            if _im != None and idx < len(img_all):
                 img_all[idx] = np.array(_im.rotate(-90), np.int16)
                 idx+=1
     
@@ -170,6 +177,11 @@ def count_repeat(para):
     return Counter(para)[para[0]] 
     
 
+def butter(arr, order, cutoff, filtertype, fs):
+    b,a = signal.butter(order, cutoff, btype=filtertype, fs=fs)
+    return signal.filtfilt(b,a, arr)
+
+
 def check_sync(stim_sync, img_sync, img_all, para, filename):
     sync_n = len(img_sync) - len(img_all)
 
@@ -192,7 +204,7 @@ def plot_map(mapping, filename, savefig=False):
             ax[x,y].imshow(map_plot[x][y], vmin=vmin, vmax=vmax, aspect='auto')
             ax[x,y].set_xticks([0,256,512])
             ax[x,y].set_yticks([0,256,512])
-    cols = ['4k', '10k', '20k', '30k']
+    cols = ['4k', '8k', '16k', '32k']
     rows = ['50dB', '60dB', '70dB']
     
     for axes, col in zip(ax[0], cols):
@@ -263,7 +275,7 @@ def check_xy(mapping, around_stim, para_map, filename, window = 60, saveplot=Fal
     
     arst = np.reshape(crop, (12,-1,window+1,512,512))
     arst = np.moveaxis(arst, (3,4), (0,1))
-    arst = arst[xx][yy]
+    arst = arst[yy][xx]
     
     psth = np.mean(arst[subplot], axis=0)
     
@@ -273,7 +285,7 @@ def check_xy(mapping, around_stim, para_map, filename, window = 60, saveplot=Fal
     ax1.set_xlim(0,window)
     ax1.set_xticks([0,window//2,window], [-1*(window//2), 0, window//2])
     ax2.plot(psth)
-    fig_name = f'{filename}-{para_map[subplot][0]}dB-{para_map[subplot][1]}kHz, ({xx}, {yy})'
+    fig_name = f'{filename}-{para_map[subplot][0]}dB-{para_map[subplot][1]/1000}kHz, ({xx}, {yy})'
     fig.suptitle(fig_name, y=0.92, fontsize=18)
     if saveplot:
         plt.savefig(f'{fig_name}.png', dpi=500, bbox_inches='tight')
@@ -323,7 +335,7 @@ def check_window(around_stim, window, center=None):
 
 
 if __name__ == "__main__":
-    directory = r'Z:\Users\cwchiang\mapping\TP024\1'
+    directory = r'Z:\Users\cwchiang\mapping\TG147\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -331,8 +343,8 @@ if __name__ == "__main__":
         version = float(tdms_file['Settings'].properties['Software Version'])
     if version == 1.7:
         para_all, para, act, around_stim = map_17(directory)
-    elif version == 1.8:
-        para_all, para, act, around_stim = map_18(directory)
+    elif version >= 1.8:
+        para_all, para, act, around_stim = map_19(directory)
     
     para_list = [tuple(i) for i in para]
     repeat = count_repeat(para_list)
@@ -342,3 +354,4 @@ if __name__ == "__main__":
     mapping = np.mean(act_map, axis=1)
     %matplotlib inline
     plot_map(mapping, filename, savefig=True)
+    #check_xy(mapping, around_stim, para_map, filename, window = 60, saveplot=False)
