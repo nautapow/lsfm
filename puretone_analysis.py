@@ -15,6 +15,7 @@ import math
 
 
 if  __name__ == "__main__":
+    %matplotlib inline
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_puretone = df.index[(df['type']=='Pure Tones') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
     #idx_tone = [26,29,31,34,36,44,48,61,72,75,77,80,83,84,85,88,90,93,94,96,99]
@@ -41,7 +42,10 @@ if  __name__ == "__main__":
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
         version = df['Py_version'][df_loc]
-        print(filename)
+        mouseID = df['mouse_id'][df_loc]
+        fullname = mouseID+'_'+filename
+        
+        #print(filename)
 # =============================================================================
 #         cell_data = np.load(f'{filename}_tone_data.npy', allow_pickle=True)
 #         
@@ -112,18 +116,23 @@ if  __name__ == "__main__":
             pass
                 
         para = data.item()['para']
-        
-        resp_filt = TFTool.prefilter(resp, 25000)
+    
+        resp_merge, para_merge = puretone.resp_merge(resp, para)
+        resp_filt = TFTool.prefilter(resp_merge, 25000)
         resp_adjust = [r - np.mean(r[400:500]) for r in resp_filt]
         
         try:
-            x = puretone.tuning(resp_adjust, para, filename, plot=True, saveplot=True, data_return=True, window=(500,3000))
+            x = puretone.tuning(resp_adjust, para_merge, fullname, plot=True, 
+                                saveplot=True, data_return=True, window=(500,3000))
             bf70 = x[4][240]
+            print(bf70)
             bf_list.append((df_loc, filename, bf70))
             df.loc[df_loc, 'best_frequency'] = bf70
         except:
             pass
-        puretone.psth(resp_adjust, filename, set_x_intime=True, saveplot=False)
+        
+        puretone.psth(resp_adjust, fullname, set_x_intime=True, saveplot=True)
+    
     df.to_csv('patch_list_with_bf.csv', index=False)     
         #second clamp
 # =============================================================================
