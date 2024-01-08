@@ -2,24 +2,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy import signal,stats
 import TFTool
-import puretone
+import tone
 import pandas as pd
-
-
+import itertools
 
 
 
 %matplotlib inline
 df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
-idx_puretone = df.index[(df['type']=='Pure Tones') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
+idx_tone = df.index[(df['type']=='Pure Tones') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
+idx_tone = [i for i in idx_tone if i > 146]
 
 """analysis type"""
 get_PSTH = True
+corr_PSTH = True
 
 
 if get_PSTH:
-    index = [i for i in idx_puretone if i > 146]
-    for df_loc in index:
+    
+    psth_all = {'name':[], 'psth':[]}
+    
+    for df_loc in idx_tone:
         filename = df['filename'][df_loc]
         version = df['Py_version'][df_loc]
         mouseID = df['mouse_id'][df_loc]
@@ -36,7 +39,29 @@ if get_PSTH:
                 
         para = data.item()['para']
     
-        resp_merge, para_merge = puretone.resp_merge(resp, para)
-        resp_filt = TFTool.prefilter(resp_merge, 25000)
-        resp_adjust = [r - np.mean(r[400:500]) for r in resp_filt]
-            
+        resp_adjust = [tone.base_adjust(r) for r in resp]
+        resp_merge, para_merge = tone.resp_merge(resp_adjust, para)
+        resp_filt = TFTool.prefilter(resp_merge)
+        yy = tone.psth(resp_filt, fullname)
+        psth_all['name'].append(fullname)
+        psth_all['psth'].append(yy)
+        
+if corr_PSTH:
+    save_result = False
+    
+    combination = list(itertools.combinations(psth_all['name'],2))
+    combination_index = list((i,j) for (i,_), (j,_) in 
+                             itertools.combinations(enumerate(psth_all['name']),2))
+    
+    max_corr = []
+    for i,j in combination_index:
+        corr = signal.correlate(psth_all['psth'][i], psth_all['psth'][j], 'full')
+        #+-30ms windows and get maximum correlation
+        max_corr.append(corr[9250:10750].max())
+        
+    corr = pd.DataFrame(columns = ['combination', 'correlation'])
+    corr['combination'] = combination
+    corr['correlation'] = max_corr
+    
+    if save_result:
+        corr.to_csv('max_correlation.csv', index=False)
