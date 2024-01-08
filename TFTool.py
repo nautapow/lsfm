@@ -299,7 +299,7 @@ def total_fft(resp, fs):
     
     return p_all, f
         
-def prefilter(resp, fs):
+def prefilter(resp, fs=25000):
     """
     Apply notch filter at 60hz and second-ordered low-pass filter at 500hz
 
@@ -308,7 +308,7 @@ def prefilter(resp, fs):
     resp : ndarray
         response.
     fs : float
-        sampling frequency in Hz.
+        sampling frequency in Hz. Default = 25000
 
     Returns
     -------
