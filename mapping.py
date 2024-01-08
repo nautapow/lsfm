@@ -225,6 +225,23 @@ def plot_map(mapping, filename, savefig=False):
         plt.clf()
 
 
+def plot_individual(mapping, para_map, filename, savefig=True):
+    for i,m in enumerate(mapping):
+        vmax = np.max(m)/2
+        vmin = np.min(m)/2
+        plt.imshow(m, vmin=vmin, vmax=vmax, aspect='equal')
+        plt.xticks([0,256,512])
+        plt.yticks([0,256,512])
+        frequency = para_map[i][1]/1000
+        name = f'{filename}_{para_map[i][0]}dB_{para_map[i][1]/1000}kHz'
+        plt.title(name)
+        
+        if savefig:
+            plt.savefig(f'{name}.png', dpi=500, bbox_inches='tight')
+            plt.clf()
+
+
+
 def get_xy(mapping, around_stim):
     def onclick(click):
         global coord, axes_click
@@ -335,7 +352,7 @@ def check_window(around_stim, window, center=None):
 
 
 if __name__ == "__main__":
-    directory = r'Z:\Users\cwchiang\mapping\TG147\1'
+    directory = r'Z:\Users\cwchiang\mapping\TG145\2'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -353,5 +370,6 @@ if __name__ == "__main__":
     para_map = np.mean(np.reshape(para, (-1, repeat, 2)), axis=1)
     mapping = np.mean(act_map, axis=1)
     %matplotlib inline
-    plot_map(mapping, filename, savefig=True)
+    plot_individual(mapping, para_map, filename)
+    #plot_map(mapping, filename, savefig=True)
     #check_xy(mapping, around_stim, para_map, filename, window = 60, saveplot=False)
