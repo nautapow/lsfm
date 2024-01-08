@@ -10,7 +10,7 @@ from scipy import interpolate
 import scipy.io
 import TFTool
 import pandas as pd
-import puretone 
+import tone 
 import math
 
 
@@ -28,7 +28,7 @@ if  __name__ == "__main__":
     #pre-create 2d array to store response of resp_mesh from all neurons
     resp_all_pos_2bf = np.array([[0.0]*len(frequency)]*301)
     widthAt70=[]
-    bf_list = []    
+    bf_list = []
     
 # =============================================================================
 #     df_loc = 105
@@ -59,19 +59,19 @@ if  __name__ == "__main__":
 #             pass
 #         if n:    
 #             bf = cell_note['best frequency'].loc[n]
-#             #puretone.psth_bf(resp, para, bf, filename, set_x_intime=True, saveplot=True)
+#             #tone.psth_bf(resp, para, bf, filename, set_x_intime=True, saveplot=True)
 #         
-#         bf = puretone.tunning(resp, para, filename=filename, saveplot=False)
+#         bf = tone.tunning(resp, para, filename=filename, saveplot=False)
 #         print(f'{filename}: {bf}')
 #         
 # =============================================================================
         
 # =============================================================================
 #         for i,p in enumerate(para):
-#             puretone.tone_stim_resp(i, stim[i], resp[i], p[:2], filename)
+#             tone.tone_stim_resp(i, stim[i], resp[i], p[:2], filename)
 # =============================================================================
         
-        #_ = puretone.tunning(resp, para, filename=filename, saveplot=True)
+        #_ = tone.tunning(resp, para, filename=filename, saveplot=True)
         #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
         
         
@@ -93,7 +93,7 @@ if  __name__ == "__main__":
 #         LabView_ver = t.version
 #         
 #         if LabView_ver == 1.5:
-#             resp_merge, para_merge = puretone.resp_merge(resp, para)
+#             resp_merge, para_merge = tone.resp_merge(resp, para)
 #             loud, freq = zip(*para_merge)
 #         else:
 #             resp_merge = resp
@@ -117,12 +117,12 @@ if  __name__ == "__main__":
                 
         para = data.item()['para']
     
-        resp_merge, para_merge = puretone.resp_merge(resp, para)
+        resp_merge, para_merge = tone.resp_merge(resp, para)
         resp_filt = TFTool.prefilter(resp_merge, 25000)
         resp_adjust = [r - np.mean(r[400:500]) for r in resp_filt]
         
         try:
-            x = puretone.tuning(resp_adjust, para_merge, fullname, plot=True, 
+            x = tone.tuning(resp_adjust, para_merge, fullname, plot=True, 
                                 saveplot=True, data_return=True, window=(500,3000))
             bf70 = x[4][240]
             print(bf70)
@@ -131,7 +131,7 @@ if  __name__ == "__main__":
         except:
             pass
         
-        puretone.psth(resp_adjust, fullname, set_x_intime=True, saveplot=True)
+        tone.psth(resp_adjust, fullname, x_in_ms=True, saveplot=True)
     
     df.to_csv('patch_list_with_bf.csv', index=False)     
         #second clamp
