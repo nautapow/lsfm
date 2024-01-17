@@ -370,7 +370,7 @@ def get_xy(mapping, around_stim):
         plt.close()
             
     def plot2click(mapping):
-        %matplotlib tk
+        #%matplotlib tk
         map_plot = np.reshape(mapping, (3,4,512,512))
         vmax = np.max(mapping)/2
         vmin = np.min(mapping)/2
@@ -393,7 +393,7 @@ def get_xy(mapping, around_stim):
     xx = int(coord[0][0])
     yy = int(coord[0][1])
     
-    %matplotlib inline
+    #%matplotlib inline
     return xx, yy, axes_click
 
 
@@ -475,7 +475,7 @@ def save_npy(act, act_map, mapping, para_map, directory, filename):
 
 
 if __name__ == "__main__":
-    %matplotlib inline
+    #%matplotlib inline
     directories = ['/media/external5/Users/cwchiang/mapping/TP118/1/',
                  '/media/external5/Users/cwchiang/mapping/TP110/1/']
     
