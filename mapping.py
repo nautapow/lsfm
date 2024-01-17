@@ -1,4 +1,4 @@
-from skimage import io
+from skimage import io, restoration
 import os, glob
 import numpy as np
 import matplotlib.pyplot as plt
@@ -9,6 +9,7 @@ from joblib import Parallel, delayed
 from numba import jit, njit, cuda
 from PIL import Image, ImageSequence
 from scipy import signal
+import scipy.io
 
 def map_17(directory):
     """Mapping 1.7"""
@@ -233,13 +234,70 @@ def plot_individual(mapping, para_map, filename, savefig=True):
         plt.xticks([0,256,512])
         plt.yticks([0,256,512])
         frequency = para_map[i][1]/1000
-        name = f'{filename}_{para_map[i][0]}dB_{para_map[i][1]/1000}kHz'
+        name = f'{i}-{filename}_{para_map[i][0]}dB_{para_map[i][1]/1000}kHz'
         plt.title(name)
         
         if savefig:
             plt.savefig(f'{name}.png', dpi=500, bbox_inches='tight')
             plt.clf()
+        else:
+            plt.show()
+            plt.clf()
 
+
+def image_process(mapping, deconvolute=True, threshold=True):
+    import copy
+    
+    processed = []
+    for m in mapping:
+        m_work = copy.copy(m)
+        
+        if deconvolute:
+            def gaussuian_filter(kernel_size, sigma=1, muu=0):
+ 
+                # Initializing value of x,y as grid of kernel size
+                # in the range of kernel size
+                x, y = np.meshgrid(np.linspace(-1, 1, kernel_size),
+                                   np.linspace(-1, 1, kernel_size))
+                dst = np.sqrt(x**2+y**2)
+                normal = 1/(2*np.pi*(sigma**2))
+             
+                return np.exp(-((dst-muu)**2 / (2.0*(sigma**2))))*normal
+            
+            def gaussuian_kern(size=10, sigma=1):
+                """Returns a 2D Gaussian kernel array."""
+                kern1d = scipy.signal.windows.gaussian(size, std=sigma).reshape(size, 1)
+                kern2d = np.outer(kern1d, kern1d)
+                
+                return kern2d
+            
+            psf2 = gaussuian_kern()
+            psf = gaussuian_filter(10, sigma=1)
+            
+            m_work = restoration.richardson_lucy(m, psf, num_iter=10)
+            
+            plt.imshow(mm, vmin=-5, vmax=5)
+            plt.axis('off')
+            plt.colorbar()
+            plt.show()
+            plt.clf()
+        
+        if threshold:
+            m_mask = m_work < (np.max(m_work)*0.5)
+            m_work[m_mask] = 0
+            
+        processed.append(m_work)
+    
+    return np.array(processed)
+
+
+def plot_overlay(index, mapping, filename):
+    extent = 0,512,0,512
+    fig = plt.figure(frameon=False)
+    plt.imshow(map_prosses[index[0]], cmap='Greens', extent=extent)
+    plt.imshow(map_prosses[index[1]],cmap='Blues', alpha=.5, extent=extent)
+    plt.imshow(map_prosses[index[2]],cmap='Reds', alpha=.5, extent=extent)
+    plt.show()
 
 
 def get_xy(mapping, around_stim):
@@ -351,8 +409,15 @@ def check_window(around_stim, window, center=None):
     return np.array(act_window)
 
 
+def save_npy(act, act_map, mapping, para_map, directory, filename):
+    file = {'activity':act, 'activity_map':act_map, 'map':mapping, 'parameter':para_map,
+            'directory':directory, 'filename':filename}
+    
+    np.save(f'{filename}_mapping', file)
+
+
 if __name__ == "__main__":
-    directory = r'Z:\Users\cwchiang\mapping\TG145\2'
+    directory = r'Z:\Users\cwchiang\mapping\TP109\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -370,6 +435,11 @@ if __name__ == "__main__":
     para_map = np.mean(np.reshape(para, (-1, repeat, 2)), axis=1)
     mapping = np.mean(act_map, axis=1)
     %matplotlib inline
-    plot_individual(mapping, para_map, filename)
+    map_prosses = image_process(mapping, deconvolute=False)
+    index = [8,9,11]
+    plot_overlay(index, map_prosses, filename)
+    save_npy(act, act_map, mapping, para_map, directory, filename)
+    
+    #plot_individual(mapping, para_map, filename, savefig=False)
     #plot_map(mapping, filename, savefig=True)
     #check_xy(mapping, around_stim, para_map, filename, window = 60, saveplot=False)
