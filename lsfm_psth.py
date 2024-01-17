@@ -125,7 +125,8 @@ class Psth():
             fig, ax = plt.subplots()
             ax.plot(x,y)
             ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-            [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [1250,26250]]
+            [ax.axvline(x=_x, color='k', linestyle='dotted', alpha=0.3) for _x in np.arange(0,37501,2500)]
+            [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.7) for _x in [1250,26250]]
             ax.set_xlim(0,len(x))
             label = list(np.round(np.linspace(0, 1.5, 16), 2))
             ax.set_xticks(np.linspace(0,37500,16))
@@ -133,8 +134,8 @@ class Psth():
             #ax.xticks(rotation = 45)
             ax.set_title(f'{self.filename}_PSTH-time', fontsize=14)
             ax.set_xlabel('time (sec)', fontsize=16)
-            ax.set_ylabel('average response (mV)', fontsize=16)
-            ax.tick_params(axis='both', which='major', labelsize=14)
+            ax.set_ylabel('Avg Response (mV)', fontsize=16)
+            ax.tick_params(axis='both', which='major', labelsize=12)
             
             if saveplot:
                 plt.savefig(f'{self.filename}_PSTH_time.png', dpi=500, bbox_inches='tight')
@@ -159,21 +160,20 @@ class Psth():
             plt.xticks(rotation=45)
             ax.set_title(f'{self.filename}_PSTH', fontsize=14)
             ax.set_xlabel('data point (2500/100ms)', fontsize=16)
-            ax.set_ylabel('average response (mV)', fontsize=16)
-            ax.tick_params(axis='both', which='major', labelsize=14)
+            ax.set_ylabel('Avg Response (mV)', fontsize=16)
+            ax.tick_params(axis='both', which='major', labelsize=12)
             
             if saveplot:
                 plt.savefig(f'{self.filename}_PSTH.png', dpi=500, bbox_inches='tight')
                 plt.savefig(f'{self.filename}_PSTH.pdf', dpi=500, format='pdf', bbox_inches='tight')
-                if plot:
-                    plt.show()
-                plt.clf()
-                plt.close(fig)
             
             if plot:
                 plt.show()
                 plt.clf()
-                plt.close(fig)
+            else:
+                plt.clf()
+                
+            plt.close(fig)
         
         return x,y,err
         
