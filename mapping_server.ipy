@@ -194,7 +194,6 @@ def get_stim_resp(img_all, stim_sync, img_sync):
         around_stim.append(img_all[img_idx-(window//2):img_idx+(window//2)+1])
         
         activities.append(sig)
-        print(stim_idx)
     
     return activities, around_stim
 
