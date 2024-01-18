@@ -243,13 +243,13 @@ def check_sync(stim_sync, img_sync, img_all, para, filename):
 
 def plot_map(mapping, filename, saveplot=False):
     map_plot = np.reshape(mapping, (3,4,512,512))
-    vmax = np.max(mapping)
+    vmax = np.max(mapping)/1.5
     vmin = np.min(mapping)
     
     fig, ax = plt.subplots(3,4, figsize=(15, 10))
     for x in range(3):
         for y in range(4):
-            ax[x,y].imshow(map_plot[x][y], vmin=0.9, vmax=-0.9, aspect='auto')
+            ax[x,y].imshow(map_plot[x][y], vmin=0, vmax=vmax, aspect='auto')
             ax[x,y].set_xticks([0,256,512])
             ax[x,y].set_yticks([0,256,512])
     cols = ['4k', '8k', '16k', '32k']
@@ -319,7 +319,7 @@ def image_process(mapping, deconvolute=True, threshold=True):
 #                                   scale=stats.sem(m_flat))[1]
 #             m_mask = m_work < ci
 # =============================================================================
-            m_mask = m_work < (np.max(m_work)*0.4)
+            m_mask = m_work < (np.max(m_work)*0.6)
             m_work[m_mask] = 0
             
         processed.append(m_work)
@@ -476,7 +476,7 @@ def save_npy(act, act_map, mapping, para_map, directory, filename):
 
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\cwchiang\mapping\TP108\1'
+    directory = r'Z:\Users\cwchiang\mapping\TP118\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
