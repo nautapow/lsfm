@@ -32,8 +32,7 @@ def map_17(directory):
         return para_all, act_all, around_stim_all
     
     imgs = sorted(glob.glob(os.path.join(directory, '*.tif')), key = lambda x: int(x.split('.')[-2].split('_')[-1]))
-    print(imgs)
-    category = [p.split('\\')[6].split('_')[2] for p in imgs]
+    category = [p.split('/')[8].split('_')[2] for p in imgs]
     #remove "k" to sort by frequency
     category = sorted(list(set(category)), key=lambda x:x[:-2])
     
@@ -476,14 +475,7 @@ def save_npy(act, act_map, mapping, para_map, directory, filename):
 
 if __name__ == "__main__":
     #%matplotlib inline
-    directories = ['/media/external5/Users/cwchiang/mapping/TP109/1/',
-                 '/media/external5/Users/cwchiang/mapping/TP108/1/',
-                 '/media/external5/Users/cwchiang/mapping/TP096/1/',
-                 '/media/external5/Users/cwchiang/mapping/TP087/1/',
-                 '/media/external5/Users/cwchiang/mapping/TP074/2/',
-                 '/media/external5/Users/cwchiang/mapping/TP064/1/',
-                 '/media/external5/Users/cwchiang/mapping/TP057/1/',
-                 '/media/external5/Users/cwchiang/mapping/TP035/1/',
+    directories = ['/media/external5/Users/cwchiang/mapping/TP035/1/',
                  '/media/external5/Users/cwchiang/mapping/TP032/3/',
                  '/media/external5/Users/cwchiang/mapping/TP026/1/']
     
