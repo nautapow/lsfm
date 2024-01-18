@@ -518,6 +518,7 @@ if __name__ == "__main__":
         #index = [8,10,11]
         #plot_overlay(index, map_prosses, filename, saveplot=False)
         
+        print(filename)
         if not os.path.isfile(npy):
             save_npy(act, act_map, mapping, para_map, directory, filename)
 
