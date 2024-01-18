@@ -18,7 +18,7 @@ def map_17(directory):
         img_all = load_image(img_cate)
         
         tdms_dir = glob.glob(os.path.join(directory, f'*{c}*[!Sound].tdms'))[0]
-        filename = ('_').join(tdms_dir.split('/')[-1].split('_')[:3])
+        filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:3])
         
         para_cate, stim_sync, img_sync = load_tdms(tdms_dir)
         check_sync(stim_sync, img_sync, img_all, para_cate, filename)
@@ -32,7 +32,8 @@ def map_17(directory):
         return para_all, act_all, around_stim_all
     
     imgs = sorted(glob.glob(os.path.join(directory, '*.tif')), key = lambda x: int(x.split('.')[-2].split('_')[-1]))
-    category = [p.split('/')[6].split('_')[2] for p in imgs]
+    print(imgs)
+    category = [p.split('\\')[6].split('_')[2] for p in imgs]
     #remove "k" to sort by frequency
     category = sorted(list(set(category)), key=lambda x:x[:-2])
     
@@ -46,7 +47,7 @@ def map_17(directory):
         img_all = load_image(img_cate)
         
         tdms_dir = glob.glob(os.path.join(directory, f'*{c}*[!Sound].tdms'))[0]
-        filename = ('_').join(tdms_dir.split('/')[-1].split('_')[:3])
+        filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:3])
         
         para_cate, stim_sync, img_sync = load_tdms(tdms_dir)
         check_sync(stim_sync, img_sync, img_all, para_cate, filename)
@@ -81,7 +82,7 @@ def map_19(directory):
     img_all = load_image(imgs)
     
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
-    filename = ('_').join(tdms_dir.split('/')[-1].split('_')[:3])
+    filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:3])
     
     para, stim_sync, img_sync = load_tdms(tdms_dir)
     check_sync(stim_sync, img_sync, img_all, para, filename)
@@ -475,7 +476,14 @@ def save_npy(act, act_map, mapping, para_map, directory, filename):
 
 if __name__ == "__main__":
     #%matplotlib inline
-    directories = ['/media/external5/Users/cwchiang/mapping/TP035/1/',
+    directories = ['/media/external5/Users/cwchiang/mapping/TP109/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP108/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP096/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP087/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP074/2/',
+                 '/media/external5/Users/cwchiang/mapping/TP064/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP057/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP035/1/',
                  '/media/external5/Users/cwchiang/mapping/TP032/3/',
                  '/media/external5/Users/cwchiang/mapping/TP026/1/']
     
