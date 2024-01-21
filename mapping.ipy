@@ -10,6 +10,7 @@ from numba import jit, njit, cuda
 from PIL import Image, ImageSequence
 from scipy import signal, stats
 import scipy.io
+import math
 
 def map_17(directory):
     """Mapping 1.7"""
@@ -243,8 +244,7 @@ def check_sync(stim_sync, img_sync, img_all, para, filename):
 
 def plot_map(mapping, filename, saveplot=False):
     map_plot = np.reshape(mapping, (3,4,512,512))
-    vmax = np.max(mapping)/1.5
-    vmin = np.min(mapping)
+    vmax = np.max(mapping)/6
     
     fig, ax = plt.subplots(3,4, figsize=(15, 10))
     for x in range(3):
@@ -296,7 +296,7 @@ def image_process(mapping, deconvolute=True, threshold=True):
     import copy
     
     processed = []
-    for m in mapping:
+    for i,m in enumerate(mapping):
         m_work = copy.copy(m)
         
         if deconvolute:
@@ -319,7 +319,11 @@ def image_process(mapping, deconvolute=True, threshold=True):
 #                                   scale=stats.sem(m_flat))[1]
 #             m_mask = m_work < ci
 # =============================================================================
-            m_mask = m_work < (np.max(m_work)*0.6)
+            if i in [0,4,8]:
+                m_mask = m_work < (np.max(m_work)*0.75)
+            else:
+                m_mask = m_work < (np.max(m_work)*0.75)
+            
             m_work[m_mask] = 0
             
         processed.append(m_work)
@@ -448,9 +452,116 @@ def check_xy(mapping, around_stim, para_map, filename, window = 60, saveplot=Fal
 #             plt.show()
 #             plt.clf()
 # =============================================================================
-            
-            
 
+            
+def get_coordinate(filename):
+    def onclick(click):
+        global coords 
+        x, y = click.xdata, click.ydata
+         
+        coords.append((x,y))
+        fig.canvas.mpl_disconnect(cid)
+        plt.close()
+        return
+    
+    file = rf'C:\Users\McGinley3\Documents\GitHub\lsfm\mapping_overlay\{filename}_overlay.png'
+    img = io.imread(file)
+    
+    global coords
+    coords = []
+    %matplotlib tk
+    for i in range(6):
+        fig, ax = plt.subplots(figsize=(20,16))
+        ax.imshow(img, aspect='equal')
+        ax.axis('off')
+        
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)  
+        
+        plt.show()
+        plt.waitforbuttonpress()
+    
+    plt.close()
+    plt.clf()
+    
+    %matplotlib inline
+       
+    return coords
+
+
+def transform_coord(coords):
+    """
+    Find coordinates of patch sites.
+    Abbreviation: 
+    a = A1 low frequency, 
+    b = A1 high frequency
+    c = A2, 
+    d = AAF low frequency
+    P1 = upper patch hole
+    P2 = lower patch hole
+    
+    Parameters
+    ----------
+    coords : list of tuple
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+   
+    ax, ay = coords[0][0], coords[0][1]
+    bx, by = coords[1][0], coords[1][1]
+    cx, cy = coords[2][0], coords[2][1]
+    dx, dy = coords[3][0], coords[3][1]
+    upx, upy = coords[4][0], coords[4][1]
+    lowx, lowy = coords[5][0], coords[5][1]
+    
+# =============================================================================
+#     if hole.lower() == 'up':
+#         px, py = coords[4][0], coords[4][1]
+#     elif hole.lower() == 'low':
+#         px, py = coords[5][0], coords[5][1]
+#     else:
+#         raise ValueError('please input only up or low')
+# =============================================================================
+        
+    A = np.array([ax-ax,ay-ay])
+    B = np.array([bx-ax,by-ay])
+    C = np.array([cx-ax,cy-ay])
+    D = np.array([dx-ax,dy-ay])
+    P1 = np.array([upx-ax,upy-ay])
+    P2 = np.array([lowx-ax,lowy-ay])
+    
+    ab = B-A
+    scaling = np.linalg.norm(ab).astype('float64')
+    u = ab
+    cd = D-C
+    #vector perpendicular to CD
+    p_cd = np.array([-1*cd[1], 1*cd[0]]).astype('float64')
+    v = p_cd*scaling/np.linalg.norm(p_cd)
+    
+    a1_l = (round(A@u/np.linalg.norm(u)/scaling,3), round(A@v/np.linalg.norm(v)/scaling,3))
+    a1_h = (round(B@u/np.linalg.norm(u)/scaling,3), round(B@v/np.linalg.norm(v)/scaling,3)) 
+    a2 = (round(C@u/np.linalg.norm(u)/scaling,3), round(C@v/np.linalg.norm(v)/scaling,3))
+    aaf = (round(D@u/np.linalg.norm(u)/scaling,3), round(D@v/np.linalg.norm(v)/scaling,3))
+    
+    p_up = (round(P1@u/np.linalg.norm(u)/scaling,3), round(P1@v/np.linalg.norm(v)/scaling,3))
+    p_low = (round(P2@u/np.linalg.norm(u)/scaling,3), round(P2@v/np.linalg.norm(v)/scaling,3))
+    
+    return a1_l, a1_h, a2, aaf, p_up, p_low
+    
+# =============================================================================
+#     slope_ab = (by - ay) / (bx - ax)
+#     slope_cd = -1/slope_ab
+#     
+#     intercept_cd = Py - slope_cd * Px
+#     xx = (slope_ab * ax - slope_cd * Px + Py - ay) / (slope_ab - slope_cd)
+#     yy = slope_ab * (xx-ax) + ay
+# =============================================================================
+        
+        
+        
 def check_window(around_stim, window, center=None):
     if not center:
         center = len(around_stim[0])//2
@@ -476,7 +587,7 @@ def save_npy(act, act_map, mapping, para_map, directory, filename):
 
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\cwchiang\mapping\TP118\1'
+    directory = r'Z:\Users\cwchiang\mapping\TP110\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -502,11 +613,16 @@ if __name__ == "__main__":
         para_map = np.mean(np.reshape(para, (-1, repeat, 2)), axis=1)
         mapping = np.mean(act_map, axis=1)
     
-    plot_map(mapping, filename, saveplot=False)
+    #plot mapping and overlay, change threshold and colorbar limit in function plot_map
+    #plot_map(mapping, filename, saveplot=False)
     map_prosses = image_process(mapping, deconvolute=True)
     index = [8,10,11]
     plot_overlay(index, map_prosses, filename, saveplot=False)
+        
+    #coords = get_coordinate(filename)
+    #transform_coord(coords)
     
+        
     if not os.path.isfile(npy):
         save_npy(act, act_map, mapping, para_map, directory, filename)
 
