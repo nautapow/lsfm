@@ -601,7 +601,7 @@ def psth(resp, filename, base_adjust=False, x_in_ms=False, saveplot=False, **kwa
     return y
 
 
-def psth_bf(resp, para, bf, filename, set_x_intime=False, saveplot=False, **kwargs):
+def psth_bf(resp, para, bf, filename, x_in_ms=False, saveplot=False, **kwargs):
     loud, freq, _ = zip(*para)
     loud = sorted(set(loud))
     freq = np.array(sorted(set(freq)))
@@ -630,7 +630,7 @@ def psth_bf(resp, para, bf, filename, set_x_intime=False, saveplot=False, **kwar
     ax.set_xlim(0,10000)
     ax.set_ylabel('membrane potential (mV)')
     
-    if set_x_intime:
+    if x_in_ms:
         label = np.linspace(-20,380,6)
         ax.set_xticks(np.linspace(0,10000,6),label)
         ax.set_xlabel('time (ms)')
@@ -646,6 +646,7 @@ def psth_bf(resp, para, bf, filename, set_x_intime=False, saveplot=False, **kwar
         plt.show()
         plt.close(fig)
     
+    return y
 
 def mem_V(stim, para, resp, filename='', saveplot=False):
     on_r, off_r = [],[]
