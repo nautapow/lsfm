@@ -247,7 +247,7 @@ def check_sync(stim_sync, img_sync, img_all, para, filename):
 
 def plot_map(mapping, filename, saveplot=False):
     map_plot = np.reshape(mapping, (3,4,512,512))
-    vmax = np.max(mapping)/6
+    vmax = np.max(mapping)/2
     
     fig, ax = plt.subplots(3,4, figsize=(15, 10))
     for x in range(3):
@@ -536,42 +536,79 @@ def transform_coord(coords):
     P1 = np.array([upx-ax,upy-ay])
     P2 = np.array([lowx-ax,lowy-ay])
     
-    ab = B-A
-    scaling = np.linalg.norm(ab).astype('float64')
-    u = ab
+    u = B-A
+    unit = np.linalg.norm(u).astype('float64')
 # =============================================================================
 #     cd = D-C
 #     #vector perpendicular to CD
 #     p_cd = np.array([-1*cd[1], 1*cd[0]]).astype('float64')
 #     v = p_cd*scaling/np.linalg.norm(p_cd)
 # =============================================================================
-    acd = np.array([(C[0]+D[0])/2, (C[1]+D[1])/2])    
-    v = (acd/np.linalg.norm(acd)) * scaling
+    am = C-A    
+    #am = np.array([(C[0]+D[0])/2, (C[1]+D[1])/2])    
+    v = (am/np.linalg.norm(am)) * unit
     
-    u_len = np.linalg.norm(u)
-    v_len = np.linalg.norm(v)
+    def get_angle(p, u, v):
+        a1 = p@u/(np.linalg.norm(p)*np.linalg.norm(u))
+        a2 = p@v/(np.linalg.norm(p)*np.linalg.norm(v))
+        
+        return math.acos(round(a1,3)), math.acos(round(a2,3))
     
-    a1_l = (round(A@u/u_len**2,3), round(A@v/v_len**2,3))
-    a1_h = (round(B@u/u_len**2,3), round(B@v/v_len**2,3)) 
-    a2 = (round(C@u/u_len**2,3), round(C@v/v_len**2,3))
-    aaf = (round(D@u/u_len**2,3), round(D@v/v_len**2,3))
+    def new_coord(p, u, v):
+        theta,phi  = get_angle(p, u, v)
+        u_scale = np.linalg.norm(p) * math.sin(phi) / math.sin(np.pi-theta-phi)
+        new_x = u_scale/np.linalg.norm(u)
+        v_scale = np.linalg.norm(p) * math.sin(theta) / math.sin(np.pi-theta-phi)
+        new_y = v_scale/np.linalg.norm(u)
+        
+        return (round(new_x,3), round(new_y,3))
     
-    p_up = (round(P1@u/u_len**2,3), round(P1@v/v_len**2,3))
-    p_low = (round(P2@u/u_len**2,3), round(P2@v/v_len**2,3))
+    a1_h = new_coord(B, u, v)
+    a2 = new_coord(C, u, v)
+    aaf = new_coord(D, u, v)
     
-    return a1_l, a1_h, a2, aaf, p_up, p_low
+    p_up = new_coord(P1, u, v)
+    p_low = new_coord(P2, u, v)
     
 # =============================================================================
-#     slope_ab = (by - ay) / (bx - ax)
-#     slope_cd = -1/slope_ab
+#     a1_l = (round(A@u/u_len**2,3), round(A@v/v_len**2,3))
+#     a1_h = (round(B@u/u_len**2,3), round(B@v/v_len**2,3)) 
+#     a2 = (round(C@u/u_len**2,3), round(C@v/v_len**2,3))
+#     aaf = (round(D@u/u_len**2,3), round(D@v/v_len**2,3))
 #     
-#     intercept_cd = Py - slope_cd * Px
-#     xx = (slope_ab * ax - slope_cd * Px + Py - ay) / (slope_ab - slope_cd)
-#     yy = slope_ab * (xx-ax) + ay
+#     p_up = (round(P1@u/u_len**2,3), round(P1@v/v_len**2,3))
+#     p_low = (round(P2@u/u_len**2,3), round(P2@v/v_len**2,3))
 # =============================================================================
-        
-        
-        
+    
+    return a1_h, a2, aaf, p_up, p_low
+
+def plot_regions():
+    coord = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    a1_x = np.array(coord[coord['regions']=='A1_h']['x'])
+    a1_y = np.array(coord[coord['regions']=='A1_h']['y'])
+    a2_x = np.array(coord[coord['regions']=='A2']['x'])
+    a2_y = np.array(coord[coord['regions']=='A2']['y'])
+    aaf_x = np.array(coord[coord['regions']=='AAF']['x'])        
+    aaf_y = np.array(coord[coord['regions']=='AAF']['y'])
+    patch_x = np.array(coord[(coord['regions']=='Patch_up') | (coord['regions']=='Patch_low')]['x'])
+    patch_y = np.array(coord[(coord['regions']=='Patch_up') | (coord['regions']=='Patch_low')]['y'])
+    xx = [0, np.mean(a1_x), np.mean(a2_x), np.mean(aaf_x)]
+    yy = [0, np.mean(a1_y), np.mean(a2_y), np.mean(aaf_y)]
+    sd_x = [0, np.std(a1_x), np.std(a2_x), np.std(aaf_x)]
+    sd_y = [0, np.std(a1_y), np.std(a2_y), np.std(aaf_y)]
+    
+    fig, ax = plt.subplots()
+    ax.scatter(xx, yy, c='k')
+    ax.errorbar(xx, yy, sd_y, sd_x, capsize=5, ls='none', color='black', 
+            elinewidth=2)
+    ax.scatter(patch_x, patch_y)
+    plt.title('region and hole')
+    plt.savefig('hole_distribution.png', dpi=500)
+    plt.show()
+    
+    return xx, yy
+    
+  
 def check_window(around_stim, window, center=None):
     if not center:
         center = len(around_stim[0])//2
@@ -603,7 +640,7 @@ def save_coord(filename, threshold, coords, trans_coords):
 
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\cwchiang\mapping\TP057\1'
+    directory = r'Z:\Users\cwchiang\mapping\TG145\3'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -630,19 +667,43 @@ if __name__ == "__main__":
         mapping = np.mean(act_map, axis=1)
     
     ##plot mapping and overlay, change threshold and colorbar limit in function plot_map
-    #plot_map(mapping, filename, saveplot=False)
-    threshold = (0.6,0.7)
+    plot_map(mapping, filename, saveplot=False)
+    threshold = (0.65,0.75)
     map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
-    index = [8,10,11]
+    index = [9,10,10]
     plot_overlay(index, map_prosses, filename, saveplot=False)
-        
+
+    
     #coords = get_coordinate(filename)
     #trans_coords = transform_coord(coords)
     #save_coord(filename, threshold, coords, trans_coords)
     
-        
-    if not os.path.isfile(npy):
-        save_npy(act, act_map, mapping, para_map, directory, filename)
+# =============================================================================
+#     ##fast coordinate input
+#     file_list = ['TG145_3', 'TG146_3', 'TP026_1', 'TP032_3', 'TP035_1', 'TP057_1', 'TP064_1',
+#                  'TP074_2', 'TP087_1', 'TP096_1', 'TP109_1', 'TP110_1', 'TP118_1', 'TP108_1',
+#                  'TP086_2', 'TP041_1']        
+#     coord_df = pd.DataFrame(columns=['id', 'x', 'y'])
+#     
+#     coord_all = []
+#     for filename in file_list:
+#         coord_file = f'{filename}_coord.npy'
+#         coord_data = np.load(coord_file, allow_pickle=True)
+#         coords = coord_data.item().get('raw_coordinate')
+#         trans_coords = transform_coord(coords)
+#         
+#         
+#         for i,a in enumerate(trans_coords):
+#             coord_all.append([filename, a[0], a[1]])
+#             #coord_df.loc[i] = [filename, a[0], a[1]]
+#             
+#         coord_df = pd.DataFrame(coord_all)
+#         coord_df.to_excel('coord_temp.xlsx')
+# 
+#         
+#     if not os.path.isfile(npy):
+#         save_npy(act, act_map, mapping, para_map, directory, filename)
+# =============================================================================
 
     
 
