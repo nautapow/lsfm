@@ -1,6 +1,8 @@
 from skimage import io, restoration, exposure
 import os, glob
 import numpy as np
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import time
 from nptdms import TdmsFile
@@ -11,6 +13,7 @@ from PIL import Image, ImageSequence
 from scipy import signal, stats
 import scipy.io
 import math
+import pandas as pd
 
 def map_17(directory):
     """Mapping 1.7"""
@@ -292,7 +295,7 @@ def plot_individual(mapping, para_map, filename, saveplot=True):
             plt.clf()
 
 
-def image_process(mapping, deconvolute=True, threshold=True):
+def image_process(mapping, deconvolute=True, threshold=None):
     import copy
     
     processed = []
@@ -320,9 +323,9 @@ def image_process(mapping, deconvolute=True, threshold=True):
 #             m_mask = m_work < ci
 # =============================================================================
             if i in [0,4,8]:
-                m_mask = m_work < (np.max(m_work)*0.75)
+                m_mask = m_work < (np.max(m_work)*threshold[0])
             else:
-                m_mask = m_work < (np.max(m_work)*0.75)
+                m_mask = m_work < (np.max(m_work)*threshold[1])
             
             m_work[m_mask] = 0
             
@@ -349,7 +352,7 @@ def plot_overlay(index, mapping, filename, saveplot=True):
     fig = plt.figure(frameon=False)
     plt.imshow(img_wf, cmap='gray', alpha=.7, extent=extent)
     plt.imshow(mask_low, cmap='Greens_r', alpha=.7, extent=extent)
-    plt.imshow(mask_mid,cmap='Blues_r', alpha=.7, extent=extent)
+    plt.imshow(mask_mid,cmap='Blues_r', alpha=.5, extent=extent)
     plt.imshow(mask_high,cmap='Reds_r', alpha=.7, extent=extent)
     plt.axis('off')
     
@@ -536,18 +539,25 @@ def transform_coord(coords):
     ab = B-A
     scaling = np.linalg.norm(ab).astype('float64')
     u = ab
-    cd = D-C
-    #vector perpendicular to CD
-    p_cd = np.array([-1*cd[1], 1*cd[0]]).astype('float64')
-    v = p_cd*scaling/np.linalg.norm(p_cd)
+# =============================================================================
+#     cd = D-C
+#     #vector perpendicular to CD
+#     p_cd = np.array([-1*cd[1], 1*cd[0]]).astype('float64')
+#     v = p_cd*scaling/np.linalg.norm(p_cd)
+# =============================================================================
+    acd = np.array([(C[0]+D[0])/2, (C[1]+D[1])/2])    
+    v = (acd/np.linalg.norm(acd)) * scaling
     
-    a1_l = (round(A@u/np.linalg.norm(u)/scaling,3), round(A@v/np.linalg.norm(v)/scaling,3))
-    a1_h = (round(B@u/np.linalg.norm(u)/scaling,3), round(B@v/np.linalg.norm(v)/scaling,3)) 
-    a2 = (round(C@u/np.linalg.norm(u)/scaling,3), round(C@v/np.linalg.norm(v)/scaling,3))
-    aaf = (round(D@u/np.linalg.norm(u)/scaling,3), round(D@v/np.linalg.norm(v)/scaling,3))
+    u_len = np.linalg.norm(u)
+    v_len = np.linalg.norm(v)
     
-    p_up = (round(P1@u/np.linalg.norm(u)/scaling,3), round(P1@v/np.linalg.norm(v)/scaling,3))
-    p_low = (round(P2@u/np.linalg.norm(u)/scaling,3), round(P2@v/np.linalg.norm(v)/scaling,3))
+    a1_l = (round(A@u/u_len**2,3), round(A@v/v_len**2,3))
+    a1_h = (round(B@u/u_len**2,3), round(B@v/v_len**2,3)) 
+    a2 = (round(C@u/u_len**2,3), round(C@v/v_len**2,3))
+    aaf = (round(D@u/u_len**2,3), round(D@v/v_len**2,3))
+    
+    p_up = (round(P1@u/u_len**2,3), round(P1@v/v_len**2,3))
+    p_low = (round(P2@u/u_len**2,3), round(P2@v/v_len**2,3))
     
     return a1_l, a1_h, a2, aaf, p_up, p_low
     
@@ -584,10 +594,16 @@ def save_npy(act, act_map, mapping, para_map, directory, filename):
     
     np.save(f'{filename}_mapping', file)
 
+def save_coord(filename, threshold, coords, trans_coords):
+    data = {'filename':filename, 'thresold':threshold, 'raw_coordinate':coords, 
+            'trans_coords': trans_coords}
+    
+    np.save(f'{filename}_coord', data)
+
 
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\cwchiang\mapping\TP110\1'
+    directory = r'Z:\Users\cwchiang\mapping\TP057\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -613,14 +629,16 @@ if __name__ == "__main__":
         para_map = np.mean(np.reshape(para, (-1, repeat, 2)), axis=1)
         mapping = np.mean(act_map, axis=1)
     
-    #plot mapping and overlay, change threshold and colorbar limit in function plot_map
+    ##plot mapping and overlay, change threshold and colorbar limit in function plot_map
     #plot_map(mapping, filename, saveplot=False)
-    map_prosses = image_process(mapping, deconvolute=True)
+    threshold = (0.6,0.7)
+    map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
     index = [8,10,11]
     plot_overlay(index, map_prosses, filename, saveplot=False)
         
     #coords = get_coordinate(filename)
-    #transform_coord(coords)
+    #trans_coords = transform_coord(coords)
+    #save_coord(filename, threshold, coords, trans_coords)
     
         
     if not os.path.isfile(npy):
@@ -630,5 +648,4 @@ if __name__ == "__main__":
 
     #scipy.io.savemat(f'{filename}_map2mat.mat', map_data.item())
     #plot_individual(mapping, para_map, filename, saveplot=False)
-    #plot_map(mapping, filename, savefig=False)
     #check_xy(mapping, around_stim, para_map, filename, window = 60, saveplot=False)
