@@ -6,6 +6,7 @@ import tone
 import pandas as pd
 import itertools
 from lsfm_psth import Psth
+import math
 
 
 %matplotlib inline
@@ -15,11 +16,16 @@ idx_tone = [i for i in idx_tone if i > 146]
 idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
 idx_lsfm = [i for i in idx_lsfm if i > 146]
 
+region_x = [0, 1.0, 0.0, 1.0179375]
+region_y = [0, 0.0, 0.9014375, 0.7396875]
+
 """analysis type"""
 get_tonePSTH = False
 get_lsfmPSTH = False
 correlate_PSTH = False
-clean_coordinate = True
+get_region = False
+map_bf = False
+map_correlation = False
 
 
 if get_tonePSTH:
@@ -65,7 +71,7 @@ if get_lsfmPSTH:
         para = data.item()['para']
         
         psth = Psth(resp, para, fullname, version)
-        xx,yy,err=psth.psth_all(plot=False, saveplot=True)
+        xx,yy,err=psth.psth_all(plot=False, saveplot=False)
         lsfmPSTH_all['name'].append(fullname)
         lsfmPSTH_all['psth'].append(yy)
         
@@ -81,58 +87,66 @@ if correlate_PSTH:
         for i,j in combination_index:
             corr = signal.correlate(psth_all['psth'][i], psth_all['psth'][j], 'full')
             #+-30ms windows and get maximum correlation
-            max_corr.append(corr[9250:10750].max())
+            points = len(psth_all['psth'][i])
+            #points per milisecond
+            fs = 25
+            max_corr.append(corr[points-fs*30:points+fs*30].max())
             
-        corr = pd.DataFrame(columns = ['combination', 'correlation'])
-        corr['combination'] = combination
+        corr = pd.DataFrame(columns = ['combination_1', 'combination_2', 'correlation'])
+        corr['combination_1'] = [i[0] for i in combination]
+        corr['combination_2'] = [i[1] for i in combination]
         corr['correlation'] = max_corr
         
         if save:
             corr.to_csv('max_correlation.csv', index=False)
             
-    #corr_PSTH(tonePSTH_all)
-    corr_PSTH(lsfmPSTH_all, save=True)
+    corr_PSTH(tonePSTH_all, save=True)
+    #corr_PSTH(lsfmPSTH_all, save=True)
     
     
-if clean_coordinate:
-    coord = pd.read_excel('mapping_coordinate.xlsx', sheet_name='id_base')
-    patch_coord = pd.read_excel('patch_coordinate.xlsx')
-    final_coord = pd.DataFrame(columns=['MouseID', 'Region', 'X', 'Y'])
-    temp_dict = {'MouseID':[], 'Region':[], 'X':[], 'Y':[]}
+if map_bf:
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    df2 = pd.read_csv('patch_list_with_bf.csv', dtype={'date':str, '#':str})
+    idx = df2.index[(df2['type']=='Pure Tones') & (df2['project']=='Ic_map') & (df2['hard_exclude']!='exclude') 
+                    & (df2['mouse_id']!='TG150') & (df2['mouse_id']!='TG147')]
+    #patch_coord = pd.read_excel('patch_coordinate.xlsx')
+    #final_coord = pd.DataFrame(columns=['MouseID', 'Region', 'X', 'Y'])
+    #temp_dict = {'MouseID':[], 'Region':[], 'X':[], 'Y':[]}
     
-    mouseID = list(set(coord['MouseID']))
-    for mouse in mouseID:
-        coord_mouse = coord[coord['MouseID']==mouse]
-        xx, yy = list(coord_mouse['x']), list(coord_mouse['y'])
-        xx = [int(xx[0] - x) if not np.isnan(x) else x for x in xx]
-        yy = [int(yy[0] - y) if not np.isnan(y) else y for y in yy]
-        
-        coord_mouse['x_adj'] = xx
-        coord_mouse['y_adj'] = yy
-        final_coord.loc[len(final_coord.index)] = [mouse, 'up', xx[1], yy[1]]
-        final_coord.loc[len(final_coord.index)] = [mouse, 'low', xx[2], yy[2]]
-        
-        regions = ['a1', 'a2', 'aaf']
-        for r in regions:
-            region = coord_mouse[coord_mouse['site'] == r]
+    patch_x, patch_y = [],[]
+    bf = []
+    for i in idx:
+        mouseid = df2.iloc[i]['mouse_id']
+        site = f'Patch_{df2.iloc[i]["site"]}'
+ 
+        patch_x.append(coords[(coords['mouseid'] == mouseid) & (coords['regions'] == site)].x.item())
+        patch_y.append(coords[(coords['mouseid'] == mouseid) & (coords['regions'] == site)].y.item())
+        bf.append(df2.iloc[i].best_frequency.item())
+    
+    bf_k = np.array([i/1000 for i in bf])
+    patch_x = np.array(patch_x)
+    patch_y = np.array(patch_y)
+    
+    fig, ax = plt.subplots()
+    ax.scatter(region_x, region_y, c='black', s=500)
+    im = ax.scatter(patch_x+np.random.normal(0, .03, patch_x.size), patch_y+np.random.normal(0, .03, patch_y.size), c=bf_k, cmap='inferno')
+    fig.colorbar(im)
+    plt.title('bf_map')
+    plt.savefig('bf_map.png', dpi=500)
+    
 
-            if np.isnan(list(region['x_adj'])).all():
-                final_coord.loc[len(final_coord.index)] = [mouse, r, np.nan, np.nan]
-            elif list(np.isnan(list(region['x_adj']))).count(True) == 2:
-                region_x = [x for x in region['x_adj'] if not np.isnan(x)]
-                region_y = [y for y in region['y_adj'] if not np.isnan(y)]
-                final_coord.loc[len(final_coord.index)] = [mouse, r, region_x[0], region_y[0]]
-            elif not np.isnan(region['x_adj'].iloc[1]) and list(np.isnan(list(region['x_adj']))).count(True) == 1:
-                x = [i for i in region['x_adj'] if not np.isnan(i)]
-                y = [i for i in region['y_adj'] if not np.isnan(i)]
-                avg_x = np.mean([np.mean(x), region['x_adj'].iloc[1]])
-                avg_y = np.mean([np.mean(y), region['y_adj'].iloc[1]])
-                final_coord.loc[len(final_coord.index)] = [mouse, r, avg_x, avg_y]
-            else:
-                x = [i for i in region['x_adj'] if not np.isnan(i)]
-                y = [i for i in region['y_adj'] if not np.isnan(i)]
-                
-                avg_x = 
-                avg_y =
-                
+if map_correlation:
+    
+    #tone
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    df2 = pd.read_csv('patch_list_with_bf.csv', dtype={'date':str, '#':str})
+    idx = df2.index[(df2['type']=='Pure Tones') & (df2['project']=='Ic_map') & (df2['hard_exclude']!='exclude') 
+                    & (df2['mouse_id']!='TG150') & (df2['mouse_id']!='TG147')]
+    
+    
+    df_corr = pd.read_csv('max_correlation_tone.csv')
+    mouse_1 = df_corr.loc[1].combination_1[:5]
+    file_1 = df_corr.loc[1].combination_1[6:]
+    
+    
     
