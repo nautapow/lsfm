@@ -475,9 +475,10 @@ def save_npy(act, act_map, mapping, para_map, directory, filename):
 
 if __name__ == "__main__":
     #%matplotlib inline
-    directories = ['/media/external5/Users/cwchiang/mapping/TG146/3/',
-                 '/media/external5/Users/cwchiang/mapping/TG145/2/',
-                 '/media/external5/Users/cwchiang/mapping/TG145/3/']
+    directories = ['/media/external5/Users/cwchiang/mapping/TP046/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP043/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP042/1/',
+                 '/media/external5/Users/cwchiang/mapping/TP041/1/']
     
     for directory in directories:
         tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
