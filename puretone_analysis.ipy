@@ -27,21 +27,20 @@ if  __name__ == "__main__":
     frequency  = np.linspace(-5.,5.,num=301)
     #pre-create 2d array to store response of resp_mesh from all neurons
     resp_all_pos_2bf = np.array([[0.0]*len(frequency)]*301)
-    widthAt70=[]
-    bf_list = []
-    
-    max_intensity = []
-    time_to_peak = []
+    mouseid_all, filename_all, bf_all, width_all, max_intensity, time_to_peak, site_all =[],[],[],[],[],[],[]
     
     #index = [i for i in idx_puretone if i not in exclude and i > 146]
-    df_loc = 237        
-    if df_loc == 237:
-    #for df_loc in index:
+    
+    #df_loc = 199        
+    #if df_loc == 199:
+    
+    for df_loc in idx_puretone:
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
         version = df['Py_version'][df_loc]
         mouseID = df['mouse_id'][df_loc]
         fullname = mouseID+'_'+filename
+        site = df['patch_site'][df_loc]
         
         #print(filename)
 # =============================================================================
@@ -123,15 +122,28 @@ if  __name__ == "__main__":
             x = tone.tuning(resp_adjust, para_merge, fullname, plot=True, 
                                 saveplot=False, data_return=True, window=(500,3000))
             bf70 = x[4][240]
-            bf_list.append((df_loc, filename, bf70))
             df.loc[df_loc, 'best_frequency'] = bf70
             df.loc[df_loc, 'bandwidth (octave)'] = x[3]
         except:
             pass
         
         tone.psth(resp_adjust, fullname, x_in_ms=True, saveplot=False)
-        yy = tone.psth_bf(resp, para, bf70, filename, x_in_ms=True, saveplot=True)
+        yy = tone.psth_bf(resp, para, bf70, filename, x_in_ms=True, saveplot=False)
         
+        mouseid_all.append(mouseID)
+        filename_all.append(filename)
+        bf_all.append(bf70)
+        width_all.append(x[3])
+        max_intensity.append(np.max(yy))
+        time_to_peak.append((np.argmax(yy)-500)/25)
+        site_all.append(site)
+    
+    data = {'mouseID': mouseid_all, 'filename': filename_all, 'best_frequency': bf_all, 
+                                  'bandwidth': width_all, 'peak_amplitude': max_intensity, 
+                                  'time2peak': time_to_peak, 'patch_site': site_all}    
+    bf_psth = pd.DataFrame.from_dict(data)
+    bf_psth.to_csv('tone_psth_bf_new.csv', index=False)  
+    
     #df.to_csv('patch_list_with_bf.csv', index=False)     
         #second clamp
 # =============================================================================

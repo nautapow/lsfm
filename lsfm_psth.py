@@ -741,7 +741,7 @@ class Psth_():
     def baseline_zero(resp_iter):   #fix sound onset to zero
         return (resp_iter - resp_iter[50*25])*100
     
-    def psth_all(self, plot=True, saveplot=False):
+    def psth_all(self, plot=False, saveplot=False):
         """
         Generates PSTH using all lsfm response.
 
@@ -792,6 +792,9 @@ class Psth_():
             plt.show()
             plt.clf()
             plt.close(fig)
+        else:
+            plt.clf()
+            plt.close(fig)
             
         fig, ax = plt.subplots()
         ax.plot(x,y)
@@ -816,6 +819,9 @@ class Psth_():
         
         if plot:
             plt.show()
+            plt.clf()
+            plt.close(fig)
+        else:
             plt.clf()
             plt.close(fig)
                 
@@ -890,13 +896,14 @@ class Psth_():
             
             if saveplot:
                 plt.savefig(f'{self.filename}-mod {self.mod_label[i]} Hz.png', dpi=500, bbox_inches='tight')
-                if plot:
-                    plt.show()
                 plt.clf()
                 plt.close(fig)
                 
             if plot:
                 plt.show()
+                plt.clf()
+                plt.close(fig)
+            else:
                 plt.clf()
                 plt.close(fig)
                     
@@ -920,13 +927,14 @@ class Psth_():
             
             if saveplot:
                 plt.savefig(f'{self.filename}-cf {self.cf_label[i]} kHz.png', dpi=500, bbox_inches='tight')
-                if plot:
-                    plt.show()
                 plt.clf()
                 plt.close(fig)
                 
             if plot:
                 plt.show()
+                plt.clf()
+                plt.close(fig)
+            else:
                 plt.clf()
                 plt.close(fig)
                 
@@ -951,13 +959,14 @@ class Psth_():
             
             if saveplot:
                 plt.savefig(f'{self.filename}-bdwidth {self.bw_label[i]} kHz.png', dpi=500, bbox_inches='tight')
-                if plot:
-                    plt.show()
                 plt.clf()
                 plt.close(fig)
                 
             if plot:
                 plt.show()
+                plt.clf()
+                plt.close(fig)
+            else:
                 plt.clf()
                 plt.close(fig)
             
@@ -1003,6 +1012,8 @@ class Psth_():
             plt.clf()
         else:
             plt.show()
+            plt.clf()
+            plt.close()
         
         bw = psth_p['bandwidth']
         for i in range(len(bw)):
@@ -1020,6 +1031,8 @@ class Psth_():
             plt.clf()
         else:
             plt.show()
+            plt.clf()
+            plt.close()
             
     def psth_trend(self, tuning=None, saveplot=False, **kwargs) -> None:
         """
@@ -1142,6 +1155,8 @@ class Psth_():
                 plt.close()
             else:
                 plt.show()
+                plt.clf()
+                plt.close()
                 
 # =============================================================================
 #             if arange==(1,0,2):
@@ -1223,7 +1238,7 @@ class Psth_():
             
             
             
-def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
+def psth_wwo_bf(resp, para, bf, version, filename, plot=False, saveplot=False):
     '''
     plot PSTH using stim with any crossing with bf and without. 
 
@@ -1246,13 +1261,13 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
 
     Returns
     -------
-    None.
+    dict
 
     '''
     
     resp_in, resp_ex, para_in, para_ex = lsfm.resp_bf_or_not(resp, para, bf)
-    p1 = Psth(resp_in, para_in, filename)
-    p2 = Psth(resp_ex, para_ex, filename)
+    p1 = Psth(resp_in, para_in, filename, version)
+    p2 = Psth(resp_ex, para_ex, filename, version)
     
     if version == 1:
         
@@ -1280,16 +1295,16 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
         if saveplot:
             plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
             plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
-            if plot:
-                plt.show()
-            plt.clf()
-            plt.close(fig)
-        if plot:
             plt.show()
             plt.clf()
-            plt.close(fig)
+        elif plot:
+            plt.show()
+            plt.clf()
+        else:
+            plt.clf()
+            plt.close()
     
-    elif version == 2:
+    elif version >= 2:
     
         x1,y1,err1 = p1.psth_all(plot=False, saveplot=False)
         x2,y2,err2 = p2.psth_all(plot=False, saveplot=False)
@@ -1316,11 +1331,14 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=True, saveplot=False):
         if saveplot:
             plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
             plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
-            if plot:
-                plt.show()
-            plt.clf()
-            plt.close(fig)
-        if plot:
             plt.show()
             plt.clf()
-            plt.close(fig)
+        elif plot:
+            plt.show()
+            plt.clf()
+        else:
+            plt.clf()
+            plt.close()
+            
+        return [(x1,y1,err1), (x2,y2,err2)]
+        

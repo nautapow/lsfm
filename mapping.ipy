@@ -164,6 +164,7 @@ def preprocess():
 
 def get_stim_resp(img_all, stim_sync, img_sync):
     activities = []
+    partial = []
     around_stim=[]
     for stim_idx, stim_time in enumerate(stim_sync):
         _closest_frame = (np.array(img_sync) - stim_time) > 0
@@ -194,9 +195,10 @@ def get_stim_resp(img_all, stim_sync, img_sync):
         sig = np.array(sig_flat).reshape(512,512)
             
         """crop with a window of 200 frames around stimulus start"""
-        window=200
-        around_stim.append(img_all[img_idx-(window//2):img_idx+(window//2)+1])
-        
+        #window=200
+        #around_stim.append(img_all[img_idx-(window//2):img_idx+(window//2)+1])
+        if sig.any():
+            partial.append(stim_idx)
         activities.append(sig)
         print(stim_idx)
     
@@ -337,9 +339,10 @@ def image_process(mapping, deconvolute=True, threshold=None):
 def plot_overlay(index, mapping, filename, saveplot=True):
     img_dir = r'C:\Users\McGinley3\Documents\GitHub\lsfm\mapping_wf'
     img_wf = io.imread(f'{img_dir}\{filename}.png')
-    
+        
     img_wf = np.moveaxis(img_wf, 2, 0)[0]
     img_wf = exposure.adjust_gamma(img_wf, 0.5)
+
     
     m_low = mapping[index[0]]
     mask_low = np.ma.masked_where(m_low == 0, m_low)
@@ -582,6 +585,22 @@ def transform_coord(coords):
     
     return a1_h, a2, aaf, p_up, p_low
 
+def get_orthogonal(coords):
+    ax, ay = coords[0][0], coords[0][1]
+    
+    A = np.array([ax-ax,ay-ay])
+    D = np.array([coords[3][0]-ax,coords[3][1]-ay])
+    P1 = np.array([coords[4][0]-ax,coords[4][1]-ay])
+    P2 = np.array([coords[5][0]-ax,coords[5][1]-ay])
+    
+    AD = D-A
+    unit = np.linalg.norm(AD).astype('float64')
+    
+    p_up = P1@AD/unit**2
+    p_low = P2@AD/unit**2
+    
+    return p_up, p_low
+
 def plot_regions():
     coord = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
     a1_x = np.array(coord[coord['regions']=='A1_h']['x'])
@@ -606,7 +625,7 @@ def plot_regions():
     plt.savefig('hole_distribution.png', dpi=500)
     plt.show()
     
-    return xx, yy
+    return xx, yy, sd_x, sd_y
     
   
 def check_window(around_stim, window, center=None):
@@ -640,7 +659,7 @@ def save_coord(filename, threshold, coords, trans_coords):
 
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\cwchiang\mapping\TG145\3'
+    directory = r'Z:\Users\cwchiang\mapping\TP118\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -672,8 +691,7 @@ if __name__ == "__main__":
     map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
     index = [9,10,10]
     plot_overlay(index, map_prosses, filename, saveplot=False)
-
-    
+            
     #coords = get_coordinate(filename)
     #trans_coords = transform_coord(coords)
     #save_coord(filename, threshold, coords, trans_coords)
@@ -686,24 +704,29 @@ if __name__ == "__main__":
 #     coord_df = pd.DataFrame(columns=['id', 'x', 'y'])
 #     
 #     coord_all = []
+#     ortho_all = []
 #     for filename in file_list:
 #         coord_file = f'{filename}_coord.npy'
 #         coord_data = np.load(coord_file, allow_pickle=True)
 #         coords = coord_data.item().get('raw_coordinate')
 #         trans_coords = transform_coord(coords)
+#         ortho_coords = get_orthogonal(coords)
 #         
 #         
 #         for i,a in enumerate(trans_coords):
 #             coord_all.append([filename, a[0], a[1]])
 #             #coord_df.loc[i] = [filename, a[0], a[1]]
 #             
-#         coord_df = pd.DataFrame(coord_all)
-#         coord_df.to_excel('coord_temp.xlsx')
-# 
-#         
-#     if not os.path.isfile(npy):
-#         save_npy(act, act_map, mapping, para_map, directory, filename)
+#         ortho_all.append([filename, ortho_coords[0], ortho_coords[1]])
+#     
+#     coord_df = pd.DataFrame(coord_all)
+#     coord_df.to_excel('coord_temp.xlsx')
+#     ortho_df = pd.DataFrame(ortho_all)
+#     ortho_df.to_excel('ortho_temp.xlsx')
 # =============================================================================
+        
+    if not os.path.isfile(npy):
+        save_npy(act, act_map, mapping, para_map, directory, filename)
 
     
 

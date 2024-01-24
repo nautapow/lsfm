@@ -639,7 +639,7 @@ def psth_bf(resp, para, bf, filename, x_in_ms=False, saveplot=False, **kwargs):
         ax.set_xlabel('data point (2500/100ms)')
         
     if saveplot:
-        plt.savefig(f'{filename}_tone-PSTH_bf.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        plt.savefig(f'{filename}_tone-PSTH_bf.png', dpi=500, format='png', bbox_inches='tight')
         plt.clf()
         plt.close(fig)
     else:

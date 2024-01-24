@@ -1,5 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 from scipy import signal,stats
 import TFTool
 import tone
@@ -16,8 +17,10 @@ idx_tone = [i for i in idx_tone if i > 146]
 idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
 idx_lsfm = [i for i in idx_lsfm if i > 146]
 
-region_x = [0, 1.0, 0.0, 1.0179375]
-region_y = [0, 0.0, 0.9014375, 0.7396875]
+region = [[0, 1.0, 0.0, 1.029], [0, 0.0, 0.926, 0.726], [0.08, 0.08, 0.08, 0.203], [0.08, 0.08, 0.223, 0.166]]
+region_x = [0, 1.0, 0.0, 1.029]
+region_y = [0, 0.0, 0.926, 0.726]
+
 
 """analysis type"""
 get_tonePSTH = False
@@ -26,7 +29,8 @@ correlate_PSTH = False
 get_region = False
 map_bf = False
 map_correlation = False
-
+tone_analysis = False
+lsfm_analysis = False
 
 if get_tonePSTH:
     
@@ -103,7 +107,7 @@ if correlate_PSTH:
     corr_PSTH(tonePSTH_all, save=True)
     #corr_PSTH(lsfmPSTH_all, save=True)
     
-    
+   
 if map_bf:
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
     df2 = pd.read_csv('patch_list_with_bf.csv', dtype={'date':str, '#':str})
@@ -116,11 +120,11 @@ if map_bf:
     patch_x, patch_y = [],[]
     bf = []
     for i in idx:
-        mouseid = df2.iloc[i]['mouse_id']
+        mouseID = df2.iloc[i]['mouse_id']
         site = f'Patch_{df2.iloc[i]["site"]}'
  
-        patch_x.append(coords[(coords['mouseid'] == mouseid) & (coords['regions'] == site)].x.item())
-        patch_y.append(coords[(coords['mouseid'] == mouseid) & (coords['regions'] == site)].y.item())
+        patch_x.append(coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].x.item())
+        patch_y.append(coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].y.item())
         bf.append(df2.iloc[i].best_frequency.item())
     
     bf_k = np.array([i/1000 for i in bf])
@@ -129,11 +133,153 @@ if map_bf:
     
     fig, ax = plt.subplots()
     ax.scatter(region_x, region_y, c='black', s=500)
-    im = ax.scatter(patch_x+np.random.normal(0, .03, patch_x.size), patch_y+np.random.normal(0, .03, patch_y.size), c=bf_k, cmap='inferno')
-    fig.colorbar(im)
+    im = ax.scatter(patch_x+np.random.normal(0, .03, patch_x.size), patch_y+np.random.normal(0, .03, patch_y.size), c=bf_k, cmap='inferno') 
+
     plt.title('bf_map')
     plt.savefig('bf_map.png', dpi=500)
     
+def plot_map(patch_x, patch_y, arr, region=region, saveplot=False, **kwargs):
+    from matplotlib import patches
+    arr = np.array(arr)
+    region_xy = list(zip(region[0], region[1]))
+    
+    title = kwargs.get('title')
+    ylabel = kwargs.get('ylabel')
+    vmax = kwargs.get('vmax')
+    
+    x_dev = np.random.normal(0, .03, len(patch_x))
+    y_dev = np.random.normal(0, .03, len(patch_y))
+    
+    fig, ax = plt.subplots()
+    for i in range(4):
+        ellipse = patches.Ellipse(region_xy[i], region[2][i], region[3][i], angle=0, color='grey', alpha=0.9)
+        ax.add_patch(ellipse)
+    #ax.scatter(region_x, region_y, c='grey', s=500)
+    
+    from matplotlib.colors import LinearSegmentedColormap
+    cmap = plt.get_cmap('inferno')
+# =============================================================================
+#     colors = cmap(np.linspace(0.25, 0.75, 256))
+#     cmap = LinearSegmentedColormap('cmap', colors)
+# =============================================================================
+    
+    im = ax.scatter(patch_x+x_dev, patch_y+y_dev, c=arr, cmap=cmap, s=50, alpha=0.9, vmax=vmax)
+    cbar = fig.colorbar(im)
+    cbar.ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    
+    if saveplot:
+        plt.savefig(f'{title}_map.png', dpi=500, bbox_inches='tight')
+        plt.show()
+        plt.clf()
+    else:
+        plt.show()
+        plt.clf()
+
+    
+def plot_ortho(ortho, arr, saveplot=False, **kwargs):
+    arr = np.array(arr)
+    title = kwargs.get('title')
+    ylabel = kwargs.get('ylabel')
+    
+    fig, ax = plt.subplots()
+    ax.scatter(ortho, arr)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    
+    if saveplot:
+        plt.savefig(f'{title}_ortho.png', dpi=500, bbox_inches='tight')
+        plt.show()
+        plt.clf()
+    else:
+        plt.show()
+        plt.clf()
+
+
+if tone_analysis:
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    tone_psth = pd.read_csv('tone_psth_para_inBF.csv')
+    mouseID = list(tone_psth[tone_psth['tuning'] != 'no']['mouseID'])
+    filename = list(tone_psth[tone_psth['tuning'] != 'no']['filename'])
+    bf = np.array(list(tone_psth[tone_psth['tuning'] != 'no']['best_frequency']))/1000
+    bandwidth = list(tone_psth[tone_psth['tuning'] != 'no']['bandwidth'])
+    peak = list(tone_psth[tone_psth['tuning'] != 'no']['peak_amplitude'])
+    delay = list(tone_psth[tone_psth['tuning'] != 'no']['time2peak'])
+    sites = list(tone_psth[tone_psth['tuning'] != 'no']['patch_site'])
+    
+    patch_x, patch_y, ortho = [],[],[]
+    for i,m in enumerate(mouseID):
+        site = f'Patch_{sites[i]}'
+        patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x.item())
+        patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y.item())
+        ortho.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].orthogonal.item())
+    
+    plot_map(patch_x, patch_y, bf, saveplot=False, title='Best frequency', ylabel='kHz', vmax=25)
+    plot_map(patch_x, patch_y, bandwidth, saveplot=True, title='Bandwidth', ylabel='octave')
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak Amplitude', ylabel='mV')
+    plot_map(patch_x, patch_y, delay, saveplot=True, title='Time to Peak', ylabel='ms')
+    
+    plot_ortho(ortho, bf, saveplot=True, title='Best frequency', ylabel='kHz')
+    plot_ortho(ortho, bandwidth, saveplot=True, title='Bandwidth', ylabel='octave')
+    plot_ortho(ortho, peak, saveplot=True, title='Peak Amplitude', ylabel='mV')
+    plot_ortho(ortho, delay, saveplot=True, title='Time to Peak', ylabel='ms')
+    
+
+if lsfm_analysis:
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    lsfm_psth_inBF = pd.read_csv('lsfm_psth_para_inBF.csv')
+    lsfm_psth_exBF = pd.read_csv('lsfm_psth_para_exBF.csv')
+    
+    mouseIDs = list(lsfm_psth_inBF['mouseid'])
+    sites = list(lsfm_psth_inBF['patch_site'])
+    patch_x, patch_y, ortho = [],[],[]
+    for i,m in enumerate(mouseID):
+        site = f'Patch_{sites[i]}'
+        patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x.item())
+        patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y.item())
+        ortho.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].orthogonal.item())
+        
+    """sweeped bf"""
+    peak = list(lsfm_psth_inBF['peak_amplitude'])
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV')
+    plot_ortho(ortho, peak, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV')
+    
+    HWFM = np.array(list(lsfm_psth_inBF['HWFM']))/25
+    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='HWFM_inBF', ylabel='ms')
+    plot_ortho(ortho, HWFM, saveplot=True, title='HWFM_inBF', ylabel='ms')
+    
+    sustain = list(lsfm_psth_inBF['sustain'])
+    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_inBF', ylabel='mv')
+    plot_ortho(ortho, sustain, saveplot=True, title='Average_Sustain_inBF', ylabel='mv')
+    
+    offpeak = list(lsfm_psth_inBF['offpeak_amplitude'])
+    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV')
+    plot_ortho(ortho, offpeak, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV')
+    
+    ratio = np.array(offpeak)/np.array(peak)
+    plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
+    plot_ortho(ortho, ratio, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
+    
+    """not sweeped bf"""
+    peak = list(lsfm_psth_exBF['peak_amplitude'])
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV')
+    plot_ortho(ortho, peak, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV')
+    
+    HWFM = np.array(list(lsfm_psth_exBF['HWFM']))/25
+    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='HWFM_exBF', ylabel='ms')
+    plot_ortho(ortho, HWFM, saveplot=True, title='HWFM_exBF', ylabel='ms')
+    
+    sustain = list(lsfm_psth_exBF['sustain'])
+    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_exBF', ylabel='mv')
+    plot_ortho(ortho, sustain, saveplot=True, title='Average_Sustain_exBF', ylabel='mv')
+    
+    offpeak = list(lsfm_psth_exBF['offpeak_amplitude'])
+    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV')
+    plot_ortho(ortho, offpeak, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV')
+    
+    ratio = np.array(offpeak)/np.array(peak)
+    plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
+    plot_ortho(ortho, ratio, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
 
 if map_correlation:
     
