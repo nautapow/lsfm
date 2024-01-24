@@ -69,3 +69,32 @@ def regression_test(x, y):
     plt.show()
     
     return aic_scores, bic_scores, r2_scores
+
+
+def regression_poly(x, y, degree=1):
+    x = np.array(x)
+    X = x.reshape(-1,1)
+    y = np.array(y)
+    
+    model = make_pipeline(PolynomialFeatures(degree), LinearRegression())
+    model.fit(X, y)
+    coefficients = model.named_steps['linearregression'].coef_
+    intercept = model.named_steps['linearregression'].intercept_
+    
+    print("Coefficients:", coefficients)
+    print("Intercept:", intercept)
+    
+    # Generate points for the linear fit curve
+    x_fit = np.linspace(x.min(), x.max(), 100).reshape(-1, 1)
+    y_fit = model.predict(x_fit)
+    
+    # Plot the x-y scatter plot and linear fit curve
+    plt.scatter(x, y, label='Data Points')
+    plt.plot(x_fit, y_fit, color='red', label=f'Linear Fit: y = {coefficients[1]:.2f}x + {intercept:.2f}')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.title('Polynomial Regression with Degree 1')
+    plt.legend()
+    plt.show()
+    
+    return x_fit, y_fit
