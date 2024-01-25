@@ -43,7 +43,7 @@ class Psth():
     def baseline_zero(resp_iter):   #fix sound onset to zero
         return (resp_iter - resp_iter[50*25])*100
     
-    def psth_all(self, plot=True, saveplot=False):
+    def psth_all(self, plot=False, saveplot=False):
         """
         Generates PSTH using all lsfm responses.
 
@@ -95,6 +95,9 @@ class Psth():
                 plt.show()
                 plt.clf()
                 plt.close(fig)
+            else:
+                plt.clf()
+                plt.close(fig)
                 
             fig, ax = plt.subplots()
             ax.plot(x,y)
@@ -119,6 +122,9 @@ class Psth():
             
             if plot:
                 plt.show()
+                plt.clf()
+                plt.close(fig)
+            else:
                 plt.clf()
                 plt.close(fig)
                 
@@ -150,6 +156,9 @@ class Psth():
                 plt.show()
                 plt.clf()
                 plt.close(fig)
+            else:
+                plt.clf()
+                plt.close(fig)
                 
             fig, ax = plt.subplots()
             ax.plot(x,y)
@@ -167,12 +176,18 @@ class Psth():
             if saveplot:
                 plt.savefig(f'{self.filename}_PSTH.png', dpi=500, bbox_inches='tight')
                 plt.savefig(f'{self.filename}_PSTH.pdf', dpi=500, format='pdf', bbox_inches='tight')
-            
+                if plot:
+                    plt.show()
+                plt.clf()
+                plt.close(fig)
+                
             if plot:
                 plt.show()
                 plt.clf()
+                plt.close(fig)
             else:
                 plt.clf()
+                plt.close(fig)
                 
             plt.close(fig)
         
@@ -1238,7 +1253,7 @@ class Psth_():
             
             
             
-def psth_wwo_bf(resp, para, bf, version, filename, plot=False, saveplot=False):
+def psth_wwo_bf(resp, para, bf, bandwidth, version, filename, plot=False, saveplot=False):
     '''
     plot PSTH using stim with any crossing with bf and without. 
 
@@ -1265,7 +1280,7 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=False, saveplot=False):
 
     '''
     
-    resp_in, resp_ex, para_in, para_ex = lsfm.resp_bf_or_not(resp, para, bf)
+    resp_in, resp_ex, para_in, para_ex = lsfm.resp_bf_or_not(resp, para, bf, bandwidth)
     p1 = Psth(resp_in, para_in, filename, version)
     p2 = Psth(resp_ex, para_ex, filename, version)
     
@@ -1293,8 +1308,8 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=False, saveplot=False):
         ax.legend(loc='upper left', fontsize=14)
         
         if saveplot:
-            plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
-            plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            plt.savefig(f'{filename}_PSTH_Band.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{filename}_PSTH_Band.pdf', dpi=500, format='pdf', bbox_inches='tight')
             plt.show()
             plt.clf()
         elif plot:
@@ -1323,14 +1338,14 @@ def psth_wwo_bf(resp, para, bf, version, filename, plot=False, saveplot=False):
         ax.set_xticks(np.linspace(0,37500,16))
         ax.set_xticklabels(label, rotation = 45)
         #ax.xticks(rotation = 45)
-        ax.set_title(f'{filename}_PSTH_BF', fontsize=14)
+        ax.set_title(f'{filename}_PSTH_BfBand', fontsize=14)
         ax.set_xlabel('time (sec)', fontsize=16)
-        ax.set_ylabel('average response (mV)', fontsize=16)
+        ax.set_ylabel('Average Response (mV)', fontsize=16)
         ax.tick_params(axis='both', which='major', labelsize=14)
         
         if saveplot:
-            plt.savefig(f'{filename}_PSTH_BF.png', dpi=500, bbox_inches='tight')
-            plt.savefig(f'{filename}_PSTH_BF.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            plt.savefig(f'{filename}_PSTH_BfBand.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'{filename}_PSTH_BfBand.pdf', dpi=500, format='pdf', bbox_inches='tight')
             plt.show()
             plt.clf()
         elif plot:
