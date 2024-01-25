@@ -92,74 +92,78 @@ if  __name__ == "__main__":
         ##psth_para_analysis
         psth = Psth(resp, para, filename, version)
         x,y,err=psth.psth_all(plot=False)
-        psth_bf = lsfm_psth.psth_wwo_bf(resp, para, bf, bandwidth, version, filename, plot=False, saveplot=False)
+        psth_bf = lsfm_psth.psth_wwo_bf(resp, para, bf, bandwidth, version, filename, plot=True, saveplot=False)
         
-        if df_loc in list(psth_para_all['df_loc']):
-            
-            ## sweep bf
-            psth_inbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='in')]
-            psth_y = psth_bf[0][1]
-            onset_y = psth_y[1250]
-            offset_y = psth_y[26250]
-            peak_amp = (psth_y[psth_inbf['peak']] - psth_y[psth_inbf['peak_start']]).item()
-            time2peak = (psth_inbf['peak'].item() - 1250)/25
-            if np.isnan(psth_inbf['after_peak_transition'].item()):
-                sustain_x1 = int(psth_inbf['after_peak_start'].item())
-            else:
-                sustain_x1 = int(psth_inbf['after_peak_transition'].item())
-            sustain_x2 = int(psth_inbf['after_peak_end'].item())
-            
-            avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
-            offpeak_amp = (psth_y[psth_inbf['offset_peak']] - psth_y[psth_inbf['offset_peak_start']]).item()
-            time2offpeak = (psth_inbf['offset_peak'].item() - 26250)/25
-            HWFM = (psth_inbf['half_amp_end'] - psth_inbf['half_amp_start']).item()
         
-            psth_para_inBF.append([onset_y, offset_y, peak_amp, time2peak, HWFM, avg_sustain, offpeak_amp, time2offpeak])
-            psth_inBF.append(psth_bf[0])
-            
-            
-            ## never sweep bf
-            psth_inbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='out')]
-            psth_y = psth_bf[1][1]
-            onset_y = psth_y[1250]
-            offset_y = psth_y[26250]
-            peak_amp = (psth_y[psth_inbf['peak']] - psth_y[psth_inbf['peak_start']]).item()
-            time2peak = (psth_inbf['peak'].item() - 1250)/25
-            if np.isnan(psth_inbf['after_peak_transition'].item()):
-                sustain_x1 = int(psth_inbf['after_peak_start'].item())
-            else:
-                sustain_x1 = int(psth_inbf['after_peak_transition'].item())
-            sustain_x2 = int(psth_inbf['after_peak_end'].item())
-            
-            avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
-            offpeak_amp = (psth_y[psth_inbf['offset_peak']] - psth_y[psth_inbf['offset_peak_start']]).item()
-            time2offpeak = (psth_inbf['offset_peak'].item() - 26250)/25
-            HWFM = (psth_inbf['half_amp_end'] - psth_inbf['half_amp_start']).item()
-        
-            psth_para_exBF.append([onset_y, offset_y, peak_amp, time2peak, HWFM, avg_sustain, offpeak_amp, time2offpeak])
-            psth_exBF.append(psth_bf[1])
-            
-            filenames.append(filename)
-            mouseIDs.append(mouse)
-            patch_sites.append(site)
-            bfs.append(bf)
-        
-    psth_para_inBF = np.array(psth_para_inBF).swapaxes(0,1)
-    data_inBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 'best_frequency':bfs,
-                 'onset': psth_para_inBF[0], 'offset': psth_para_inBF[1], 'peak_amplitude': psth_para_inBF[2],
-                 'time_to_peak':  psth_para_inBF[3], 'HWFM': psth_para_inBF[4], 'sustain': psth_para_inBF[5],
-                 'offpeak_amplitude': psth_para_inBF[6], 'time_to_offpeak': psth_para_inBF[7]}
-    
-    psth_para_exBF = np.array(psth_para_exBF).swapaxes(0,1)
-    data_exBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 'best_frequency':bfs,
-                 'onset': psth_para_exBF[0], 'offset': psth_para_exBF[1], 'peak_amplitude': psth_para_exBF[2],
-                 'time_to_peak':  psth_para_exBF[3], 'HWFM': psth_para_exBF[4], 'sustain': psth_para_exBF[5],
-                 'offpeak_amplitude': psth_para_exBF[6], 'time_to_offpeak': psth_para_exBF[7]}
-    
-    psth_df_inbf = pd.DataFrame(data_inBF)
-    psth_df_inbf.to_csv('lsfm_psth_para_inBF_new.csv', index=False)
-    psth_df_exbf = pd.DataFrame(data_exBF)
-    psth_df_exbf.to_csv('lsfm_psth_para_exBF_new.csv', index=False)
+# =============================================================================
+#         ##Get PSTH parameter
+#         if df_loc in list(psth_para_all['df_loc']):
+#             
+#             ## sweep bf
+#             psth_inbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='in')]
+#             psth_y = psth_bf[0][1]
+#             onset_y = psth_y[1250]
+#             offset_y = psth_y[26250]
+#             peak_amp = (psth_y[psth_inbf['peak']] - psth_y[psth_inbf['peak_start']]).item()
+#             time2peak = (psth_inbf['peak'].item() - 1250)/25
+#             if np.isnan(psth_inbf['after_peak_transition'].item()):
+#                 sustain_x1 = int(psth_inbf['after_peak_start'].item())
+#             else:
+#                 sustain_x1 = int(psth_inbf['after_peak_transition'].item())
+#             sustain_x2 = int(psth_inbf['after_peak_end'].item())
+#             
+#             avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
+#             offpeak_amp = (psth_y[psth_inbf['offset_peak']] - psth_y[psth_inbf['offset_peak_start']]).item()
+#             time2offpeak = (psth_inbf['offset_peak'].item() - 26250)/25
+#             HWFM = (psth_inbf['half_amp_end'] - psth_inbf['half_amp_start']).item()
+#         
+#             psth_para_inBF.append([onset_y, offset_y, peak_amp, time2peak, HWFM, avg_sustain, offpeak_amp, time2offpeak])
+#             psth_inBF.append(psth_bf[0])
+#             
+#             
+#             ## never sweep bf
+#             psth_inbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='out')]
+#             psth_y = psth_bf[1][1]
+#             onset_y = psth_y[1250]
+#             offset_y = psth_y[26250]
+#             peak_amp = (psth_y[psth_inbf['peak']] - psth_y[psth_inbf['peak_start']]).item()
+#             time2peak = (psth_inbf['peak'].item() - 1250)/25
+#             if np.isnan(psth_inbf['after_peak_transition'].item()):
+#                 sustain_x1 = int(psth_inbf['after_peak_start'].item())
+#             else:
+#                 sustain_x1 = int(psth_inbf['after_peak_transition'].item())
+#             sustain_x2 = int(psth_inbf['after_peak_end'].item())
+#             
+#             avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
+#             offpeak_amp = (psth_y[psth_inbf['offset_peak']] - psth_y[psth_inbf['offset_peak_start']]).item()
+#             time2offpeak = (psth_inbf['offset_peak'].item() - 26250)/25
+#             HWFM = (psth_inbf['half_amp_end'] - psth_inbf['half_amp_start']).item()
+#         
+#             psth_para_exBF.append([onset_y, offset_y, peak_amp, time2peak, HWFM, avg_sustain, offpeak_amp, time2offpeak])
+#             psth_exBF.append(psth_bf[1])
+#             
+#             filenames.append(filename)
+#             mouseIDs.append(mouse)
+#             patch_sites.append(site)
+#             bfs.append(bf)
+#         
+#     psth_para_inBF = np.array(psth_para_inBF).swapaxes(0,1)
+#     data_inBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 'best_frequency':bfs,
+#                  'onset': psth_para_inBF[0], 'offset': psth_para_inBF[1], 'peak_amplitude': psth_para_inBF[2],
+#                  'time_to_peak':  psth_para_inBF[3], 'HWFM': psth_para_inBF[4], 'sustain': psth_para_inBF[5],
+#                  'offpeak_amplitude': psth_para_inBF[6], 'time_to_offpeak': psth_para_inBF[7]}
+#     
+#     psth_para_exBF = np.array(psth_para_exBF).swapaxes(0,1)
+#     data_exBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 'best_frequency':bfs,
+#                  'onset': psth_para_exBF[0], 'offset': psth_para_exBF[1], 'peak_amplitude': psth_para_exBF[2],
+#                  'time_to_peak':  psth_para_exBF[3], 'HWFM': psth_para_exBF[4], 'sustain': psth_para_exBF[5],
+#                  'offpeak_amplitude': psth_para_exBF[6], 'time_to_offpeak': psth_para_exBF[7]}
+#     
+#     psth_df_inbf = pd.DataFrame(data_inBF)
+#     psth_df_inbf.to_csv('lsfm_psth_para_inBF_new.csv', index=False)
+#     psth_df_exbf = pd.DataFrame(data_exBF)
+#     psth_df_exbf.to_csv('lsfm_psth_para_exBF_new.csv', index=False)
+# =============================================================================
 
 # =============================================================================
 #         ##plot psth in browser to get xy

@@ -8,8 +8,26 @@ from sklearn.metrics import make_scorer
 from sklearn.datasets import make_regression
 from sklearn.metrics import make_scorer, r2_score
 import pandas as pd
+from scipy import stats
 
 def regression_test(x, y):
+    """
+    Polynomial Regression with LOOCV to evaluate the best degree of polynomial
+    use to fit the data.
+
+    Parameters
+    ----------
+    x : list | 1d array
+        Training data
+    y : list | 1d array
+        Target variable.
+
+    Returns
+    -------
+    degree in AIC: int,degree in BIC: int, r-squared: 1d-array
+        Degree gave least error in each test and r-square for testing prediction.
+
+    """
     X = np.array(x).reshape(-1,1)
     y = np.array(y)
     
@@ -68,7 +86,7 @@ def regression_test(x, y):
     plt.legend()
     plt.show()
     
-    return aic_scores, bic_scores, r2_scores
+    return np.argmin(aic_scores)+1, np.argmin(bic_scores)+1, r2_scores
 
 
 def regression_poly(x, y, degree=1):
@@ -86,13 +104,24 @@ def regression_poly(x, y, degree=1):
     y_fit = model.predict(x_fit)
     r_squared = model.score(X, y)
     
-    # Plot the x-y scatter plot and linear fit curve
-    plt.scatter(x, y, label='Data Points')
-    plt.plot(x_fit, y_fit, color='red', label=f'Linear Fit: y = {coefficients[1]:.2f}x + {intercept:.2f}')
-    plt.xlabel('X')
-    plt.ylabel('Y')
-    plt.title('Polynomial Regression with Degree 1')
-    plt.legend()
-    plt.show()
+    residuals = y - y_fit
+    df = len(y) - degree - 1
+    mse = np.mean(residuals**2)
+    se = np.sqrt(mse / df)
+    # Calculate the t-statistic for the hypothesis test
+    t_statistic = np.abs(model.named_steps['linearregression'].coef_[0]) / se
+    # Calculate the two-tailed p-value
+    p_value = 2 * (1 - stats.t.cdf(t_statistic, df=df))
+
+# =============================================================================
+#     # Plot the x-y scatter plot and linear fit curve
+#     plt.scatter(x, y, label='Data Points')
+#     plt.plot(x_fit, y_fit, color='red', label=f'Linear Fit: y = {coefficients[1]:.2f}x + {intercept:.2f}')
+#     plt.xlabel('X')
+#     plt.ylabel('Y')
+#     plt.title('Polynomial Regression with Degree 1')
+#     plt.legend()
+#     plt.show()
+# =============================================================================
     
-    return x_fit, y_fit, round(r_squared,4)
+    return x_fit, y_fit, round(r_squared,4), p_value

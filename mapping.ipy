@@ -616,12 +616,17 @@ def plot_regions():
     sd_x = [0, np.std(a1_x), np.std(a2_x), np.std(aaf_x)]
     sd_y = [0, np.std(a1_y), np.std(a2_y), np.std(aaf_y)]
     
+    xy = list(zip(xx, yy))
+    from matplotlib import patches
     fig, ax = plt.subplots()
-    ax.scatter(xx, yy, c='k')
-    ax.errorbar(xx, yy, sd_y, sd_x, capsize=5, ls='none', color='black', 
+    ax.scatter(xx, yy, c='k', label='Region')
+    ax.errorbar(xx, yy, sd_y, sd_x, capsize=2, ls='none', color='black', 
             elinewidth=2)
-    ax.scatter(patch_x, patch_y)
-    plt.title('region and hole')
+    ax.scatter(patch_x, patch_y, label='Patch Site')
+    for i in range(4):
+        ellipse = patches.Ellipse(xy[i], sd_x[i], sd_y[i], angle=0, color='grey', alpha=0.6)
+        ax.add_patch(ellipse)
+    plt.title('Cortical Region and Patch Location')
     plt.savefig('hole_distribution.png', dpi=500)
     plt.show()
     
@@ -659,7 +664,7 @@ def save_coord(filename, threshold, coords, trans_coords):
 
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\cwchiang\mapping\TP118\1'
+    directory = r'Z:\Users\cwchiang\mapping\TP110\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -685,12 +690,14 @@ if __name__ == "__main__":
         para_map = np.mean(np.reshape(para, (-1, repeat, 2)), axis=1)
         mapping = np.mean(act_map, axis=1)
     
-    ##plot mapping and overlay, change threshold and colorbar limit in function plot_map
-    plot_map(mapping, filename, saveplot=False)
-    threshold = (0.65,0.75)
-    map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
-    index = [9,10,10]
-    plot_overlay(index, map_prosses, filename, saveplot=False)
+# =============================================================================
+#     ##plot mapping and overlay, change threshold and colorbar limit in function plot_map
+#     plot_map(mapping, filename, saveplot=False)
+#     threshold = (0.65,0.75)
+#     map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
+#     index = [9,10,10]
+#     plot_overlay(index, map_prosses, filename, saveplot=False)
+# =============================================================================
             
     #coords = get_coordinate(filename)
     #trans_coords = transform_coord(coords)
@@ -723,10 +730,10 @@ if __name__ == "__main__":
 #     coord_df.to_excel('coord_temp.xlsx')
 #     ortho_df = pd.DataFrame(ortho_all)
 #     ortho_df.to_excel('ortho_temp.xlsx')
+#         
+#     if not os.path.isfile(npy):
+#         save_npy(act, act_map, mapping, para_map, directory, filename)
 # =============================================================================
-        
-    if not os.path.isfile(npy):
-        save_npy(act, act_map, mapping, para_map, directory, filename)
 
     
 

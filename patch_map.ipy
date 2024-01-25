@@ -8,6 +8,7 @@ import pandas as pd
 import itertools
 from lsfm_psth import Psth
 import math
+import regression
 
 
 %matplotlib inline
@@ -17,9 +18,7 @@ idx_tone = [i for i in idx_tone if i > 146]
 idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
 idx_lsfm = [i for i in idx_lsfm if i > 146]
 
-region = [[0, 1.0, 0.0, 1.029], [0, 0.0, 0.926, 0.726], [0.08, 0.08, 0.08, 0.203], [0.08, 0.08, 0.223, 0.166]]
-region_x = [0, 1.0, 0.0, 1.029]
-region_y = [0, 0.0, 0.926, 0.726]
+region = [[0, 1.0, 0.0, 1.029], [0, 0.0, 0.926, 0.726], [0.04, 0.04, 0.04, 0.203], [0.04, 0.04, 0.223, 0.166]]
 
 
 """analysis type"""
@@ -30,7 +29,7 @@ get_region = False
 map_bf = False
 map_correlation = False
 tone_analysis = False
-lsfm_analysis = True
+lsfm_analysis = False
 
 if get_tonePSTH:
     
@@ -132,7 +131,7 @@ if map_bf:
     patch_y = np.array(patch_y)
     
     fig, ax = plt.subplots()
-    ax.scatter(region_x, region_y, c='black', s=500)
+    ax.scatter(region[0], region[1], c='black', s=500)
     im = ax.scatter(patch_x+np.random.normal(0, .03, patch_x.size), patch_y+np.random.normal(0, .03, patch_y.size), c=bf_k, cmap='inferno') 
 
     plt.title('bf_map')
@@ -145,27 +144,37 @@ def plot_map(patch_x, patch_y, arr, region=region, saveplot=False, **kwargs):
     
     title = kwargs.get('title')
     ylabel = kwargs.get('ylabel')
+    cmap = kwargs.get('cmap')
     vmax = kwargs.get('vmax')
+    diverge = kwargs.get('diverge')
+    
+    norm=None
+    if not cmap:
+        cmap='inferno'
+    
+    if diverge:
+        norm = colors.CenteredNorm()
+        cmap = 'RdYlBu_r'
     
     x_dev = np.random.normal(0, .03, len(patch_x))
     y_dev = np.random.normal(0, .03, len(patch_y))
     
     fig, ax = plt.subplots()
     for i in range(4):
-        ellipse = patches.Ellipse(region_xy[i], region[2][i], region[3][i], angle=0, color='grey', alpha=0.9)
+        ellipse = patches.Ellipse(region_xy[i], region[2][i]*2, region[3][i]*2, angle=0, color='grey', alpha=0.9)
         ax.add_patch(ellipse)
     #ax.scatter(region_x, region_y, c='grey', s=500)
     
     from matplotlib.colors import LinearSegmentedColormap
-    cmap = plt.get_cmap('inferno')
+    cdict = plt.get_cmap('inferno')
 # =============================================================================
 #     colors = cmap(np.linspace(0.25, 0.75, 256))
 #     cmap = LinearSegmentedColormap('cmap', colors)
 # =============================================================================
     
-    im = ax.scatter(patch_x+x_dev, patch_y+y_dev, c=arr, cmap=cmap, s=50, alpha=0.9, vmax=vmax)
+    im = ax.scatter(patch_x+x_dev, patch_y+y_dev, c=arr, cmap=cmap, s=50, alpha=0.9, vmax=vmax, norm=norm)
     cbar = fig.colorbar(im)
-    cbar.ax.set_ylabel(ylabel)
+    cbar.ax.set_ylabel(ylabel, fontsize=14)
     ax.set_title(title)
     
     if saveplot:
@@ -177,14 +186,17 @@ def plot_map(patch_x, patch_y, arr, region=region, saveplot=False, **kwargs):
         plt.clf()
 
     
-def plot_ortho(ortho, arr, saveplot=False, **kwargs):
+def plot_ortho(ortho, arr, fit, saveplot=False, **kwargs):
     arr = np.array(arr)
     title = kwargs.get('title')
     ylabel = kwargs.get('ylabel')
+    x_dev = np.random.normal(0, .01, len(ortho))
     
     fig, ax = plt.subplots()
-    ax.scatter(ortho, arr)
-    ax.set_ylabel(ylabel)
+    ax.scatter(ortho+x_dev, arr, s=50, alpha=0.7)
+    ax.plot(fit[0], fit[1], color='red', label=f'R-Squared: {fit[2]}')
+    ax.legend()
+    ax.set_ylabel(ylabel, fontsize=14)
     ax.set_title(title)
     
     if saveplot:
@@ -194,6 +206,23 @@ def plot_ortho(ortho, arr, saveplot=False, **kwargs):
     else:
         plt.show()
         plt.clf()
+
+
+def check_map(df, x, y, arr):
+    import plotly.io as pio
+    import plotly.express as px
+    pio.renderers.default='browser'
+    
+    mouseid = list(df['mouseid'])
+    site = list(df['patch_site'])
+    name = list(zip(mouseid, site))
+    
+    x_dev = np.random.normal(0, .03, len(patch_x))
+    fig = px.scatter(x = ortho+x_dev, y = sustain, text=name)
+    fig.show()
+    
+    fig = px.scatter(x=patch_x+x_dev, y=patch_y+x_dev, text=name)
+    fig.show()
 
 
 if tone_analysis:
@@ -242,45 +271,90 @@ if lsfm_analysis:
     """sweeped bf"""
     peak = list(lsfm_psth_inBF['peak_amplitude'])
     plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV')
-    plot_ortho(ortho, peak, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV')
+    #regression.regression_test(ortho, peak)
+    fit = regression.regression_poly(ortho, peak, degree=2)
+    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV')
+    
+    t2p = list(lsfm_psth_inBF['time_to_peak'])
+    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time_to_Peak_inBF', ylabel='ms')
+    #regression.regression_test(ortho, t2p)
+    fit = regression.regression_poly(ortho, t2p, degree=2)
+    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time_to_Peak_inBF', ylabel='ms')
     
     HWFM = np.array(list(lsfm_psth_inBF['HWFM']))/25
     plot_map(patch_x, patch_y, HWFM, saveplot=True, title='HWFM_inBF', ylabel='ms')
-    plot_ortho(ortho, HWFM, saveplot=True, title='HWFM_inBF', ylabel='ms')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, HWFM, degree=1)
+    plot_ortho(ortho, HWFM, fit, saveplot=True, title='HWFM_inBF', ylabel='ms')
     
     sustain = list(lsfm_psth_inBF['sustain'])
-    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_inBF', ylabel='mv')
-    plot_ortho(ortho, sustain, saveplot=True, title='Average_Sustain_inBF', ylabel='mv')
+    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_inBF', ylabel='mv', diverge=True)
+    #regression.regression_test(ortho, sustain)
+    fit = regression.regression_poly(ortho, sustain, degree=1)
+    plot_ortho(ortho, sustain, fit, saveplot=True, title='Average_Sustain_inBF', ylabel='mv')
     
     offpeak = list(lsfm_psth_inBF['offpeak_amplitude'])
     plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV')
-    plot_ortho(ortho, offpeak, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV')
+    #regression.regression_test(ortho, offpeak)
+    fit = regression.regression_poly(ortho, offpeak, degree=1)
+    plot_ortho(ortho, offpeak, fit, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV')
+    
+    t2offp = list(lsfm_psth_inBF['time_to_offpeak'])
+    plot_map(patch_x, patch_y, t2offp, saveplot=True, title='Time_to_Offpeak_inBF', ylabel='ms')
+    #regression.regression_test(ortho, t2offp)
+    fit = regression.regression_poly(ortho, t2offp, degree=1)
+    plot_ortho(ortho, t2offp, fit, saveplot=True, title='Time_to_Offpeak_inBF', ylabel='ms')
     
     ratio = np.array(offpeak)/np.array(peak)
     plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
-    plot_ortho(ortho, ratio, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
+    #regression.regression_test(ortho, ratio)
+    fit = regression.regression_poly(ortho, ratio, degree=4)
+    plot_ortho(ortho, ratio, fit, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
+    
     
     """not sweeped bf"""
     peak = list(lsfm_psth_exBF['peak_amplitude'])
     plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV')
-    plot_ortho(ortho, peak, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV')
+    #regression.regression_test(ortho, peak)
+    fit = regression.regression_poly(ortho, peak, degree=1)
+    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV')
+    
+    t2p = list(lsfm_psth_exBF['time_to_peak'])
+    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time_to_Peak_exBF', ylabel='ms')
+    #regression.regression_test(ortho, t2p)
+    fit = regression.regression_poly(ortho, t2p, degree=2)
+    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time_to_Peak_exBF', ylabel='ms')
     
     HWFM = np.array(list(lsfm_psth_exBF['HWFM']))/25
     plot_map(patch_x, patch_y, HWFM, saveplot=True, title='HWFM_exBF', ylabel='ms')
-    plot_ortho(ortho, HWFM, saveplot=True, title='HWFM_exBF', ylabel='ms')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, HWFM, degree=1)
+    plot_ortho(ortho, HWFM, fit, saveplot=True, title='HWFM_exBF', ylabel='ms')
     
     sustain = list(lsfm_psth_exBF['sustain'])
-    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_exBF', ylabel='mv')
-    plot_ortho(ortho, sustain, saveplot=True, title='Average_Sustain_exBF', ylabel='mv')
+    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_exBF', ylabel='mv', diverge=True)
+    #regression.regression_test(ortho, sustain)
+    fit = regression.regression_poly(ortho, sustain, degree=1)
+    plot_ortho(ortho, sustain, fit, saveplot=True, title='Average_Sustain_exBF', ylabel='mv')
     
     offpeak = list(lsfm_psth_exBF['offpeak_amplitude'])
     plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV')
-    plot_ortho(ortho, offpeak, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV')
+    #regression.regression_test(ortho, offpeak)
+    fit = regression.regression_poly(ortho, offpeak, degree=1)
+    plot_ortho(ortho, offpeak, fit, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV')
+    
+    t2offp = list(lsfm_psth_exBF['time_to_offpeak'])
+    plot_map(patch_x, patch_y, t2offp, saveplot=True, title='Time_to_Offpeak_exBF', ylabel='ms')
+    #regression.regression_test(ortho, t2offp)
+    fit = regression.regression_poly(ortho, t2offp, degree=1)
+    plot_ortho(ortho, t2offp, fit, saveplot=True, title='Time_to_Offpeak_exBF', ylabel='ms')
     
     ratio = np.array(offpeak)/np.array(peak)
     plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
-    plot_ortho(ortho, ratio, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
-
+    #regression.regression_test(ortho, ratio)
+    fit = regression.regression_poly(ortho, ratio, degree=5)
+    plot_ortho(ortho, ratio, fit, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
+    
 if map_correlation:
     
     #tone
