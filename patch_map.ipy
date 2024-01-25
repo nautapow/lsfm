@@ -30,7 +30,7 @@ get_region = False
 map_bf = False
 map_correlation = False
 tone_analysis = False
-lsfm_analysis = False
+lsfm_analysis = True
 
 if get_tonePSTH:
     
@@ -227,13 +227,13 @@ if tone_analysis:
 
 if lsfm_analysis:
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
-    lsfm_psth_inBF = pd.read_csv('lsfm_psth_para_inBF.csv')
-    lsfm_psth_exBF = pd.read_csv('lsfm_psth_para_exBF.csv')
+    lsfm_psth_inBF = pd.read_csv('lsfm_psth_para_inBFband.csv')
+    lsfm_psth_exBF = pd.read_csv('lsfm_psth_para_exBFband.csv')
     
     mouseIDs = list(lsfm_psth_inBF['mouseid'])
     sites = list(lsfm_psth_inBF['patch_site'])
     patch_x, patch_y, ortho = [],[],[]
-    for i,m in enumerate(mouseID):
+    for i,m in enumerate(mouseIDs):
         site = f'Patch_{sites[i]}'
         patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x.item())
         patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y.item())
