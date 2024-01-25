@@ -321,12 +321,10 @@ def tuning(resp, para, filename='', plot=True, saveplot=False, data_return=False
         ax1.set_xlabel('Frequency (kHz)')
         ax1.set_ylabel('Loudness (dB SPL)')
         
-        ax1.scatter(bf_loud, y300, marker='|', c='limegreen', s=5)
-        ax1.fill_betweenx(y300, curve_left, curve_right, color='green', alpha=0.25)
-# =============================================================================
-#         ax1.scatter(curve_left, y300, marker='|', c='blue', s=5)
-#         ax1.scatter(curve_right, y300, marker='|', c='blue', s=5)
-# =============================================================================
+        ax1.scatter(bf_loud, y300, marker='|', c='forestgreen', s=30)
+        #ax1.fill_betweenx(y300, curve_left, curve_right, color='green', alpha=0.25)
+        ax1.scatter(curve_left, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
+        ax1.scatter(curve_right, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
         cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
         cbar = plt.colorbar(im, cax=cax)
         cbar.ax.set_ylabel('mV')
