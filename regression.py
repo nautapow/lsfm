@@ -81,12 +81,10 @@ def regression_poly(x, y, degree=1):
     coefficients = model.named_steps['linearregression'].coef_
     intercept = model.named_steps['linearregression'].intercept_
     
-    print("Coefficients:", coefficients)
-    print("Intercept:", intercept)
-    
     # Generate points for the linear fit curve
     x_fit = np.linspace(x.min(), x.max(), 100).reshape(-1, 1)
     y_fit = model.predict(x_fit)
+    r_squared = model.score(X, y)
     
     # Plot the x-y scatter plot and linear fit curve
     plt.scatter(x, y, label='Data Points')
@@ -97,4 +95,4 @@ def regression_poly(x, y, degree=1):
     plt.legend()
     plt.show()
     
-    return x_fit, y_fit
+    return x_fit, y_fit, round(r_squared,4)
