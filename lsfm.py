@@ -956,7 +956,7 @@ def stim_resp(i, stim, resp, para, filename, saveplot=False):
     plt.close(fig)
 
 
-def resp_bf_or_not(resp, para, bf):
+def resp_bf_or_not(resp, para, bf, bandwidth):
     """
     Devide response by whether stimulus ever crossed best frequency or not.
 
@@ -981,14 +981,15 @@ def resp_bf_or_not(resp, para, bf):
         para for resp_bf_ex.
 
     """
-    
+    bf_max = bf*2**(bandwidth/2)
+    bf_min = bf/2**(bandwidth/2)
     resp_bf_in, resp_bf_ex = [],[]
     para_bf_in, para_bf_ex = [],[]
     for i,p in enumerate(para):
         '''calculation frequency band using para'''
         freq_max = p[0]*1000 * (2**(p[1]/2))
         freq_min = p[0]*1000 / (2**(p[1]/2))
-        if bf > freq_min and bf < freq_max:
+        if (bf_max > freq_min and bf_max < freq_max) or (bf_min > freq_min and bf_min < freq_max) or (bf > freq_min and bf < freq_max):
             resp_bf_in.append(resp[i])
             para_bf_in.append(p)
         else:
