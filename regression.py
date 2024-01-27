@@ -7,6 +7,8 @@ from sklearn.model_selection import cross_val_score, LeaveOneOut
 from sklearn.metrics import make_scorer
 from sklearn.datasets import make_regression
 from sklearn.metrics import make_scorer, r2_score
+from sklearn.model_selection import permutation_test_score
+from sklearn.feature_selection import f_regression
 import pandas as pd
 from scipy import stats
 
@@ -104,14 +106,7 @@ def regression_poly(x, y, degree=1):
     y_fit = model.predict(x_fit)
     r_squared = model.score(X, y)
     
-    residuals = y - y_fit
-    df = len(y) - degree - 1
-    mse = np.mean(residuals**2)
-    se = np.sqrt(mse / df)
-    # Calculate the t-statistic for the hypothesis test
-    t_statistic = np.abs(model.named_steps['linearregression'].coef_[0]) / se
-    # Calculate the two-tailed p-value
-    p_value = 2 * (1 - stats.t.cdf(t_statistic, df=df))
+    p_value = f_regression(X, y)[1]
 
 # =============================================================================
 #     # Plot the x-y scatter plot and linear fit curve

@@ -18,7 +18,7 @@ idx_tone = [i for i in idx_tone if i > 146]
 idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
 idx_lsfm = [i for i in idx_lsfm if i > 146]
 
-region = [[0, 1.0, 0.0, 1.029], [0, 0.0, 0.926, 0.726], [0.04, 0.04, 0.04, 0.203], [0.04, 0.04, 0.223, 0.166]]
+region = [[0, 1.0, 0.0, 1.029], [0, 0.0, 0.926, 0.726], [0.02, 0.02, 0.02, 0.203], [0.04, 0.04, 0.223, 0.166]]
 
 
 """analysis type"""
@@ -28,7 +28,7 @@ correlate_PSTH = False
 get_region = False
 map_bf = False
 map_correlation = False
-tone_analysis = False
+tone_analysis = True
 lsfm_analysis = False
 
 if get_tonePSTH:
@@ -146,6 +146,7 @@ def plot_map(patch_x, patch_y, arr, region=region, saveplot=False, **kwargs):
     ylabel = kwargs.get('ylabel')
     cmap = kwargs.get('cmap')
     vmax = kwargs.get('vmax')
+    vmin = kwargs.get('vmin')
     diverge = kwargs.get('diverge')
     
     norm=None
@@ -172,7 +173,8 @@ def plot_map(patch_x, patch_y, arr, region=region, saveplot=False, **kwargs):
 #     cmap = LinearSegmentedColormap('cmap', colors)
 # =============================================================================
     
-    im = ax.scatter(patch_x+x_dev, patch_y+y_dev, c=arr, cmap=cmap, s=50, alpha=0.9, vmax=vmax, norm=norm)
+    im = ax.scatter(patch_x+x_dev, patch_y+y_dev, c=arr, cmap=cmap, 
+                    s=50, alpha=0.9, vmin=vmin, vmax=vmax, norm=norm)
     cbar = fig.colorbar(im)
     cbar.ax.set_ylabel(ylabel, fontsize=14)
     ax.set_title(title)
@@ -194,7 +196,7 @@ def plot_ortho(ortho, arr, fit, saveplot=False, **kwargs):
     
     fig, ax = plt.subplots()
     ax.scatter(ortho+x_dev, arr, s=50, alpha=0.7)
-    ax.plot(fit[0], fit[1], color='red', label=f'R-Squared: {fit[2]}')
+    ax.plot(fit[0], fit[1], color='red', label=f'R-Squared:{fit[2]}, p={fit[3]}')
     ax.legend()
     ax.set_ylabel(ylabel, fontsize=14)
     ax.set_title(title)
@@ -208,50 +210,86 @@ def plot_ortho(ortho, arr, fit, saveplot=False, **kwargs):
         plt.clf()
 
 
-def check_map(df, x, y, arr):
+def check_map(df, x, y, ortho, arr):
     import plotly.io as pio
     import plotly.express as px
     pio.renderers.default='browser'
     
     mouseid = list(df['mouseid'])
     site = list(df['patch_site'])
-    name = list(zip(mouseid, site))
+    filename = list(df['filename']) 
+    name = [f'{i[0]}_{i[1]}' for i in list(zip(mouseid, site))]
     
-    x_dev = np.random.normal(0, .03, len(patch_x))
-    fig = px.scatter(x = ortho+x_dev, y = sustain, text=name)
+    x_dev = np.random.normal(0, .05, len(x))
+    fig = px.scatter(x = ortho+x_dev, y = arr, text=name)
     fig.show()
     
-    fig = px.scatter(x=patch_x+x_dev, y=patch_y+x_dev, text=name)
+    fig = px.scatter(x=x+x_dev, y=y+x_dev, text=filename)
     fig.show()
+    
 
 
 if tone_analysis:
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
-    tone_psth = pd.read_csv('tone_psth_para_inBF.csv')
-    mouseID = list(tone_psth[tone_psth['tuning'] != 'no']['mouseID'])
-    filename = list(tone_psth[tone_psth['tuning'] != 'no']['filename'])
-    bf = np.array(list(tone_psth[tone_psth['tuning'] != 'no']['best_frequency']))/1000
-    bandwidth = list(tone_psth[tone_psth['tuning'] != 'no']['bandwidth'])
-    peak = list(tone_psth[tone_psth['tuning'] != 'no']['peak_amplitude'])
-    delay = list(tone_psth[tone_psth['tuning'] != 'no']['time2peak'])
-    sites = list(tone_psth[tone_psth['tuning'] != 'no']['patch_site'])
+    tone_psth = pd.read_csv('tone_psth_para_bf.csv')
+    mouseid = list(tone_psth['mouseid'])
+    filename = list(tone_psth['filename'])
+    sites = list(tone_psth['patch_site'])
     
     patch_x, patch_y, ortho = [],[],[]
-    for i,m in enumerate(mouseID):
+    for i,m in enumerate(mouseid):
         site = f'Patch_{sites[i]}'
         patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x.item())
         patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y.item())
         ortho.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].orthogonal.item())
     
-    plot_map(patch_x, patch_y, bf, saveplot=False, title='Best frequency', ylabel='kHz', vmax=25)
-    plot_map(patch_x, patch_y, bandwidth, saveplot=True, title='Bandwidth', ylabel='octave')
-    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak Amplitude', ylabel='mV')
-    plot_map(patch_x, patch_y, delay, saveplot=True, title='Time to Peak', ylabel='ms')
+    bf = np.array(list(tone_psth['best_frequency']))/1000
+    plot_map(patch_x, patch_y, bf, saveplot=True, title='Best_frequency', ylabel='kHz', cmap='viridis')
+    #regression.regression_test(ortho, bf)
+    fit = regression.regression_poly(ortho, bf, degree=1)
+    plot_ortho(ortho, bf, fit, saveplot=True, title='Best_frequency', ylabel='kHz')
     
-    plot_ortho(ortho, bf, saveplot=True, title='Best frequency', ylabel='kHz')
-    plot_ortho(ortho, bandwidth, saveplot=True, title='Bandwidth', ylabel='octave')
-    plot_ortho(ortho, peak, saveplot=True, title='Peak Amplitude', ylabel='mV')
-    plot_ortho(ortho, delay, saveplot=True, title='Time to Peak', ylabel='ms')
+    bandwidth = list(tone_psth['bandwidth'])
+    plot_map(patch_x, patch_y, bandwidth, saveplot=True, title='Bandwidth', ylabel='octave', cmap='viridis')
+    #regression.regression_test(ortho, bandwidth)
+    fit = regression.regression_poly(ortho, bandwidth, degree=1)
+    plot_ortho(ortho, bandwidth, fit, saveplot=True, title='Bandwidth', ylabel='octave')
+    
+    peak = list(tone_psth['peak_amplitude'])
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude', ylabel='mV', cmap='viridis')
+    #regression.regression_test(ortho, peak)
+    fit = regression.regression_poly(ortho, peak, degree=1)
+    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude', ylabel='mV')
+    
+    t2p = list(tone_psth['time_to_peak'])
+    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time_to_Peak', ylabel='ms', cmap='viridis')
+    #regression.regression_test(ortho, t2p)
+    fit = regression.regression_poly(ortho, t2p, degree=1)
+    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time_to_Peak', ylabel='ms')
+    
+    HWFM = list(tone_psth['time_to_peak'])
+    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='HWFM', ylabel='ms', cmap='viridis')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, HWFM, degree=1)
+    plot_ortho(ortho, HWFM, fit, saveplot=True, title='HWFM', ylabel='ms')
+    
+    peak_end = list(tone_psth['peak_end'])
+    plot_map(patch_x, patch_y, peak_end, saveplot=True, title='Peak_End', ylabel='ms', cmap='viridis')
+    #regression.regression_test(ortho, peak_end)
+    fit = regression.regression_poly(ortho, peak_end, degree=2)
+    plot_ortho(ortho, peak_end, fit, saveplot=True, title='Peak_End', ylabel='ms')
+    
+    on_area = list(tone_psth['tone_area'])
+    plot_map(patch_x, patch_y, on_area, saveplot=True, title='Tone_Area', ylabel='ms*mV', cmap='viridis')
+    #regression.regression_test(ortho, on_area)
+    fit = regression.regression_poly(ortho, on_area, degree=1)
+    plot_ortho(ortho, on_area, fit, saveplot=True, title='Tone_Area', ylabel='ms*mV')
+    
+    off_area = list(tone_psth['offtone_area'])
+    plot_map(patch_x, patch_y, off_area, saveplot=True, title='Tone_Off_Area', ylabel='ms*mV', cmap='viridis')
+    #regression.regression_test(ortho, off_area)
+    fit = regression.regression_poly(ortho, off_area, degree=1)
+    plot_ortho(ortho, off_area, fit, saveplot=True, title='Tone_Off_Area', ylabel='ms*mV')
     
 
 if lsfm_analysis:
@@ -270,9 +308,9 @@ if lsfm_analysis:
         
     """sweeped bf"""
     peak = list(lsfm_psth_inBF['peak_amplitude'])
-    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV')
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV', vmin=-3, vmax=9)
     #regression.regression_test(ortho, peak)
-    fit = regression.regression_poly(ortho, peak, degree=2)
+    fit = regression.regression_poly(ortho, peak, degree=1)
     plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV')
     
     t2p = list(lsfm_psth_inBF['time_to_peak'])
@@ -294,7 +332,7 @@ if lsfm_analysis:
     plot_ortho(ortho, sustain, fit, saveplot=True, title='Average_Sustain_inBF', ylabel='mv')
     
     offpeak = list(lsfm_psth_inBF['offpeak_amplitude'])
-    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV')
+    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV', vmin=0, vmax=8)
     #regression.regression_test(ortho, offpeak)
     fit = regression.regression_poly(ortho, offpeak, degree=1)
     plot_ortho(ortho, offpeak, fit, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV')
@@ -308,13 +346,13 @@ if lsfm_analysis:
     ratio = np.array(offpeak)/np.array(peak)
     plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
     #regression.regression_test(ortho, ratio)
-    fit = regression.regression_poly(ortho, ratio, degree=4)
+    fit = regression.regression_poly(ortho, ratio, degree=1)
     plot_ortho(ortho, ratio, fit, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
     
     
     """not sweeped bf"""
     peak = list(lsfm_psth_exBF['peak_amplitude'])
-    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV')
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV', vmin=-3, vmax=9)
     #regression.regression_test(ortho, peak)
     fit = regression.regression_poly(ortho, peak, degree=1)
     plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV')
@@ -338,7 +376,7 @@ if lsfm_analysis:
     plot_ortho(ortho, sustain, fit, saveplot=True, title='Average_Sustain_exBF', ylabel='mv')
     
     offpeak = list(lsfm_psth_exBF['offpeak_amplitude'])
-    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV')
+    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV', vmin=0, vmax=8)
     #regression.regression_test(ortho, offpeak)
     fit = regression.regression_poly(ortho, offpeak, degree=1)
     plot_ortho(ortho, offpeak, fit, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV')
@@ -352,9 +390,10 @@ if lsfm_analysis:
     ratio = np.array(offpeak)/np.array(peak)
     plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
     #regression.regression_test(ortho, ratio)
-    fit = regression.regression_poly(ortho, ratio, degree=5)
+    fit = regression.regression_poly(ortho, ratio, degree=1)
     plot_ortho(ortho, ratio, fit, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
-    
+
+
 if map_correlation:
     
     #tone

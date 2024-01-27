@@ -206,7 +206,7 @@ def set_hyper2zero(arr):
     
     return arr_pos
 
-def tuning(resp, para, filename='', plot=True, saveplot=False, data_return=False, **kwargs):
+def tuning(resp, para, filename='', plot=False, saveplot=False, data_return=False, **kwargs):
     window = kwargs.get('window')
     
     if window:
@@ -321,10 +321,23 @@ def tuning(resp, para, filename='', plot=True, saveplot=False, data_return=False
         ax1.set_xlabel('Frequency (kHz)')
         ax1.set_ylabel('Loudness (dB SPL)')
         
-        ax1.scatter(bf_loud, y300, marker='|', c='forestgreen', s=30)
-        #ax1.fill_betweenx(y300, curve_left, curve_right, color='green', alpha=0.25)
-        ax1.scatter(curve_left, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
-        ax1.scatter(curve_right, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
+        bf_sort = np.argsort(curve_left)
+        bf_x = [bf_loud[i] for i in bf_sort]
+        bf_y = [y300[i] for i in bf_sort]
+        left_sort = np.argsort(curve_left)
+        left_x = [curve_left[i] for i in left_sort]
+        left_y = [y300[i] for i in left_sort]
+        right_sort = np.argsort(curve_right)
+        right_x = [curve_right[i] for i in right_sort]
+        right_y = [y300[i] for i in right_sort]
+        
+        #ax1.scatter(bf_loud, y300, marker='|', c='forestgreen', s=30)
+        ax1.scatter(bf_x, bf_y, label='bf', s=5, c='forestgreen')
+        ax1.scatter(left_x, left_y, label='left_edge', s=3, c='lawngreen')
+        ax1.scatter(right_x, right_y, label='right_edge', s=3, c='lawngreen')
+        #ax1.fill_betweenx(y300, curve_left, curve_right, color='lawngreen', ec='forestgreen', alpha=0.1)
+        #ax1.scatter(curve_left, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
+        #ax1.scatter(curve_right, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
         cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
         cbar = plt.colorbar(im, cax=cax)
         cbar.ax.set_ylabel('mV')
@@ -336,10 +349,12 @@ def tuning(resp, para, filename='', plot=True, saveplot=False, data_return=False
             else:
                 plt.savefig(f'{filename}.pdf', dpi=500, format='pdf', bbox_inches='tight')
                 plt.savefig(f'{filename}.png', dpi=500, bbox_inches='tight')
+        if plot:
+            plt.show()
             plt.clf()
             plt.close(fig)
         else:
-            plt.show()
+            plt.clf()
             plt.close(fig)
             
     if data_return:
@@ -598,27 +613,14 @@ def psth(resp, filename, base_adjust=False, x_in_ms=False, saveplot=False, **kwa
         
     return y
 
-
-def psth_bf(resp, para, bf, filename, x_in_ms=False, saveplot=False, **kwargs):
-    loud, freq, _ = zip(*para)
-    loud = sorted(set(loud))
-    freq = np.array(sorted(set(freq)))
-    
-    idx = [i for i,a in enumerate(np.diff(np.sign(freq - bf))) if a > 0][0]
-    target_freq = [freq[idx], freq[idx+1]]
-    
-    target_resp=[]
-    for i, p in enumerate(para):
-        if p[1] in target_freq:
-            target_resp.append(base_adjust(resp[i]))
-    
-    target_PSTH = np.mean(target_resp, axis=0)
-    err = stats.sem(target_resp, axis=0)
-    x = np.arange(len(target_PSTH))
-    y = target_PSTH
+def plot_psth(psth, resp, filename, x_in_ms=True, plot=True, saveplot=False):
+    psth = np.mean(resp, axis=0)
+    err = stats.sem(resp, axis=0)
+    x = np.arange(len(psth))
+    y = psth
     
     fig, ax = plt.subplots()
-    ax.plot(x,target_PSTH)
+    ax.plot(x,psth)
     ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
     [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
     [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
@@ -640,11 +642,83 @@ def psth_bf(resp, para, bf, filename, x_in_ms=False, saveplot=False, **kwargs):
         plt.savefig(f'{filename}_tone-PSTH_bf.png', dpi=500, format='png', bbox_inches='tight')
         plt.clf()
         plt.close(fig)
-    else:
+    if plot:
         plt.show()
+        plt.clf()
         plt.close(fig)
+    else:
+        plt.clf()
+        plt.close(fig)
+        
+
+def psth_bfband(resp, para, bf, bandwidth, filename, x_in_ms=False, plot=True, saveplot=False, **kwargs):
+    loud, freq, _ = zip(*para)
+    freq = np.array(sorted(set(freq)))
+    bf_range = [bf/2**(bandwidth/2), bf*2**(bandwidth/2)]
+    target_freq = [f for f in freq if f>bf_range[0] and f<bf_range[1]]
     
-    return y
+    target_resp=[]
+    for i,p in enumerate(para):
+        if p[1] in target_freq:
+            target_resp.append(base_adjust(resp[i]))
+    target_PSTH = np.mean(target_resp, axis=0)
+    x = np.arange(len(target_PSTH))
+    
+    plot_psth(target_PSTH, target_resp, filename, x_in_ms=x_in_ms, plot=plot, saveplot=saveplot)
+    
+    return x,target_PSTH
+    
+
+def psth_bf(resp, para, bf, filename, x_in_ms=False, plot=True, saveplot=False, **kwargs):
+    loud, freq, _ = zip(*para)
+    loud = sorted(set(loud))
+    freq = np.array(sorted(set(freq)))
+    
+    idx = [i for i,a in enumerate(np.diff(np.sign(freq - bf))) if a > 0][0]
+    target_freq = [freq[idx], freq[idx+1]]
+    
+    target_resp=[]
+    for i, p in enumerate(para):
+        if p[1] in target_freq:
+            target_resp.append(base_adjust(resp[i]))
+    
+    target_PSTH = np.mean(target_resp, axis=0)
+    plot_psth(target_PSTH, target_resp, filename, x_in_ms=x_in_ms, plot=plot, saveplot=saveplot)
+    
+# =============================================================================
+#     err = stats.sem(target_resp, axis=0)
+#     x = np.arange(len(target_PSTH))
+#     y = target_PSTH
+#     
+#     fig, ax = plt.subplots()
+#     ax.plot(x,target_PSTH)
+#     ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
+#     [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
+#     [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
+#     #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,6000,50)]
+#     #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.7) for _x in np.arange(0,6000,250)]
+#     ax.set_title(f'{filename}_tone-PSTH-bf')   
+#     ax.set_xlim(0,10000)
+#     ax.set_ylabel('membrane potential (mV)')
+#     
+#     if x_in_ms:
+#         label = np.linspace(-20,380,6)
+#         ax.set_xticks(np.linspace(0,10000,6),label)
+#         ax.set_xlabel('time (ms)')
+#     else:
+#         ax.set_xticks([0,500,1500,3000,5000,7000,9000])
+#         ax.set_xlabel('data point (2500/100ms)')
+#         
+#     if saveplot:
+#         plt.savefig(f'{filename}_tone-PSTH_bf.png', dpi=500, format='png', bbox_inches='tight')
+#         plt.clf()
+#         plt.close(fig)
+#     else:
+#         plt.show()
+#         plt.close(fig)
+#     
+#     return y
+# =============================================================================
 
 def mem_V(stim, para, resp, filename='', saveplot=False):
     on_r, off_r = [],[]

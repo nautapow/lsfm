@@ -56,7 +56,7 @@ if  __name__ == "__main__":
     """new index for only analysing data with valid best frequency"""
     idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude') 
                         &(df['tuning']!='no')]
-    psth_para_all = pd.read_excel('lsfm_bf_para.xlsx', sheet_name='band')
+   
     
     psth_para_inBF, psth_para_exBF = [],[]
     psth_inBF, psth_exBF = [],[]
@@ -97,6 +97,7 @@ if  __name__ == "__main__":
         
 # =============================================================================
 #         ##Get PSTH parameter
+#         psth_para_all = pd.read_excel('lsfm_psth_bf_para.xlsx', sheet_name='band')
 #         if df_loc in list(psth_para_all['df_loc']):
 #             
 #             ## sweep bf
@@ -203,22 +204,6 @@ if  __name__ == "__main__":
 # =============================================================================
         
 # =============================================================================
-#         fig = px.plot(x = pk_x, y = pk_y)
-#         fig = px.plot(y = half)
-#         fig.show()
-#         
-#         fig = px.scatter(x=psth_bf[1][0], y=psth_bf[1][1], title=f'{df_loc}_{filename}_ex_bf')
-#         fig.show()
-# =============================================================================
-        
-        
-# =============================================================================
-#     data = {'mouseid': mouseIDs, 'filename':filenames, 'best_frequency':bfs, 'patch_site':sites
-#             'onset', 'peak_start', 'peak', 'after_peak_start', 'after_peak_end', 'average_sustain', 
-#             'offset', 'offset_peak_start', 'offset_peak'}
-# =============================================================================
-        
-# =============================================================================
 #         ##save to matlab        
 #         to_matlab = {'stim':stim, 'resp':resp, 'fc':cf, 'bandwidth':band, 'mod_rate': modrate}
 #         scipy.io.savemat(f'{filename}_data.mat', to_matlab)
@@ -271,7 +256,7 @@ if  __name__ == "__main__":
 
         
 # =============================================================================
-#         """load from TDMS"""
+#         ##load from TDMS
 #         fdir = df['path'][df_loc]
 #         filename = df['filename'][df_loc]
 #         version = df['Py_Version'][df_loc]
