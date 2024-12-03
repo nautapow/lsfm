@@ -22,14 +22,18 @@ region = [[0, 1.0, 0.0, 1.029], [0, 0.0, 0.926, 0.726], [0.02, 0.02, 0.02, 0.203
 
 
 """analysis type"""
+saveplot=False
+
 get_tonePSTH = False
 get_lsfmPSTH = False
 correlate_PSTH = False
 get_region = False
 map_bf = False
 map_correlation = False
-tone_analysis = True
+tone_analysis = False
 lsfm_analysis = False
+spike_analysis = False
+para_sep_analysis = True
 
 if get_tonePSTH:
     
@@ -176,8 +180,11 @@ def plot_map(patch_x, patch_y, arr, region=region, saveplot=False, **kwargs):
     im = ax.scatter(patch_x+x_dev, patch_y+y_dev, c=arr, cmap=cmap, 
                     s=50, alpha=0.9, vmin=vmin, vmax=vmax, norm=norm)
     cbar = fig.colorbar(im)
-    cbar.ax.set_ylabel(ylabel, fontsize=14)
-    ax.set_title(title)
+    cbar.ax.set_ylabel(ylabel, fontsize=16)
+    #ax.set_title(title, fontsize=16)
+    ax.set_xlabel('A1-UF axis', fontsize=16)
+    ax.set_ylabel('A1-A2 axis', fontsize=16)
+    ax.tick_params(axis='both', which='major', labelsize=14)
     
     if saveplot:
         plt.savefig(f'{title}_map.png', dpi=500, bbox_inches='tight')
@@ -194,12 +201,20 @@ def plot_ortho(ortho, arr, fit, saveplot=False, **kwargs):
     ylabel = kwargs.get('ylabel')
     x_dev = np.random.normal(0, .01, len(ortho))
     
+    vmax = kwargs.get('vmax')
+    vmin = kwargs.get('vmin')
+    
     fig, ax = plt.subplots()
     ax.scatter(ortho+x_dev, arr, s=50, alpha=0.7)
-    ax.plot(fit[0], fit[1], color='red', label=f'R-Squared:{fit[2]}, p={fit[3]}')
-    ax.legend()
-    ax.set_ylabel(ylabel, fontsize=14)
-    ax.set_title(title)
+    #ax.plot(fit[0], fit[1], color='red', label=f'R-Squared:{fit[2]}, p={fit[3]}')
+    ax.plot(fit[0], fit[1], color='red')
+    ax.annotate(f'R^2: {fit[2]}', xy=(0.99, 0.97), xycoords='axes fraction', size=14, ha='right', va='top')
+    ax.annotate(f'P= {fit[3]}', xy=(0.99, 0.90), xycoords='axes fraction', size=14, ha='right', va='top')
+    ax.set_ylabel(ylabel, fontsize=16)
+    ax.set_xlabel('A1-AAF axis', fontsize=16)
+    ax.tick_params(axis='both', which='major', labelsize=14)
+    #ax.set_title(title, fontsize=16)
+    plt.ylim(vmin,vmax)
     
     if saveplot:
         plt.savefig(f'{title}_ortho.png', dpi=500, bbox_inches='tight')
@@ -218,20 +233,20 @@ def check_map(df, x, y, ortho, arr):
     mouseid = list(df['mouseid'])
     site = list(df['patch_site'])
     filename = list(df['filename']) 
-    name = [f'{i[0]}_{i[1]}' for i in list(zip(mouseid, site))]
+    name = [f'{a[0]}_{a[1]}_{filename[i]}' for i ,a in enumerate(list(zip(mouseid, site)))]
     
     x_dev = np.random.normal(0, .05, len(x))
     fig = px.scatter(x = ortho+x_dev, y = arr, text=name)
     fig.show()
     
-    fig = px.scatter(x=x+x_dev, y=y+x_dev, text=filename)
+    fig = px.scatter(x=x+x_dev, y=y+x_dev, text=name)
     fig.show()
     
 
 
 if tone_analysis:
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
-    tone_psth = pd.read_csv('tone_psth_para_bf.csv')
+    tone_psth = pd.read_csv('tone_psth_para_bf_new.csv')
     mouseid = list(tone_psth['mouseid'])
     filename = list(tone_psth['filename'])
     sites = list(tone_psth['patch_site'])
@@ -244,34 +259,34 @@ if tone_analysis:
         ortho.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].orthogonal.item())
     
     bf = np.array(list(tone_psth['best_frequency']))/1000
-    plot_map(patch_x, patch_y, bf, saveplot=True, title='Best_frequency', ylabel='kHz', cmap='viridis')
+    plot_map(patch_x, patch_y, bf, saveplot=True, title='Best_Frequency', ylabel='Best Frequency (kHz)', cmap='viridis')
     #regression.regression_test(ortho, bf)
     fit = regression.regression_poly(ortho, bf, degree=1)
-    plot_ortho(ortho, bf, fit, saveplot=True, title='Best_frequency', ylabel='kHz')
+    plot_ortho(ortho, bf, fit, saveplot=True, title='Best_Frequency', ylabel='Best Frequency (kHz)')
     
     bandwidth = list(tone_psth['bandwidth'])
-    plot_map(patch_x, patch_y, bandwidth, saveplot=True, title='Bandwidth', ylabel='octave', cmap='viridis')
+    plot_map(patch_x, patch_y, bandwidth, saveplot=True, title='Bandwidth', ylabel='Bandwidth (octave)', cmap='viridis')
     #regression.regression_test(ortho, bandwidth)
     fit = regression.regression_poly(ortho, bandwidth, degree=1)
-    plot_ortho(ortho, bandwidth, fit, saveplot=True, title='Bandwidth', ylabel='octave')
+    plot_ortho(ortho, bandwidth, fit, saveplot=True, title='Bandwidth', ylabel='Bandwidth (octave)')
     
     peak = list(tone_psth['peak_amplitude'])
-    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude', ylabel='mV', cmap='viridis')
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude', ylabel='Peak Amplitude (mV)', cmap='viridis')
     #regression.regression_test(ortho, peak)
     fit = regression.regression_poly(ortho, peak, degree=1)
-    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude', ylabel='mV')
+    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude', ylabel='Peak Amplitude (mV)')
     
     t2p = list(tone_psth['time_to_peak'])
-    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time_to_Peak', ylabel='ms', cmap='viridis')
+    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time to Peak', ylabel='Time to Peak (ms)', cmap='viridis')
     #regression.regression_test(ortho, t2p)
     fit = regression.regression_poly(ortho, t2p, degree=1)
-    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time_to_Peak', ylabel='ms')
+    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time to Peak', ylabel='Time to Peak (ms)')
     
-    HWFM = list(tone_psth['time_to_peak'])
-    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='HWFM', ylabel='ms', cmap='viridis')
+    HWFM = list(tone_psth['HWFM'])
+    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='FMHW', ylabel='FMHW (ms)', cmap='viridis')
     #regression.regression_test(ortho, HWFM)
     fit = regression.regression_poly(ortho, HWFM, degree=1)
-    plot_ortho(ortho, HWFM, fit, saveplot=True, title='HWFM', ylabel='ms')
+    plot_ortho(ortho, HWFM, fit, saveplot=True, title='FMHW', ylabel='FMHW (ms)')
     
     peak_end = list(tone_psth['peak_end'])
     plot_map(patch_x, patch_y, peak_end, saveplot=True, title='Peak_End', ylabel='ms', cmap='viridis')
@@ -279,23 +294,23 @@ if tone_analysis:
     fit = regression.regression_poly(ortho, peak_end, degree=2)
     plot_ortho(ortho, peak_end, fit, saveplot=True, title='Peak_End', ylabel='ms')
     
-    on_area = list(tone_psth['tone_area'])
-    plot_map(patch_x, patch_y, on_area, saveplot=True, title='Tone_Area', ylabel='ms*mV', cmap='viridis')
+    on_area = np.array(list(tone_psth['tone_area']))/1000
+    plot_map(patch_x, patch_y, on_area, saveplot=True, title='tone_on_area', ylabel='Peri-Stimulus Charge (s*mV)', cmap='viridis')
     #regression.regression_test(ortho, on_area)
     fit = regression.regression_poly(ortho, on_area, degree=1)
-    plot_ortho(ortho, on_area, fit, saveplot=True, title='Tone_Area', ylabel='ms*mV')
+    plot_ortho(ortho, on_area, fit, saveplot=True, title='tone_on_area', ylabel='Peri-Stimulus Charge (s*mV)')
     
-    off_area = list(tone_psth['offtone_area'])
-    plot_map(patch_x, patch_y, off_area, saveplot=True, title='Tone_Off_Area', ylabel='ms*mV', cmap='viridis')
+    off_area = np.array(list(tone_psth['offtone_area']))/1000
+    plot_map(patch_x, patch_y, off_area, saveplot=True, title='tone_off_area', ylabel='Post-Stimulus Charge (s*mV)', cmap='viridis')
     #regression.regression_test(ortho, off_area)
     fit = regression.regression_poly(ortho, off_area, degree=1)
-    plot_ortho(ortho, off_area, fit, saveplot=True, title='Tone_Off_Area', ylabel='ms*mV')
+    plot_ortho(ortho, off_area, fit, saveplot=True, title='tone_off_area', ylabel='Post-Stimulus Charge (s*mV)')
     
 
 if lsfm_analysis:
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
-    lsfm_psth_inBF = pd.read_csv('lsfm_psth_para_inBFband.csv')
-    lsfm_psth_exBF = pd.read_csv('lsfm_psth_para_exBFband.csv')
+    lsfm_psth_inBF = pd.read_csv('lsfm_psth_para_inBF.csv')
+    lsfm_psth_exBF = pd.read_csv('lsfm_psth_para_exBF.csv')
     
     mouseIDs = list(lsfm_psth_inBF['mouseid'])
     sites = list(lsfm_psth_inBF['patch_site'])
@@ -308,95 +323,123 @@ if lsfm_analysis:
         
     """sweeped bf"""
     peak = list(lsfm_psth_inBF['peak_amplitude'])
-    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV', vmin=-3, vmax=9)
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_inBF', ylabel='Onset Peak Amplitude (mV)', vmin=-3, vmax=9)
     #regression.regression_test(ortho, peak)
     fit = regression.regression_poly(ortho, peak, degree=1)
-    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude_inBF', ylabel='mV')
+    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude_inBF', ylabel='Onset Peak Amplitude (mV)')
     
     t2p = list(lsfm_psth_inBF['time_to_peak'])
-    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time_to_Peak_inBF', ylabel='ms')
+    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time_to_Peak_inBF', ylabel='Time to Onset Peak (ms)')
     #regression.regression_test(ortho, t2p)
     fit = regression.regression_poly(ortho, t2p, degree=2)
-    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time_to_Peak_inBF', ylabel='ms')
+    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time_to_Peak_inBF', ylabel='Time to Onset Peak (ms)')
     
-    HWFM = np.array(list(lsfm_psth_inBF['HWFM']))/25
-    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='HWFM_inBF', ylabel='ms')
+    HWFM = np.array(list(lsfm_psth_inBF['HWFM']))
+    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='FMHW_inBF', ylabel='FMHW (ms)')
     #regression.regression_test(ortho, HWFM)
     fit = regression.regression_poly(ortho, HWFM, degree=1)
-    plot_ortho(ortho, HWFM, fit, saveplot=True, title='HWFM_inBF', ylabel='ms')
+    plot_ortho(ortho, HWFM, fit, saveplot=True, title='FMHW_inBF', ylabel='FMHW (ms)')
     
     sustain = list(lsfm_psth_inBF['sustain'])
-    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_inBF', ylabel='mv', diverge=True)
+    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_inBF', ylabel='Avg Sustain Potential (mV)', diverge=True)
     #regression.regression_test(ortho, sustain)
     fit = regression.regression_poly(ortho, sustain, degree=1)
-    plot_ortho(ortho, sustain, fit, saveplot=True, title='Average_Sustain_inBF', ylabel='mv')
+    plot_ortho(ortho, sustain, fit, saveplot=True, title='Average_Sustain_inBF', ylabel='Avg Sustain Potential (mV)')
     
     offpeak = list(lsfm_psth_inBF['offpeak_amplitude'])
-    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV', vmin=0, vmax=8)
+    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='Offset Peak Amplitude (mV)', vmin=0, vmax=8)
     #regression.regression_test(ortho, offpeak)
     fit = regression.regression_poly(ortho, offpeak, degree=1)
-    plot_ortho(ortho, offpeak, fit, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='mV')
+    plot_ortho(ortho, offpeak, fit, saveplot=True, title='Offpeak_Amplitude_inBF', ylabel='Offset Peak Amplitude (mV)')
     
     t2offp = list(lsfm_psth_inBF['time_to_offpeak'])
-    plot_map(patch_x, patch_y, t2offp, saveplot=True, title='Time_to_Offpeak_inBF', ylabel='ms')
+    plot_map(patch_x, patch_y, t2offp, saveplot=True, title='Time_to_Offpeak_inBF', ylabel='Time to Offset Peak (ms)')
     #regression.regression_test(ortho, t2offp)
     fit = regression.regression_poly(ortho, t2offp, degree=1)
-    plot_ortho(ortho, t2offp, fit, saveplot=True, title='Time_to_Offpeak_inBF', ylabel='ms')
+    plot_ortho(ortho, t2offp, fit, saveplot=True, title='Time_to_Offpeak_inBF', ylabel='Time to Offset Peak (ms)')
     
     ratio = np.array(offpeak)/np.array(peak)
-    plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
+    plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_ratio_inBF', ylabel='Offset/Onset Ratio')
     #regression.regression_test(ortho, ratio)
     fit = regression.regression_poly(ortho, ratio, degree=1)
-    plot_ortho(ortho, ratio, fit, saveplot=True, title='Peak_ratio_inBF', ylabel='ratio')
+    plot_ortho(ortho, ratio, fit, saveplot=True, title='Peak_ratio_inBF', ylabel='Offset/Onset Ratio')
     
     
     """not sweeped bf"""
     peak = list(lsfm_psth_exBF['peak_amplitude'])
-    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV', vmin=-3, vmax=9)
+    plot_map(patch_x, patch_y, peak, saveplot=True, title='Peak_Amplitude_exBF', ylabel='Onset Peak Amplitude (mV)', vmin=-3, vmax=9)
     #regression.regression_test(ortho, peak)
     fit = regression.regression_poly(ortho, peak, degree=1)
-    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude_exBF', ylabel='mV')
+    plot_ortho(ortho, peak, fit, saveplot=True, title='Peak_Amplitude_exBF', ylabel='Onset Peak Amplitude (mV)')
     
     t2p = list(lsfm_psth_exBF['time_to_peak'])
-    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time_to_Peak_exBF', ylabel='ms')
+    plot_map(patch_x, patch_y, t2p, saveplot=True, title='Time_to_Peak_exBF', ylabel='Time to Onset Peak (ms)')
     #regression.regression_test(ortho, t2p)
     fit = regression.regression_poly(ortho, t2p, degree=2)
-    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time_to_Peak_exBF', ylabel='ms')
+    plot_ortho(ortho, t2p, fit, saveplot=True, title='Time_to_Peak_exBF', ylabel='Time to Onset Peak (ms)')
     
-    HWFM = np.array(list(lsfm_psth_exBF['HWFM']))/25
-    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='HWFM_exBF', ylabel='ms')
+    HWFM = np.array(list(lsfm_psth_exBF['HWFM']))
+    plot_map(patch_x, patch_y, HWFM, saveplot=True, title='FMHW_exBF', ylabel='FMHW (ms)')
     #regression.regression_test(ortho, HWFM)
     fit = regression.regression_poly(ortho, HWFM, degree=1)
-    plot_ortho(ortho, HWFM, fit, saveplot=True, title='HWFM_exBF', ylabel='ms')
+    plot_ortho(ortho, HWFM, fit, saveplot=True, title='FMHW_exBF', ylabel='FMHW (ms)')
     
     sustain = list(lsfm_psth_exBF['sustain'])
-    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_exBF', ylabel='mv', diverge=True)
+    plot_map(patch_x, patch_y, sustain, saveplot=True, title='Average_Sustain_exBF', ylabel='Avg Sustain Potential (mV)', diverge=True)
     #regression.regression_test(ortho, sustain)
     fit = regression.regression_poly(ortho, sustain, degree=1)
-    plot_ortho(ortho, sustain, fit, saveplot=True, title='Average_Sustain_exBF', ylabel='mv')
+    plot_ortho(ortho, sustain, fit, saveplot=True, title='Average_Sustain_exBF', ylabel='Avg Sustain Potential (mV)')
     
     offpeak = list(lsfm_psth_exBF['offpeak_amplitude'])
-    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV', vmin=0, vmax=8)
+    plot_map(patch_x, patch_y, offpeak, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='Offset Peak Amplitude (mV)', vmin=0, vmax=8)
     #regression.regression_test(ortho, offpeak)
     fit = regression.regression_poly(ortho, offpeak, degree=1)
-    plot_ortho(ortho, offpeak, fit, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='mV')
+    plot_ortho(ortho, offpeak, fit, saveplot=True, title='Offpeak_Amplitude_exBF', ylabel='Offset Peak Amplitude (mV)')
     
     t2offp = list(lsfm_psth_exBF['time_to_offpeak'])
-    plot_map(patch_x, patch_y, t2offp, saveplot=True, title='Time_to_Offpeak_exBF', ylabel='ms')
+    plot_map(patch_x, patch_y, t2offp, saveplot=True, title='Time_to_Offpeak_exBF', ylabel='Time to Offset Peak (ms)')
     #regression.regression_test(ortho, t2offp)
     fit = regression.regression_poly(ortho, t2offp, degree=1)
-    plot_ortho(ortho, t2offp, fit, saveplot=True, title='Time_to_Offpeak_exBF', ylabel='ms')
+    plot_ortho(ortho, t2offp, fit, saveplot=True, title='Time_to_Offpeak_exBF', ylabel='Time to Offset Peak (ms)')
     
     ratio = np.array(offpeak)/np.array(peak)
-    plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
+    plot_map(patch_x, patch_y, ratio, saveplot=True, title='Peak_Ratio_exBF', ylabel='Offset/Onset Ratio')
     #regression.regression_test(ortho, ratio)
     fit = regression.regression_poly(ortho, ratio, degree=1)
-    plot_ortho(ortho, ratio, fit, saveplot=True, title='Peak_Ratio_exBF', ylabel='ratio')
+    plot_ortho(ortho, ratio, fit, saveplot=True, title='Peak_Ratio_exBF', ylabel='Offset/Onset Ratio')
+
+
+if spike_analysis:
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    lsfm_psth_inBF = pd.read_csv('lsfm_psth_para_inBF.csv')
+    df_spike = pd.read_csv('spiking_count.csv')
+    
+    mouseIDs = list(lsfm_psth_inBF['mouseid'])
+    sites = list(lsfm_psth_inBF['patch_site'])
+    patch_x, patch_y, ortho = [],[],[]
+    for i,m in enumerate(mouseIDs):
+        site = f'Patch_{sites[i]}'
+        patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x.item())
+        patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y.item())
+        ortho.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].orthogonal.item())
+    
+    total_spike = list(df_spike['total_spikes'])
+    plot_map(patch_x, patch_y, total_spike, saveplot=True, title='Total Spikes', ylabel='Total Spikes (count)', vmax=300)
+    
+    rate_inbf = list(df_spike['rate_inbf'])
+    plot_map(patch_x, patch_y, rate_inbf, saveplot=True, title='Spike Rate, in RF', ylabel='Spikes/Stimulus (count)', vmax=2)
+    #regression.regression_test(ortho, rate_inbf)
+    fit = regression.regression_poly(ortho, rate_inbf, degree=1)
+    plot_ortho(ortho, rate_inbf, fit, saveplot=True, title='Spike Rate, in RF', ylabel='Spikes/Stimulus (count)', vmax=2)
+    
+    rate_exbf = list(df_spike['rate_exbf'])
+    plot_map(patch_x, patch_y, rate_exbf, saveplot=True, title='Spike Rate, out RF', ylabel='Spikes/Stimulus (count)', vmax=2)
+    #regression.regression_test(ortho, rate_exbf)
+    fit = regression.regression_poly(ortho, rate_exbf, degree=1)
+    plot_ortho(ortho, rate_exbf, fit, saveplot=True, title='Spike Rate, out RF', ylabel='Spikes/Stimulus (count)', vmax=2)
 
 
 if map_correlation:
-    
-    #tone
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
     df2 = pd.read_csv('patch_list_with_bf.csv', dtype={'date':str, '#':str})
     idx = df2.index[(df2['type']=='Pure Tones') & (df2['project']=='Ic_map') & (df2['hard_exclude']!='exclude') 
@@ -408,4 +451,170 @@ if map_correlation:
     file_1 = df_corr.loc[1].combination_1[6:]
     
     
+if para_sep_analysis:
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
     
+    """center frequency"""
+    para_cf = pd.read_csv('para_sep_cf.csv')
+    
+    mouseIDs = list(para_cf['mouseid'])
+    sites = list(para_cf['patch_site'])
+    patch_x, patch_y, ortho = [],[],[]
+    for i,m in enumerate(mouseIDs):
+        site = f'Patch_{sites[i]}'
+        patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x.item())
+        patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y.item())
+        ortho.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].orthogonal.item())
+        
+    on_peak = list(para_cf['on_peak'])
+    plot_map(patch_x, patch_y, on_peak, saveplot=saveplot, title='Onset Peak Amplitude -cf-', ylabel='Onset Peak Amplitude cf slope', vmin=-3, vmax=9)
+    #regression.regression_test(ortho, peak)
+    fit = regression.regression_poly(ortho, on_peak, degree=1)
+    plot_ortho(ortho, on_peak, fit, saveplot=saveplot, title='Onset Peak Amplitude -cf-', ylabel='Onset Peak Amplitude cf slope')
+    
+    on_loc = list(para_cf['on_loc'])
+    plot_map(patch_x, patch_y, on_loc, saveplot=saveplot, title='Onset Peak Location -cf-', ylabel='Onset Peak Location cf slope')
+    #regression.regression_test(ortho, t2p)
+    fit = regression.regression_poly(ortho, on_loc, degree=2)
+    plot_ortho(ortho, on_loc, fit, saveplot=saveplot, title='Onset Peak Location -cf-', ylabel='Onset Peak Location cf slope')
+    
+    on_charge = np.array(list(para_cf['on_charge']))
+    plot_map(patch_x, patch_y, on_charge, saveplot=saveplot, title='Onset Charge -cf-', ylabel='Onset Charge cf slope')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, on_charge, degree=1)
+    plot_ortho(ortho, on_charge, fit, saveplot=saveplot, title='Onset Charge -cf-', ylabel='Onset Charge cf slope')
+    
+    sustain = list(para_cf['sustain'])
+    plot_map(patch_x, patch_y, sustain, saveplot=saveplot, title='Average_Sustain -cf-', ylabel='Avg Sustain Potential cf slope', diverge=True)
+    #regression.regression_test(ortho, sustain)
+    fit = regression.regression_poly(ortho, sustain, degree=1)
+    plot_ortho(ortho, sustain, fit, saveplot=saveplot, title='Average_Sustain -cf-', ylabel='Avg Sustain Potential cf slope')
+    
+    off_peak = list(para_cf['off_peak'])
+    plot_map(patch_x, patch_y, off_peak, saveplot=saveplot, title='Offset Peak Amplitude -cf-', ylabel='Offset Peak Amplitude cf slope', vmin=0, vmax=8)
+    #regression.regression_test(ortho, offpeak)
+    fit = regression.regression_poly(ortho, off_peak, degree=1)
+    plot_ortho(ortho, off_peak, fit, saveplot=saveplot, title='Offset Peak Amplitude -cf-', ylabel='Offset Peak Amplitude cf slope')
+    
+    off_loc = list(para_cf['off_loc'])
+    plot_map(patch_x, patch_y, off_loc, saveplot=saveplot, title='Offset Peak Location -cf-', ylabel='Offset Peak Location cf slope')
+    #regression.regression_test(ortho, t2offp)
+    fit = regression.regression_poly(ortho, off_loc, degree=1)
+    plot_ortho(ortho, off_loc, fit, saveplot=saveplot, title='Offset Peak Location -cf-', ylabel='Offset Peak Location cf slope')
+    
+    off_charge = np.array(list(para_cf['off_charge']))
+    plot_map(patch_x, patch_y, off_charge, saveplot=saveplot, title='Offset Charge -cf-', ylabel='Offset Charge cf slope')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, off_charge, degree=1)
+    plot_ortho(ortho, off_charge, fit, saveplot=saveplot, title='Offset Charge -cf-', ylabel='Offset Charge cf slope')
+    
+    
+    """bandwidth"""
+    para_bw = pd.read_csv('para_sep_bw.csv')
+    
+    mouseIDs = list(para_bw['mouseid'])
+    sites = list(para_bw['patch_site'])
+    patch_x, patch_y, ortho = [],[],[]
+    for i,m in enumerate(mouseIDs):
+        site = f'Patch_{sites[i]}'
+        patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x.item())
+        patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y.item())
+        ortho.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].orthogonal.item())
+        
+    on_peak = list(para_bw['on_peak'])
+    plot_map(patch_x, patch_y, on_peak, saveplot=saveplot, title='Onset Peak Amplitude -bw-', ylabel='Onset Peak Amplitude bw slope', vmin=-3, vmax=9)
+    #regression.regression_test(ortho, peak)
+    fit = regression.regression_poly(ortho, on_peak, degree=1)
+    plot_ortho(ortho, on_peak, fit, saveplot=saveplot, title='Onset Peak Amplitude -bw-', ylabel='Onset Peak Amplitude bw slope')
+    
+    on_loc = list(para_bw['on_loc'])
+    plot_map(patch_x, patch_y, on_loc, saveplot=saveplot, title='Onset Peak Location -bw-', ylabel='Onset Peak Location bw slope')
+    #regression.regression_test(ortho, t2p)
+    fit = regression.regression_poly(ortho, on_loc, degree=2)
+    plot_ortho(ortho, on_loc, fit, saveplot=saveplot, title='Onset Peak Location -bw-', ylabel='Onset Peak Location bw slope')
+    
+    on_charge = np.array(list(para_bw['on_charge']))
+    plot_map(patch_x, patch_y, on_charge, saveplot=saveplot, title='Onset Charge -bw-', ylabel='Onset Charge bw slope')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, on_charge, degree=1)
+    plot_ortho(ortho, on_charge, fit, saveplot=saveplot, title='Onset Charge -bw-', ylabel='Onset Charge bw slope')
+    
+    sustain = list(para_bw['sustain'])
+    plot_map(patch_x, patch_y, sustain, saveplot=saveplot, title='Average_Sustain -bw-', ylabel='Avg Sustain Potential bw slope', diverge=True)
+    #regression.regression_test(ortho, sustain)
+    fit = regression.regression_poly(ortho, sustain, degree=1)
+    plot_ortho(ortho, sustain, fit, saveplot=saveplot, title='Average_Sustain -bw-', ylabel='Avg Sustain Potential bw slope')
+    
+    off_peak = list(para_bw['off_peak'])
+    plot_map(patch_x, patch_y, off_peak, saveplot=saveplot, title='Offset Peak Amplitude -bw-', ylabel='Offset Peak Amplitude bw slope', vmin=0, vmax=8)
+    #regression.regression_test(ortho, offpeak)
+    fit = regression.regression_poly(ortho, off_peak, degree=1)
+    plot_ortho(ortho, off_peak, fit, saveplot=saveplot, title='Offset Peak Amplitude -bw-', ylabel='Offset Peak Amplitude bw slope')
+    
+    off_loc = list(para_bw['off_loc'])
+    plot_map(patch_x, patch_y, off_loc, saveplot=saveplot, title='Offset Peak Location -bw-', ylabel='Offset Peak Location bw slope')
+    #regression.regression_test(ortho, t2offp)
+    fit = regression.regression_poly(ortho, off_loc, degree=1)
+    plot_ortho(ortho, off_loc, fit, saveplot=saveplot, title='Offset Peak Location -bw-', ylabel='Offset Peak Location bw slope')
+    
+    off_charge = np.array(list(para_bw['off_charge']))
+    plot_map(patch_x, patch_y, off_charge, saveplot=saveplot, title='Offset Charge -bw-', ylabel='Offset Charge bw slope')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, off_charge, degree=1)
+    plot_ortho(ortho, off_charge, fit, saveplot=saveplot, title='Offset Charge -bw-', ylabel='Offset Charge bw slope')
+
+
+    """modulation rate"""
+    para_mr = pd.read_csv('para_sep_mr.csv')
+    
+    mouseIDs = list(para_mr['mouseid'])
+    sites = list(para_mr['patch_site'])
+    patch_x, patch_y, ortho = [],[],[]
+    for i,m in enumerate(mouseIDs):
+        site = f'Patch_{sites[i]}'
+        patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x.item())
+        patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y.item())
+        ortho.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].orthogonal.item())
+        
+    on_peak = list(para_mr['on_peak'])
+    plot_map(patch_x, patch_y, on_peak, saveplot=saveplot, title='Onset Peak Amplitude -mr-', ylabel='Onset Peak Amplitude mr slope', vmin=-3, vmax=9)
+    #regression.regression_test(ortho, peak)
+    fit = regression.regression_poly(ortho, on_peak, degree=1)
+    plot_ortho(ortho, on_peak, fit, saveplot=saveplot, title='Onset Peak Amplitude -mr-', ylabel='Onset Peak Amplitude mr slope')
+    
+    on_loc = list(para_mr['on_loc'])
+    plot_map(patch_x, patch_y, on_loc, saveplot=saveplot, title='Onset Peak Location -mr-', ylabel='Onset Peak Location mr slope')
+    #regression.regression_test(ortho, t2p)
+    fit = regression.regression_poly(ortho, on_loc, degree=2)
+    plot_ortho(ortho, on_loc, fit, saveplot=saveplot, title='Onset Peak Location -mr-', ylabel='Onset Peak Location mr slope')
+    
+    on_charge = np.array(list(para_mr['on_charge']))
+    plot_map(patch_x, patch_y, on_charge, saveplot=saveplot, title='Onset Charge -mr-', ylabel='Onset Charge mr slope')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, on_charge, degree=1)
+    plot_ortho(ortho, on_charge, fit, saveplot=saveplot, title='Onset Charge -mr-', ylabel='Onset Charge mr slope')
+    
+    sustain = list(para_mr['sustain'])
+    plot_map(patch_x, patch_y, sustain, saveplot=saveplot, title='Average_Sustain -mr-', ylabel='Avg Sustain Potential mr slope', diverge=True)
+    #regression.regression_test(ortho, sustain)
+    fit = regression.regression_poly(ortho, sustain, degree=1)
+    plot_ortho(ortho, sustain, fit, saveplot=saveplot, title='Average_Sustain -mr-', ylabel='Avg Sustain Potential mr slope')
+    
+    off_peak = list(para_mr['off_peak'])
+    plot_map(patch_x, patch_y, off_peak, saveplot=saveplot, title='Offset Peak Amplitude -mr-', ylabel='Offset Peak Amplitude mr slope', vmin=0, vmax=8)
+    #regression.regression_test(ortho, offpeak)
+    fit = regression.regression_poly(ortho, off_peak, degree=1)
+    plot_ortho(ortho, off_peak, fit, saveplot=saveplot, title='Offset Peak Amplitude -mr-', ylabel='Offset Peak Amplitude mr slope')
+    
+    off_loc = list(para_mr['off_loc'])
+    plot_map(patch_x, patch_y, off_loc, saveplot=saveplot, title='Offset Peak Location -mr-', ylabel='Offset Peak Location mr slope')
+    #regression.regression_test(ortho, t2offp)
+    fit = regression.regression_poly(ortho, off_loc, degree=1)
+    plot_ortho(ortho, off_loc, fit, saveplot=saveplot, title='Offset Peak Location -mr-', ylabel='Offset Peak Location mr slope')
+    
+    off_charge = np.array(list(para_mr['off_charge']))
+    plot_map(patch_x, patch_y, off_charge, saveplot=saveplot, title='Offset Charge -mr-', ylabel='Offset Charge mr slope')
+    #regression.regression_test(ortho, HWFM)
+    fit = regression.regression_poly(ortho, off_charge, degree=1)
+    plot_ortho(ortho, off_charge, fit, saveplot=saveplot, title='Offset Charge -mr-', ylabel='Offset Charge mr slope') 
+        

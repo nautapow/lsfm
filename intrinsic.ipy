@@ -1,0 +1,63 @@
+import os, glob
+import pyabf
+from scipy import signal
+from scipy import stats
+import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
+if __name__ == "__main__":
+    note = pd.read_csv(r'C:\Users\McGinley3\Documents\GitHub\lsfm\#map_patch\patch_note.csv', 
+                       converters={'pClamp_pfx': str, 'pClamp': str})
+    idxs = note.index[(note['Protocol']=='i-step') & (note['Inclusion']==1)]
+    folder = r'Z:\Users\cwchiang\pClamp_Data'
+    
+    idx = idxs[1]
+    if idx > 0:
+    #for idx in idxs:
+        filename = f'{note.loc[idx].Date}_{note.loc[idx].ID}_{note.loc[idx].pClamp}'
+        pclamp_dir = folder+f'\{str(note.loc[idx].pClamp_pfx)+str(note.loc[idx].pClamp)}.abf'
+        abf = pyabf.ABF(pclamp_dir)
+        
+        times, traces = [],[]
+        rest, APs, depolar = [],[],[]
+        for i in range(8):
+            abf.setSweep(sweepNumber=i, channel=0)
+            time = abf.sweepX
+            trace = abf.sweepY
+            
+            times.append(time)
+            traces.append(trace)
+            
+            fs = int(abf.dataPointsPerMs*1000)
+            peaks,para = signal.find_peaks(trace, prominence=8, height=[None, None], distance=50)
+            rest.append(np.mean(trace[4000:5000]))
+            APs.append(len(peaks))
+            if len(peaks):
+                idx_ap = np.diff(np.sign(np.diff(trace)-1))>0
+                idx_ap = np.array([i for i,ap in enumerate(idx_ap) if ap])
+                if(len(idx_ap)>1):
+                    idx = np.argmax(idx_ap[1:]-idx_ap[:-1])
+                    depolar.append(np.mean(trace[idx_ap[idx]:idx_ap[idx+1]]))
+                elif(idx_ap<15000):
+                    depolar.append(np.mean(trace[int(idx_ap):15000]))
+                else:
+                    depolar.append(np.mean(trace[15000:int(idx_ap)]))
+            else:
+                depolar.append(np.mean(trace[14000:15000]))
+                
+        fig, ax1 = plt.subplots()
+    
+        ax2 = ax1.twinx()
+        ax1.plot(rest, 'g-')
+        ax1.plot(depolar, 'b-')
+        labels=[-400,-200,0,200,400,600,800,1000]
+        ax1.set_xticks(np.arange(0,8), labels)
+        ax2.plot(APs, 'r-')
+        
+        ax1.set_xlabel('Current Inject')
+        ax1.set_ylabel('Potential', color='b')
+        ax2.set_ylabel('#APs', color='r')
+        
+        fig.suptitle(filename, fontsize=16)
+        #plt.savefig(f'{filename}_intrisic.png', dpi=500, bbox_inches='tight')

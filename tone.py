@@ -297,65 +297,65 @@ def tuning(resp, para, filename='', plot=False, saveplot=False, data_return=Fals
 #     plt.colorbar()
 # =============================================================================
     
-    if plot:
-        xlabel = [3,6,12,24,48,96]
-        xtick = [i * 1000 for i in xlabel]
-        ytick = [30,40,50,60,70,80]
+    xlabel = [3,6,12,24,48,96]
+    xtick = [i * 1000 for i in xlabel]
+    ytick = [30,40,50,60,70,80]
+
+    fig = plt.figure()
+    grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
     
-        fig = plt.figure()
-        grid = plt.GridSpec(2, 1, hspace=0.6, height_ratios=[4,1])
+    ax1 = fig.add_subplot(grid[0])
+    #im = plt.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
+    
+    #ax1.add_collection(im)
+    
+    im = ax1.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
+    ax1.set_xscale('log')
+    ax1.minorticks_off()
+    ax1.set_xticks(xtick)
+    ax1.set_xticklabels(xlabel)
+    ax1.set_yticks(ytick)
+    #ax1.set_yticklabels(ylabel)
+    #ax1.set_title(f'{filename}_{window}')
+    ax1.set_xlabel('Frequency (kHz)', fontsize=16)
+    ax1.set_ylabel('Loudness (dB SPL)', fontsize=16)
+    
+    bf_sort = np.argsort(curve_left)
+    bf_x = [bf_loud[i] for i in bf_sort]
+    bf_y = [y300[i] for i in bf_sort]
+    left_sort = np.argsort(curve_left)
+    left_x = [curve_left[i] for i in left_sort]
+    left_y = [y300[i] for i in left_sort]
+    right_sort = np.argsort(curve_right)
+    right_x = [curve_right[i] for i in right_sort]
+    right_y = [y300[i] for i in right_sort]
+    
+    #ax1.scatter(bf_loud, y300, marker='|', c='forestgreen', s=30)
+    ax1.scatter(bf_x, bf_y, label='bf', s=5, c='forestgreen')
+    ax1.scatter(left_x, left_y, label='left_edge', s=3, c='lawngreen')
+    ax1.scatter(right_x, right_y, label='right_edge', s=3, c='lawngreen')
+    #ax1.fill_betweenx(y300, curve_left, curve_right, color='lawngreen', ec='forestgreen', alpha=0.1)
+    #ax1.scatter(curve_left, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
+    #ax1.scatter(curve_right, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
+    cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
+    cbar = plt.colorbar(im, cax=cax)
+    cbar.ax.set_ylabel('Membrane Potential (a.u.)', fontsize=12)
+    ax1.tick_params(axis='both', which='major', labelsize=14)
         
-        ax1 = fig.add_subplot(grid[0])
-        #im = plt.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
-        
-        #ax1.add_collection(im)
-        
-        im = ax1.pcolormesh(XX, YY, resp_smooth, cmap='RdBu_r', norm=colors.CenteredNorm())
-        ax1.set_xscale('log')
-        ax1.minorticks_off()
-        ax1.set_xticks(xtick)
-        ax1.set_xticklabels(xlabel)
-        ax1.set_yticks(ytick)
-        #ax1.set_yticklabels(ylabel)
-        ax1.set_title(f'{filename}_{window}')
-        ax1.set_xlabel('Frequency (kHz)')
-        ax1.set_ylabel('Loudness (dB SPL)')
-        
-        bf_sort = np.argsort(curve_left)
-        bf_x = [bf_loud[i] for i in bf_sort]
-        bf_y = [y300[i] for i in bf_sort]
-        left_sort = np.argsort(curve_left)
-        left_x = [curve_left[i] for i in left_sort]
-        left_y = [y300[i] for i in left_sort]
-        right_sort = np.argsort(curve_right)
-        right_x = [curve_right[i] for i in right_sort]
-        right_y = [y300[i] for i in right_sort]
-        
-        #ax1.scatter(bf_loud, y300, marker='|', c='forestgreen', s=30)
-        ax1.scatter(bf_x, bf_y, label='bf', s=5, c='forestgreen')
-        ax1.scatter(left_x, left_y, label='left_edge', s=3, c='lawngreen')
-        ax1.scatter(right_x, right_y, label='right_edge', s=3, c='lawngreen')
-        #ax1.fill_betweenx(y300, curve_left, curve_right, color='lawngreen', ec='forestgreen', alpha=0.1)
-        #ax1.scatter(curve_left, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
-        #ax1.scatter(curve_right, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
-        cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
-        cbar = plt.colorbar(im, cax=cax)
-        cbar.ax.set_ylabel('mV')
-            
-        if saveplot:
-            if window:
-                plt.savefig(f'{filename}_{window}.pdf', dpi=500, format='pdf', bbox_inches='tight')
-                plt.savefig(f'{filename}_{window}.png', dpi=500, bbox_inches='tight')
-            else:
-                plt.savefig(f'{filename}.pdf', dpi=500, format='pdf', bbox_inches='tight')
-                plt.savefig(f'{filename}.png', dpi=500, bbox_inches='tight')
-        if plot:
-            plt.show()
-            plt.clf()
-            plt.close(fig)
+    if saveplot:
+        if window:
+            #plt.savefig(f'{filename}_{window}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            plt.savefig(f'{filename}_{window}.png', dpi=500, bbox_inches='tight')
         else:
-            plt.clf()
-            plt.close(fig)
+            #plt.savefig(f'{filename}.pdf', dpi=500, format='pdf', bbox_inches='tight')
+            plt.savefig(f'{filename}.png', dpi=500, bbox_inches='tight')
+    if plot:
+        plt.show()
+        plt.clf()
+        plt.close(fig)
+    else:
+        plt.clf()
+        plt.close(fig)
             
     if data_return:
         return x300, y300, resp_smooth, width70, bf_loud
@@ -587,7 +587,7 @@ def psth(resp, filename, base_adjust=False, x_in_ms=False, saveplot=False, **kwa
     fig, ax = plt.subplots()
     ax.plot(x,y)
     ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-    [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
+    #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
     [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
     ax.set_title(f'{filename}_tone-PSTH')   
     ax.set_xlim(0,10000)
@@ -622,7 +622,7 @@ def plot_psth(psth, resp, filename, x_in_ms=True, plot=True, saveplot=False):
     fig, ax = plt.subplots()
     ax.plot(x,psth)
     ax.fill_between(x, y+err, y-err, color='orange', alpha=0.6)
-    [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
+    #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
     [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
     #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,6000,50)]
     #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.7) for _x in np.arange(0,6000,250)]
@@ -650,6 +650,72 @@ def plot_psth(psth, resp, filename, x_in_ms=True, plot=True, saveplot=False):
         plt.clf()
         plt.close(fig)
         
+def psth_wwobfband(resp, para, bf, bandwidth, filename, x_in_ms=False, plot=True, saveplot=False, **kwargs):
+    loud, freq, _ = zip(*para)
+    freq = np.array(sorted(set(freq)))
+    bf_range = [bf/2**(bandwidth/2), bf*2**(bandwidth/2)]
+    target_freq = [f for f in freq if f>bf_range[0] and f<bf_range[1]]
+    
+    resp_in, resp_ex = [],[]
+    para_in, para_ex = [],[]
+    idx_in, idx_ex = [],[]
+    
+    for i,p in enumerate(para):
+        if p[1] in target_freq:
+            resp_in.append(base_adjust(resp[i]))
+            para_in.append(para[i])
+            idx_in.append(i)
+        else:
+            resp_ex.append(base_adjust(resp[i]))
+            para_ex.append(para[i])
+            idx_ex.append(i)
+            
+    
+    psth_in = np.mean(resp_in, axis=0)
+    x_in = np.arange(len(psth_in))
+    err_in = stats.sem(resp_in, axis=0)
+    psth_ex = np.mean(resp_ex, axis=0)
+    x_ex = np.arange(len(psth_ex))
+    err_ex = stats.sem(resp_ex, axis=0)
+    
+    fig, ax = plt.subplots()
+    ax.plot(x_in,psth_in, color='darkorange', label='In RF')
+    ax.fill_between(x_in, psth_in+err_in, psth_in-err_in, color='orange', alpha=0.6)
+    ax.plot(x_ex,psth_ex, color='mediumseagreen', label='Out RF')
+    ax.fill_between(x_ex, psth_ex+err_ex, psth_ex-err_ex, color='mediumaquamarine', alpha=0.4)
+    ax.legend()
+    #[ax.axvline(x=_x, color='k', linestyle='--', alpha=0.3) for _x in np.arange(0,5100,500)]
+    [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
+    #ax.set_title(f'{filename}_tone-PSTH-bf')   
+    ax.set_xlim(0,10000)
+    ax.set_ylabel('Membrane Potential (mV)')
+    
+    if x_in_ms:
+        label = np.linspace(-20,380,6)
+        ax.set_xticks(np.linspace(0,10000,6),label)
+        ax.set_xlabel('time (ms)', fontsize=16)
+        ax.set_ylabel('Membrane Potential (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
+    else:
+        ax.set_xticks([0,500,1500,3000,5000,7000,9000])
+        ax.set_xlabel('data point (2500/100ms)', fontsize=16)
+        ax.set_ylabel('Membrane Potential (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
+        
+    if saveplot:
+        plt.savefig(f'{filename}_tone-PSTH_bf.png', dpi=500, format='png', bbox_inches='tight')
+        plt.clf()
+        plt.close(fig)
+    if plot:
+        plt.show()
+        plt.clf()
+        plt.close(fig)
+    else:
+        plt.clf()
+        plt.close(fig)
+    
+    return [x_in, psth_in, err_in], [x_ex, psth_ex, err_ex]
+    
 
 def psth_bfband(resp, para, bf, bandwidth, filename, x_in_ms=False, plot=True, saveplot=False, **kwargs):
     loud, freq, _ = zip(*para)

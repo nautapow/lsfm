@@ -36,8 +36,8 @@ if  __name__ == "__main__":
     psth_para_list, psth_store = [],[]
     mouseIDs, filenames, patch_sites, bfs, bandwidths = [],[],[],[],[]
     
-    #df_loc = 248       
-    #if df_loc == 248:
+    #df_loc = 209       
+    #if df_loc == 209:
     
     for df_loc in idx_puretone:
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
@@ -102,7 +102,7 @@ if  __name__ == "__main__":
         
         try:
             x = tone.tuning(resp_adjust, para_merge, fullname, plot=False, 
-                                saveplot=False, data_return=True, window=(500,3000))
+                                saveplot=True, data_return=True, window=(500,3000))
             bf70 = x[4][240]
             bandwidth = x[3]
             df.loc[df_loc, 'best_frequency'] = bf70
@@ -110,9 +110,11 @@ if  __name__ == "__main__":
         except:
             pass
         
-        #tone.psth(resp_adjust, fullname, x_in_ms=True, saveplot=False)
-        #yy = tone.psth_bf(resp, para, bf70, filename, x_in_ms=False, plot=False, saveplot=False)
+        tone.psth(resp_adjust, fullname, x_in_ms=True, saveplot=False)
+        yy = tone.psth_bf(resp, para, bf70, filename, x_in_ms=False, plot=False, saveplot=False)
         psth_bf = tone.psth_bfband(resp, para, bf70, bandwidth, filename, x_in_ms=True, plot=False, saveplot=False)
+        _,_ = tone.psth_wwobfband(resp, para, bf70, bandwidth, filename, x_in_ms=True, plot=True, saveplot=True)
+        
         
         ##Get PSTH parameter
         df_psth_para_all = pd.read_excel('tone_psth_bf_para.xlsx')
@@ -123,11 +125,11 @@ if  __name__ == "__main__":
             onset_y = psth_y[500]
             offset_y = psth_y[3000]
             peak_amp = (psth_y[df_psth_para['peak']] - psth_y[df_psth_para['peak_start']]).item()
-            time2peak = (df_psth_para['peak'].item() - 3000)/25
+            time2peak = (df_psth_para['peak'].item() - 500)/25
             HWFM = (df_psth_para['half_amp_end'] - df_psth_para['half_amp_start']).item()/25
             peak_end = (df_psth_para['peak_transition'].item()-500)/25
-            on_area = np.sum(psth_bf[1][300:5000])
-            off_area = np.sum(psth_bf[1][5000:])
+            on_area = np.sum(psth_bf[1][500:3000])
+            off_area = np.sum(psth_bf[1][3000:])
         
             psth_para_list.append([onset_y, offset_y, peak_amp, time2peak, HWFM, peak_end, on_area, off_area])
             psth_store.append(psth_bf[1])

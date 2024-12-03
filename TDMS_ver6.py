@@ -7,9 +7,9 @@ import pandas as pd
 from pathlib import Path
 
 """
-Version 1.5
-Update for LabView patch_ver1.5.
-Fixed error loading pure-tone data by excluding 0.0 dB and 0.0 Hz in parameters
+Version 6
+Enlongate Crop Window from 50ms prestim - 450ms poststim,
+to 500ms prestim - 1000ms poststim
 """
 
 
@@ -599,11 +599,11 @@ class Tdms_V2():
             para = {'fc':fc, 'bdwidth':bdwidth, 'mod_rate':mod_rate, 'stim_time':stim_time}
             para_zip = list(zip(fc, bdwidth, mod_rate, stim_time))
             
-            stim_startP = stim_time - 50*sRate
+            stim_startP = stim_time - 600*sRate
             #stim_endP = stim_startP + 1500*sRate + 500*sRate
             for i in range(len(stim_time)):
                 x1 = int(stim_startP[i])
-                x2 = x1 + 1500*sRate
+                x2 = x1 + 2600*sRate
                 self.misc.append(x1)
                 if x1 < 0:
                     lst = np.zeros(abs(x1))

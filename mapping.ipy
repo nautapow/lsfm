@@ -243,7 +243,7 @@ def check_sync(stim_sync, img_sync, img_all, para, filename):
 
 def plot_map(mapping, filename, saveplot=False):
     map_plot = np.reshape(mapping, (3,4,512,512))
-    vmax = np.max(mapping)/2
+    vmax = np.max(mapping)/3
     
     fig, ax = plt.subplots(3,4, figsize=(15, 10))
     for x in range(3):
@@ -625,7 +625,10 @@ def plot_regions():
     yy = [0, np.mean(a1_y), np.mean(a2_y), np.mean(aaf_y)]
     sd_x = [0, np.std(a1_x), np.std(a2_x), np.std(aaf_x)]
     sd_y = [0, np.std(a1_y), np.std(a2_y), np.std(aaf_y)]
-    
+    tune_x = [0.402, 0.138, 0.245, 0.377, 0.083, 0.262	, 0.132, 0.279, 
+           0.514, 0.52, 0.83, 0.298, 0.56, 0.503]
+    tune_y = [0.599, 0.802, 0.054, -0.148, 0.757, 0.422, 0.318, 0.103, 
+           0.64, 0.05, 1.328, 0.44, 1.049, -0.336]
     region = [[0, 1.0, 0.0, 1.029], [0, 0.0, 0.926, 0.726], 
               [0.03, 0.03, 0.03, 0.203], [0.04, 0.04, 0.223, 0.166]]
     region_xy = list(zip(region[0], region[1]))
@@ -635,13 +638,14 @@ def plot_regions():
     ax.errorbar(xx, yy, sd_y, sd_x, capsize=2, ls='none', color='black', 
             elinewidth=2)
     ax.scatter(patch_x, patch_y, label='Patch Site', color='green')
+    ax.scatter(tune_x, tune_y, label='Patch and Tuned', color='red')
     for i in range(4):
         ellipse = patches.Ellipse(region_xy[i], region[2][i]*2, region[3][i]*2, angle=0, color='grey', alpha=0.6)
         ax.add_patch(ellipse)
     plt.title('Cortical Region and Recording Site')
-    plt.xlabel('A1-HF axis', fontsize=14)
+    plt.xlabel('A1-UF axis', fontsize=14)
     plt.ylabel('A1-A2 axis', fontsize=14)
-    plt.savefig('hole_distribution.png', dpi=500)
+    plt.savefig('hole_distribution.png', dpi=500, bbox_inches='tight')
     plt.show()
     
     return xx, yy, sd_x, sd_y
@@ -678,7 +682,7 @@ def save_coord(filename, threshold, coords, trans_coords):
 
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\cwchiang\mapping\TP110\1'
+    directory = r'Z:\Users\cwchiang\mapping\TP046\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     
@@ -704,45 +708,71 @@ if __name__ == "__main__":
         para_map = np.mean(np.reshape(para, (-1, repeat, 2)), axis=1)
         mapping = np.mean(act_map, axis=1)
     
-# =============================================================================
-#     ##plot mapping and overlay, change threshold and colorbar limit in function plot_map
-#     plot_map(mapping, filename, saveplot=False)
-#     threshold = (0.65,0.75)
-#     map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
-#     index = [9,10,10]
-#     plot_overlay(index, map_prosses, filename, saveplot=False)
-# =============================================================================
-            
+    ##plot mapping and overlay, change threshold and colorbar limit in function plot_map
+    plot_map(mapping, filename, saveplot=False)
+    threshold = (0.65,0.75)
+    map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
+    index = [9,10,10]
+    plot_overlay(index, map_prosses, filename, saveplot=False)
+    
+    def scale(arr, alpha=10.0):
+        vmin = np.min(arr)
+        vmax = np.max(arr)
+        
+        scale = (arr-vmin)/(vmax-vmin)
+        return scale*alpha
+    
+    
+    map1 = mapping[8]   
+    m1 = map1<np.max(map1)*0.5
+    map1[m1]=0
+    plt.imshow(map1/4)
+    plt.show()
+    
+    map2 = mapping[10]
+    m2 = map2<np.max(map2)*0.5
+    map2[m2]=0
+    plt.imshow(map2/4)
+    plt.show()
+    
+    map3 = mapping[11]
+    m3 = map3<np.max(map3)*0.5
+    map3[m3]=0
+    plt.imshow(map3/4)
+    plt.show()
+    
     #coords = get_coordinate(filename)
     #trans_coords = transform_coord(coords)
     #save_coord(filename, threshold, coords, trans_coords)
     
-    ##fast coordinate input
-    file_list = ['TG150_1', 'TG147_1', 'TG145_3', 'TG146_3', 'TP026_1', 'TP032_3', 'TP035_1', 'TP057_1', 'TP064_1',
-                 'TP074_2', 'TP087_1', 'TP096_1', 'TP109_1', 'TP110_1', 'TP118_1', 'TP108_1',
-                 'TP086_2', 'TP041_1']        
-    coord_df = pd.DataFrame(columns=['id', 'x', 'y'])
-    
-    coord_all = []
-    ortho_all = []
-    for filename in file_list:
-        coord_file = f'{filename}_coord.npy'
-        coord_data = np.load(coord_file, allow_pickle=True)
-        coords = coord_data.item().get('raw_coordinate')
-        trans_coords = transform_coord(coords)
-        ortho_coords = get_orthogonal(coords)
-        
-        
-        for i,a in enumerate(trans_coords):
-            coord_all.append([filename, a[0], a[1]])
-            #coord_df.loc[i] = [filename, a[0], a[1]]
-            
-        ortho_all.append([filename, ortho_coords[0], ortho_coords[1]])
-    
-    coord_df = pd.DataFrame(coord_all)
-    coord_df.to_excel('coord_temp_new.xlsx')
-    ortho_df = pd.DataFrame(ortho_all)
-    ortho_df.to_excel('ortho_temp_new.xlsx')
+# =============================================================================
+#     ##fast coordinate input
+#     file_list = ['TG150_1', 'TG147_1', 'TG145_3', 'TG146_3', 'TP026_1', 'TP032_3', 'TP035_1', 'TP057_1', 'TP064_1',
+#                  'TP074_2', 'TP087_1', 'TP096_1', 'TP109_1', 'TP110_1', 'TP118_1', 'TP108_1',
+#                  'TP086_2', 'TP041_1']        
+#     coord_df = pd.DataFrame(columns=['id', 'x', 'y'])
+#     
+#     coord_all = []
+#     ortho_all = []
+#     for filename in file_list:
+#         coord_file = f'{filename}_coord.npy'
+#         coord_data = np.load(coord_file, allow_pickle=True)
+#         coords = coord_data.item().get('raw_coordinate')
+#         trans_coords = transform_coord(coords)
+#         ortho_coords = get_orthogonal(coords)
+#         
+#         
+#         for i,a in enumerate(trans_coords):
+#             coord_all.append([filename, a[0], a[1]])
+#             #coord_df.loc[i] = [filename, a[0], a[1]]
+#             
+#         ortho_all.append([filename, ortho_coords[0], ortho_coords[1]])
+#     
+#     coord_df = pd.DataFrame(coord_all)
+#     coord_df.to_excel('coord_temp_new.xlsx')
+#     ortho_df = pd.DataFrame(ortho_all)
+#     ortho_df.to_excel('ortho_temp_new.xlsx')
+# =============================================================================
         
     if not os.path.isfile(npy):
         save_npy(act, act_map, mapping, para_map, directory, filename)

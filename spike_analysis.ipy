@@ -1,0 +1,69 @@
+from TDMS_ver5 import Tdms_V2
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+import matplotlib.colors as colors
+from pathlib import Path
+from scipy import signal
+from scipy import stats
+import scipy.io
+import TFTool
+import pandas as pd
+import math
+from lsfm import resp_bfband_or_not
+
+
+if  __name__ == "__main__":
+    df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
+    df_patch = pd.read_csv('lsfm_psth_para_inBF.csv')
+    df_tuning = pd.read_csv('tone_psth_para_inBF.csv')
+    
+    files = list(df_patch['filename'])
+   
+    total_spikes=[]
+    spikes_inbf, spikes_exbf = [],[]
+    N_inbf, N_exbf, rate_inbf, rate_exbf = [],[],[],[]
+    filenames, bfs, bandwidths = [],[],[]
+    for file in files:
+        index = df[df['filename'] == file].index
+        directory = Path(df.iloc[index].path.item())
+        tuning_tone = df['tuning_from'][index].item()
+        bf = df_tuning[df_tuning['filename']==tuning_tone].best_frequency.item()
+        bandwidth = df_tuning[df_tuning['filename']==tuning_tone].bandwidth.item()
+        
+        
+        t = Tdms_V2()
+        t.loadtdms(directory, protocol=0, load_sound=False, dePeak=False)
+        resp = t.resp
+        para = t.para
+        spike = []
+        for r in resp:
+            peaks,_ = signal.find_peaks(r, prominence=0.2, height=[None, None], rel_height=0.1, width=[0,100])
+            spike.append(len(peaks))
+        
+        _,_,_,_,idx_in,idx_ex = resp_bfband_or_not(resp, para, bf, bandwidth)
+        spike_in = np.array([spike[i] for i in idx_in])
+        spike_ex = np.array([spike[i] for i in idx_ex])
+        total_spikes.append(np.sum(spike))
+        spikes_inbf.append(np.sum(spike_in))
+        spikes_exbf.append(np.sum(spike_ex))
+        N_inbf.append(len(idx_in))
+        N_exbf.append(len(idx_ex))
+        rate_inbf.append(np.sum(spike_in)/len(idx_in))
+        rate_exbf.append(np.sum(spike_ex)/len(idx_ex))
+        
+        
+        filenames.append(file)
+        bfs.append(bf)
+        bandwidths.append(bandwidth)
+    
+    data = {'mouseid':list(df_patch['mouseid']), 'filename':filenames, 'patch_site':list(df_patch['patch_site']), 
+            'best_frequency':bfs, 'bandwidth':bandwidths, 
+            'total_spikes':total_spikes, 'spikes_inbf':spikes_inbf, 'spikes_exbf':spikes_exbf,
+            'N_inbf':N_inbf, 'N_exbf':N_exbf, 'rate_inbf':rate_inbf, 'rate_exbf':rate_exbf}
+    
+    df_spikes = pd.DataFrame(data)
+    df_spikes.to_csv('spiking_count_new.csv', index=False)
+        
+        
+    

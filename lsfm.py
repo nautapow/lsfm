@@ -1,4 +1,4 @@
-from TDMS_ver1 import Tdms
+from TDMS_ver5 import Tdms_V1, Tdms_V2
 import numpy as np
 import os
 import matplotlib.pyplot as plt
@@ -13,6 +13,11 @@ from scipy.signal.windows import dpss
 import math
 import lsfm_slope
 
+
+def baseline(arr):
+    arr = np.array(arr)
+    
+    return (arr - np.mean(arr[:50*25]))*100
        
     
 def pow_diff(filename, resp, para):
@@ -297,14 +302,14 @@ def coeff(df, loc1, loc2):
     df_loc = loc1
     fdir = df['path'][df_loc]
     filename1 = df['date'][df_loc]+'_'+df['#'][df_loc]
-    t = Tdms()
+    t = Tdms_V2()
     t.loadtdms(fdir, load_sound=False)
     resp1,_ = t.get_dpk()
     
     df_loc = loc2
     fdir = df['path'][df_loc]
     filename2 = df['date'][df_loc]+'_'+df['#'][df_loc]
-    t = Tdms()
+    t = Tdms_V2()
     t.loadtdms(fdir, load_sound=False)
     resp2,_ = t.get_dpk()
     filename = df['date'][loc1]+'v'+df['date'][loc2]
@@ -956,7 +961,51 @@ def stim_resp(i, stim, resp, para, filename, saveplot=False):
     plt.close(fig)
 
 
-def resp_bf_or_not(resp, para, bf, bandwidth):
+def resp_bf_or_not(resp, para, bf):
+    """
+    Devide response by whether stimulus ever crossed best frequency or not.
+
+    Parameters
+    ----------
+    resp : TYPE
+        DESCRIPTION.
+    para : TYPE
+        DESCRIPTION.
+    bf : float
+        Best frequency in Hz.
+
+    Returns
+    -------
+    resp_bf_in : TYPE
+        resp with stimulus crossed bf.
+    resp_bf_ex : TYPE
+        resp without stimulus ever crossing bf.
+    para_bf_in : TYPE
+        para for resp_bf_in.
+    para_bf_ex : TYPE
+        para for resp_bf_ex.
+
+    """
+    resp_inbf, resp_exbf = [],[]
+    para_inbf, para_exbf = [],[]
+    index_inbf, index_exbf = [],[]
+    for i,p in enumerate(para):
+        '''calculation frequency band using para'''
+        freq_max = p[0]*1000 * (2**(p[1]/2))
+        freq_min = p[0]*1000 / (2**(p[1]/2))
+        if bf > freq_min and bf < freq_max:
+            resp_inbf.append(resp[i])
+            para_inbf.append(p)
+            index_inbf.append(i)
+        else:
+            resp_exbf.append(resp[i])
+            para_exbf.append(p)
+            index_exbf.append(i)
+    
+    return resp_inbf, resp_exbf, para_inbf, para_exbf, index_inbf, index_exbf
+
+
+def resp_bfband_or_not(resp, para, bf, bandwidth):
     """
     Devide response by whether stimulus ever crossed best frequency or not.
 
@@ -983,20 +1032,24 @@ def resp_bf_or_not(resp, para, bf, bandwidth):
     """
     bf_max = bf*2**(bandwidth/2)
     bf_min = bf/2**(bandwidth/2)
-    resp_bf_in, resp_bf_ex = [],[]
-    para_bf_in, para_bf_ex = [],[]
+    resp_inbf, resp_exbf = [],[]
+    para_inbf, para_exbf = [],[]
+    index_inbf, index_exbf = [],[]
+    
     for i,p in enumerate(para):
         '''calculation frequency band using para'''
         freq_max = p[0]*1000 * (2**(p[1]/2))
         freq_min = p[0]*1000 / (2**(p[1]/2))
         if (bf_max > freq_min and bf_max < freq_max) or (bf_min > freq_min and bf_min < freq_max) or (bf > freq_min and bf < freq_max):
-            resp_bf_in.append(resp[i])
-            para_bf_in.append(p)
+            resp_inbf.append(resp[i])
+            para_inbf.append(p)
+            index_inbf.append(i)
         else:
-            resp_bf_ex.append(resp[i])
-            para_bf_ex.append(p)
+            resp_exbf.append(resp[i])
+            para_exbf.append(p)
+            index_exbf.append(i)
     
-    return resp_bf_in, resp_bf_ex, para_bf_in, para_bf_ex
+    return resp_inbf, resp_exbf, para_inbf, para_exbf, index_inbf, index_exbf
 
 
 def best_lags():
@@ -1036,7 +1089,50 @@ def best_lags():
     plt.close(fig)
     
 
+def seperate_by_para(stim, resp, para, which_parameter=0):
+    """
+    sepearte stim, resp, para base on lsfm parameter
 
+    Parameters
+    ----------
+    stim : 2d-array
+        array of stimulus time-series.
+    resp : 2d-array
+        array of response time-series.
+    para : list of tuple
+        list of parameter tuples.
+    which_parameter : int, optional
+        Index of parameter category chose to seperate into group. The default is 0.
+        0: carrier frequency (cf)
+        1: bandwidth (bw)
+        2: modulation rate (mr)
+
+    Returns
+    -------
+    data : dictionay
+        'para_type': store which_parameter for referencing
+        'parameter': list of parameters in the chosen parameter category 
+        'stim': stimuli grouped by each parameter
+        'resp': responses grouped by each parameter
+        'para': corresponding full-parameters grouped by each parameter
+
+    """
     
+    para_idx = which_parameter
+    category = set([p[para_idx] for p in para])
+    stim_sep, resp_sep, para_sep = [],[],[]
     
+    for c in category:
+        stim_cat, resp_cat, para_cat = [],[],[]
+        for i , p in enumerate(para):
+            if p[para_idx] == c:
+                stim_cat.append(stim[i])
+                resp_cat.append(resp[i])
+                para_cat.append(para[i])
+        stim_sep.append(stim_cat)
+        resp_sep.append(resp_cat)
+        para_sep.append(para_cat)
     
+    data = {'para_type':para_idx, 'parameter':category, 'stim':stim_sep, 'resp':resp_sep, 'para':para_sep}
+    
+    return data

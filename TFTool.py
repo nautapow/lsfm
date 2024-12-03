@@ -9,11 +9,12 @@ import scipy.io
 import pandas as pd
 
 
-def element(arr, *arg):
-    #find the location of element with content arg in an array
-    for i in range(len(arr)):
-         if all(e in arr[i] for e in arg):
-             return i
+def find_item(arr, target):
+    ##find the location of element with content arg in an array
+    for i,a in enumerate(arr):
+        if str(a) == str(target):
+            return i
+
 
 def fft(arr, fs):
     fs = fs
@@ -33,6 +34,8 @@ def stft(arr, fs, n=100):
     plt.ylabel('Frequency [Hz]')
     plt.xlabel('Time [sec]')
     plt.show()
+    
+    return f,t,Zxx
     
 def morlet(arr, fs, width):
     N = len(arr)
@@ -233,8 +236,15 @@ def sixtyHz(arr, fs):
     return signal.filtfilt(b,a, arr)
 
 
-def hilbert(arr):
-    return signal.hilbert(arr)
+def hilbert(arr, fs=200000):
+    analytic_signal = signal.hilbert(arr)
+    amplitude_envelope = np.abs(analytic_signal)
+    instantaneous_phase = np.unwrap(np.angle(analytic_signal))
+    instantaneous_frequency = (np.diff(instantaneous_phase) /
+                           (2.0*np.pi) * fs)
+    
+    return [amplitude_envelope, instantaneous_phase, instantaneous_frequency]
+
 
 def binlocator(n, arr):
     """find the location in a binned array givien a number"""

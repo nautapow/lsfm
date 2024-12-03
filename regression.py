@@ -11,6 +11,7 @@ from sklearn.model_selection import permutation_test_score
 from sklearn.feature_selection import f_regression
 import pandas as pd
 from scipy import stats
+from scipy.optimize import curve_fit
 
 def regression_test(x, y):
     """
@@ -106,7 +107,10 @@ def regression_poly(x, y, degree=1):
     y_fit = model.predict(x_fit)
     r_squared = model.score(X, y)
     
-    p_value = f_regression(X, y)[1]
+    if round(float(f_regression(X, y)[1]),4) != 0:
+        p_value = round(float(f_regression(X, y)[1]),4)
+    else:
+        p_value = "{:.3e}".format(float(f_regression(X, y)[1]))
 
 # =============================================================================
 #     # Plot the x-y scatter plot and linear fit curve
@@ -120,3 +124,22 @@ def regression_poly(x, y, degree=1):
 # =============================================================================
     
     return x_fit, y_fit, round(r_squared,4), p_value
+
+
+def fit_sine(t_data, y_data_log, initial_guess=[0,1.5,0,0]):
+    
+    # Define the modified sine wave function for log-transformed data
+    def sine_function(t, log_amplitude, frequency, phase, log_offset):
+        return log_amplitude * np.sin(2 * np.pi * frequency * t + phase) + log_offset
+    
+    # Perform curve fitting with log-transformed data
+    initial_guess = [0.0, 1.5, 0.0, 0.0]  # Initial guess for log_amplitude, frequency, phase, and log_offset
+    params_log, covariance_log = curve_fit(sine_function, t_data, y_data_log, p0=initial_guess)
+    
+    # Extract the optimized parameters
+    log_amplitude, frequency, phase, log_offset = params_log
+    
+    # Generate the fitted sine wave using the optimized parameters
+    y_fit_log = sine_function(t_data, log_amplitude, frequency, phase, log_offset)
+    
+    return y_fit_log

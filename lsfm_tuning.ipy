@@ -1,0 +1,146 @@
+from TDMS_ver5 import Tdms_V1, Tdms_V2
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+from pathlib import Path
+from scipy import signal
+from scipy import stats
+from scipy import interpolate
+from scipy.optimize import curve_fit
+import scipy.io
+import TFTool
+import pandas as pd
+import lsfm
+import lsfm_psth
+from lsfm_psth import Psth
+import lsfm_slope
+import math
+import lsfm_strf
+import regression
+import plotly.io as pio
+import plotly.express as px
+import plotly.graph_objects as go
+pio.renderers.default='browser'
+
+if  __name__ == "__main__":
+    df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
+    df_patch = pd.read_csv('lsfm_psth_para_inBF.csv')
+    filenames = list(df_patch['filename'])
+    
+    for filename in filenames:
+    #filename = '20230630_008'    
+    
+# =============================================================================
+#     fdir = Path(df[df['filename']==filename].path.item())
+#     t = Tdms_V2()
+#     t.loadtdms(fdir, protocol=0, load_sound=True)
+# =============================================================================
+    
+# =============================================================================
+#         cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
+#         para = cell_data.item().get('para')
+#         stim = cell_data.item().get('stim')
+#         resp = cell_data.item().get('resp')
+# =============================================================================
+        
+        mouseid = df_patch[df_patch['filename']==filename].mouseid.item()
+        bf = df_patch[df_patch['filename']==filename].best_frequency.item()
+        bandwidth = df_patch[df_patch['filename']==filename].bandwidth.item()
+        version=3    
+        
+        fdir = Path(df[df['filename']==filename].path.item())
+        t = Tdms_V2()
+        t.loadtdms(fdir, protocol=0, load_sound=True, dePeak=True)
+        resp = np.array(t.resp_dpk)
+        para = t.para
+        stim = t.sound
+            
+        resp = TFTool.prefilter(resp, 25000)
+        #resp = np.apply_along_axis(lsfm.baseline, 0, resp)
+        
+    # =============================================================================
+    #     psth = Psth(resp, para, filename, version)
+    #     x,y,err=psth.psth_all(plot=True)
+    # =============================================================================
+        
+        resp_in, resp_ex, para_in, para_ex, idx_in, idx_ex = lsfm.resp_bfband_or_not(resp, para, bf, bandwidth)
+        stim_in = [stim[i] for i in idx_in]
+        stim_ex = [stim[i] for i in idx_ex]
+        resp_in = np.array(resp_in)
+        resp_ex = np.array(resp_ex)
+        
+        # =============================================================================
+        #     ## quick display all resp
+        #     for i,r in enumerate(resp_in):
+        #         
+        #         plt.plot(r)
+        #         plt.title(f'#{i}_{idx_in[i]}_{mouseid}_{filename}_{para_in[i][:3]}')
+        #         plt.show()
+        # =============================================================================
+        
+        for i in range(3):
+            which_parameter=i
+            _ = lsfm_psth.psth_para_sepearte(stim_in, resp_in, para_in, 
+                                             which_parameter, bf, filename, 'inBF', plot=False, saveplot=True)
+            _ = lsfm_psth.psth_para_sepearte(stim_ex, resp_ex, para_ex, 
+                                             which_parameter, bf, filename, 'exBF', plot=False, saveplot=True)
+
+
+# =============================================================================
+#     ## plotting individual response with stimulus overlay
+#     for i in range(len(resp_in)):
+#         r = lsfm.baseline(resp_in[i])
+#         stim_freq = TFTool.hilbert(stim_in[i],200000)[2][10100:210000]
+#         mask = stim_freq<=0
+#         stim_freq[mask]=0.1
+#         stim_freq = np.array([math.log(j,2) for j in stim_freq])
+#         yy = np.array(pd.DataFrame(stim_freq).interpolate().values.ravel().tolist())
+#         y_cross = np.diff(np.sign(np.array(yy)-math.log(bf,2)))
+#         #cross_up = (np.array([i for i,y in enumerate(yy) if y > 0])+10101)/8
+#         #cross_down = (np.array([i for i,y in enumerate(yy) if y < 0])+10101)/8
+#         cross = (np.array([i for i,y in enumerate(y_cross) if y != 0])+10100)/8
+#         
+#         stim_freq = TFTool.hilbert(stim_in[i],200000)[2][10000:210000]
+#         mask = stim_freq<=0
+#         stim_freq[mask]=0.1
+#         stim_freq = np.array([math.log(j,2) for j in stim_freq])
+#         yy = np.array(pd.DataFrame(stim_freq).interpolate().values.ravel().tolist())
+#         y_sample = signal.resample(yy, 25000)
+#         offset = np.max(y_sample)-np.max(r)+1
+#         stim_log = np.pad(y_sample, (1250, 11250), 'constant', constant_values=(offset+2, offset+2))
+#         mask = stim_log < offset
+#         stim_log[mask[:]] = offset
+#         
+#         folder = f'{mouseid}_{filename}'
+#         if not os.path.isdir(folder):
+#             os.makedirs(folder)
+#         
+#         fig, ax = plt.subplots()
+#         ax.plot(stim_log-offset-2, c='orange', alpha=0.5)
+#         ax.scatter(cross, [np.max(r[1250:26250])-12]*len(cross), marker='s', c='firebrick', s=3)
+#         ax.plot(r, c='navy')
+#         #plt.scatter(cross_up, [np.min(resp_in[i])-0.003]*len(cross_up), marker='s', c='red', s=3)
+#         #plt.scatter(cross_down, [np.min(resp_in[i])-0.002]*len(cross_down), marker='s', c='blue', s=3)
+#         
+#         #ax.scatter(range(len(stim_log)), stim_log-offset, c='orange', s=1, marker=',', alpha=0.1)
+#         ax.set_xlim(0,len(r))
+#         label = list(np.round(np.linspace(0, 1.5, 16), 2))
+#         ax.set_xticks(np.linspace(0,37500,16))
+#         ax.set_xticklabels(label, rotation = 45)
+#         ax.set_xlabel('time (sec)', fontsize=16)
+#         ax.set_ylabel('Membrane Potential (mV)', fontsize=16)
+#         ax.tick_params(axis='both', which='major', labelsize=12)
+#         [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.7) for _x in [1250,26250]]
+#         ax.annotate(f'{para_in[i][:3]}', xy=(0.99, 0.97), xycoords='axes fraction', size=10, ha='right', va='top')
+#         ax.annotate(f'BF:{round(bf/1000,1)}kHz', xy=(0.99, 0.90), xycoords='axes fraction', size=10, ha='right', va='top')
+#         #ax.set_title(f'{mouseid}_{filename}_{para_in[i][:3]}')
+#         plt.savefig(f'{folder}/{mouseid}_{filename}_#{i}-{idx_in[i]}.png', dpi=500, bbox_inches='tight')
+#         plt.show()
+#         plt.clf()
+#         plt.close(fig)
+# =============================================================================
+    
+    
+    
+    
+    
