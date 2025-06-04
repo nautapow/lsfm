@@ -1,0 +1,1068 @@
+from skimage import io, restoration, exposure
+import os, glob
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import time
+from nptdms import TdmsFile
+from pathlib import Path
+from joblib import Parallel, delayed
+from numba import jit, njit, cuda
+from PIL import Image, ImageSequence
+from scipy import signal, stats
+import scipy.io
+import math
+import pandas as pd
+
+def map_17(directory):
+    """Mapping 1.7"""
+    def im_category(c, imgs):
+        img_cate = [img for img in imgs if c in img]
+        img_all = load_image(img_cate)
+        
+        tdms_dir = glob.glob(os.path.join(directory, f'*{c}*[!Sound].tdms'))[0]
+        filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:3])
+        
+        para_cate, stim_sync, img_sync = load_tdms(tdms_dir)
+        check_sync(stim_sync, img_sync, img_all, para_cate, filename)
+        
+        activities_cate, around_stim_cate = get_stim_resp(img_all, stim_sync, img_sync)
+        
+        para_all[c] = para_cate
+        act_all[c] = activities_cate
+        around_stim_all[c] = around_stim_cate
+        
+        return para_all, act_all, around_stim_all
+    
+    imgs = sorted(glob.glob(os.path.join(directory, '*.tif')), key = lambda x: int(x.split('.')[-2].split('_')[-1]))
+    category = [p.split('\\')[6].split('_')[2] for p in imgs]
+    #remove "k" to sort by frequency
+    category = sorted(list(set(category)), key=lambda x:x[:-2])
+    
+    para_all={}
+    act_all={}
+    around_stim_all={}
+    t1 = time.time()
+    
+    for c in category:
+        img_cate = [img for img in imgs if c in img]          
+        img_all = load_image(img_cate)
+        
+        tdms_dir = glob.glob(os.path.join(directory, f'*{c}*[!Sound].tdms'))[0]
+        filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:3])
+        
+        para_cate, stim_sync, img_sync = load_tdms(tdms_dir)
+        check_sync(stim_sync, img_sync, img_all, para_cate, filename)
+        
+        activities_cate, around_stim_cate = get_stim_resp(img_all, stim_sync, img_sync)
+        
+        para_all[c] = para_cate
+        act_all[c] = activities_cate
+        around_stim_all[c] = around_stim_cate
+
+    #combine through all frequencies in dictionary   
+    para = np.array([v for values in para_all.values() for v in values])
+    activities = np.array([v for values in act_all.values() for v in values])
+    around_stim = np.array([v for values in around_stim_all.values() for v in values])
+    
+    para_argsort = [i[0] for i in sorted(enumerate(para), key=lambda x:x[:][1][0])]
+    para_sort = para[para_argsort]
+    act_sort = activities[para_argsort]
+    around_stim_sort = around_stim[para_argsort]
+    t2=time.time()
+    print(t2-t1)
+    
+    return para, para_sort, act_sort, around_stim_sort
+
+
+def map_19(directory):
+    """Mapping 1.9"""
+    imgs = sorted(glob.glob(os.path.join(directory, '*.tif')), 
+                  key = lambda x: int(x.split('.')[-2].split('_')[-1]))      
+    
+    t1 = time.time()
+    img_all = load_image(imgs)
+    
+    tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
+    filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:3])
+    
+    para, stim_sync, img_sync = load_tdms(tdms_dir)
+    check_sync(stim_sync, img_sync, img_all, para, filename)
+    activities, around_stim = get_stim_resp(img_all, stim_sync, img_sync)
+        
+    para_argsort = [i[0] for i in sorted(enumerate(para), key=lambda x:x[1])]
+    para_sort = np.array(para)[para_argsort]
+    act_sort = np.array(activities)[para_argsort]
+    around_stim_sort = np.array(around_stim)[para_argsort]
+    
+    t2=time.time()
+    print(t2-t1)
+    
+    return para, para_sort, act_sort, around_stim_sort
+
+
+def load_image_old(imgs):
+    img_all = np.empty((1,512,512)).astype(np.int16)
+    for img in imgs:
+        _img = io.imread(img).astype(np.int16)
+        img_all = np.concatenate((img_all, _img))
+    img_all = img_all[1:]
+    
+    return img_all
+
+
+def load_image(imgs):  
+    #img_all = np.empty((len(imgs)*2048,512,512)).astype(np.int16)
+    img_all = preallocate(len(imgs))
+
+    idx = 0
+    for img in imgs:
+        im = ImageSequence.Iterator(Image.open(img))
+        _im = 1
+        while _im:
+            _im = next(im, None)
+            if _im != None and idx < len(img_all):
+                img_all[idx] = np.array(_im.rotate(-90), np.int16)
+                idx+=1
+    
+    return img_all[:idx].astype(np.int16)
+
+@jit(nopython=True, parallel=True)
+def preallocate(n_imgs):
+    return np.zeros((n_imgs*2048,512,512), np.int16)
+
+
+def load_tdms(tdms_dir):
+    tdms_file = TdmsFile.open(tdms_dir)
+    _groups = tdms_file['Untitled']
+    stim_onset = _groups['StimStart'][:]
+    sync = _groups['FVAL'][:]
+    para = _groups['Tone Parameters'][:]
+
+    freq = [i for i in para[0::2] if i != 0]
+    loud = [i for i in para[1::2] if i != 0]
+    para = list(zip(loud, freq))
+    
+    from collections import Counter
+    repeat = Counter(para)[para[0]]
+
+    time_stim = np.diff(np.sign(stim_onset-2.5))>0
+    stim_sync = [i for i,a in enumerate(time_stim) if a]
+    
+    time_ttl = np.diff(np.sign(sync-1.5))>0
+    img_sync = [i for i,a in enumerate(time_ttl) if a]
+    
+    return para, stim_sync, img_sync
+
+
+def get_stim_resp(img_all, stim_sync, img_sync):
+    activities = []
+    partial = []
+    around_stim=[]
+    for stim_idx, stim_time in enumerate(stim_sync):
+        _closest_frame = (np.array(img_sync) - stim_time) > 0
+        img_idx = next(i for i, j in enumerate(_closest_frame) if j)
+        
+        """averaging 10 frame pre-stimulus and 10 frame post-stimulus for comparison"""
+        pre_stim = img_all[img_idx-11:img_idx-1]
+        base_mean = np.mean(pre_stim, axis=0).reshape(1,-1)[0]
+        base_std = np.std(pre_stim, axis=0).reshape(1,-1)[0]
+                
+        post_stim = img_all[img_idx:img_idx+10]
+        sig_maxloc = np.argmax(post_stim, axis=0)
+        
+        #if maximum appears at the first frame, 
+        #make the index to second frame to be able to average the preveous frame
+        _mask = sig_maxloc == 0
+        sig_maxloc[_mask] = 1
+        
+        _post_stim = np.moveaxis(post_stim.reshape(10,1,-1), 0,2)[0]
+        _sig_maxloc = sig_maxloc.reshape(1,-1)[0]
+        
+        sig_flat = []
+        import statistics
+        for i in range(len(_sig_maxloc)):
+            sig = statistics.mean(_post_stim[i][_sig_maxloc[i]-1:_sig_maxloc[i]+2])
+            sig = (sig-base_mean[i])/base_std[i]
+            sig_flat.append(sig)
+        sig = np.array(sig_flat).reshape(512,512)
+            
+        """crop with a window of 200 frames around stimulus start"""
+        #window=200
+        #around_stim.append(img_all[img_idx-(window//2):img_idx+(window//2)+1])
+        if sig.any():
+            partial.append(stim_idx)
+        activities.append(sig)
+        print(stim_idx)
+    
+    return activities, around_stim
+
+
+def get_stim_resp_old(img_all, stim_sync, img_sync):
+    activities = []
+    around_stim=[]
+    for stim_idx, stim_time in enumerate(stim_sync):
+        _closest_frame = (np.array(img_sync) - stim_time) > 0
+        img_idx = next(i for i, j in enumerate(_closest_frame) if j)
+        
+        """averaging 10 frame pre-stimulus and 10 frame post-stimulus for comparison"""
+        pre_stim = img_all[img_idx-11:img_idx-1]
+        post_stim = img_all[img_idx:img_idx+10]
+        
+        """crop with a window of 200 frames around stimulus start"""
+        window=200
+        around_stim.append(img_all[img_idx-(window//2):img_idx+(window//2)+1])
+        
+        diff = (np.mean(post_stim, axis=0) - np.mean(pre_stim, axis=0))
+        activities.append(diff)
+        
+    return activities, around_stim
+
+
+def count_repeat(para):
+    from collections import Counter
+    return Counter(para)[para[0]] 
+    
+
+def butter(arr, order, cutoff, filtertype, fs):
+    b,a = signal.butter(order, cutoff, btype=filtertype, fs=fs)
+    return signal.filtfilt(b,a, arr)
+
+
+def check_sync(stim_sync, img_sync, img_all, para, filename):
+    sync_n = len(img_sync) - len(img_all)
+
+    if len(stim_sync) == len(para) and sync_n == 0:
+        print(f'{filename}: All sync pulse matched')
+    elif abs(len(stim_sync)-len(para))>1:
+        print(f'{filename}: stimulus out of sync')
+    elif sync_n != 0:
+        print(f'{filename}: {sync_n} difference between #TTL and #frame')
+
+
+def plot_map(mapping, filename, saveplot=False):
+    map_plot = np.reshape(mapping, (3,4,512,512))
+    vmax = np.max(mapping)/3
+    
+    fig, ax = plt.subplots(3,4, figsize=(15, 10))
+    for x in range(3):
+        for y in range(4):
+            ax[x,y].imshow(map_plot[x][y], vmin=0, vmax=vmax, aspect='auto')
+            ax[x,y].set_xticks([0,256,512])
+            ax[x,y].set_yticks([0,256,512])
+    cols = ['4k', '8k', '16k', '32k']
+    rows = ['50dB', '60dB', '70dB']
+    
+    for axes, col in zip(ax[0], cols):
+        axes.set_title(col, fontsize=16)
+        
+    for axes, row in zip(ax[:,0], rows):
+        axes.set_ylabel(row, rotation=90, fontsize=16)
+    
+    
+    _ = fig.suptitle(f'{filename}', y=0.96, fontsize=20)
+    
+    if saveplot:
+        plt.savefig(f'{filename}_mapping.png', dpi=500, bbox_inches='tight')
+        plt.show()
+        plt.clf()
+    else:
+        plt.show()
+        plt.clf()
+
+
+def plot_individual(mapping, para_map, filename, saveplot=True):
+    for i,m in enumerate(mapping):
+        vmax = np.max(m)/2
+        vmin = np.min(m)/2
+        plt.imshow(m, vmin=vmin, vmax=vmax, aspect='equal')
+        plt.xticks([0,256,512])
+        plt.yticks([0,256,512])
+        frequency = para_map[i][1]/1000
+        name = f'{i}-{filename}_{para_map[i][0]}dB_{para_map[i][1]/1000}kHz'
+        plt.title(name)
+        
+        if saveplot:
+            plt.savefig(f'{name}.png', dpi=500, bbox_inches='tight')
+            plt.clf()
+        else:
+            plt.show()
+            plt.clf()
+
+
+def image_process(mapping, deconvolute=True, threshold=None):
+    import copy
+    
+    processed = []
+    for i,m in enumerate(mapping):
+        m_work = copy.copy(m)
+        
+        if deconvolute:
+            
+            def gaussuian_kern(size=10, sigma=1):
+                """Returns a 2D Gaussian kernel array."""
+                kern1d = scipy.signal.windows.gaussian(size, std=sigma).reshape(size, 1)
+                kern2d = np.outer(kern1d, kern1d) /size**2
+                
+                return kern2d
+            
+            psf = gaussuian_kern(size=10, sigma=28)
+            
+            m_work = restoration.richardson_lucy(m, psf, num_iter=1, clip=False)
+        
+        if threshold:
+# =============================================================================
+#             m_flat = m_work.flatten()
+#             ci = stats.t.interval(0.95, len(m_flat)-1, loc=np.mean(m_flat), 
+#                                   scale=stats.sem(m_flat))[1]
+#             m_mask = m_work < ci
+# =============================================================================
+            if i in [0,4,8]:
+                m_mask = m_work < (np.max(m_work)*threshold[0])
+            else:
+                m_mask = m_work < (np.max(m_work)*threshold[1])
+            
+            m_work[m_mask] = 0
+            
+        processed.append(m_work)
+    
+    return np.array(processed)
+
+
+def plot_overlay(index, mapping, filename, saveplot=True):
+    img_dir = r'C:\Users\McGinley3\Documents\GitHub\lsfm\#map_patch\mapping\mapping_wf'
+    img_wf = io.imread(f'{img_dir}\{filename}.png')
+        
+    img_wf = np.moveaxis(img_wf, 2, 0)[0]
+    img_wf = exposure.adjust_gamma(img_wf, 0.5)
+
+    
+    m_low = mapping[index[0]]
+    mask_low = np.ma.masked_where(m_low == 0, m_low)
+    m_mid = mapping[index[1]]
+    mask_mid = np.ma.masked_where(m_mid == 0, m_mid)
+    m_high = mapping[index[2]]
+    mask_high = np.ma.masked_where(m_high == 0, m_high)
+    
+    extent = 0,512,0,512
+    fig = plt.figure(frameon=False)
+    plt.imshow(img_wf, cmap='gray', alpha=.7, extent=extent)
+    plt.imshow(mask_low, cmap='Greens_r', alpha=.7, extent=extent)
+    plt.imshow(mask_mid,cmap='Blues_r', alpha=.5, extent=extent)
+    plt.imshow(mask_high,cmap='Reds_r', alpha=.7, extent=extent)
+    plt.axis('off')
+    
+    if saveplot:
+        plt.savefig(f'{filename}_overlay.png', dpi=500, bbox_inches='tight')
+        plt.show()
+        plt.clf()
+    else:
+        plt.show()
+        plt.clf()
+
+
+def get_xy(mapping, around_stim):
+    def onclick(click):
+        global coord, axes_click
+        x = click.xdata
+        y = click.ydata
+        coord.append([x,y])
+        if click.inaxes is not None:
+            axes_click = click.inaxes
+        
+        plt.close()
+            
+    def plot2click(mapping):
+        %matplotlib tk
+        map_plot = np.reshape(mapping, (3,4,512,512))
+        vmax = np.max(mapping)/2
+        vmin = np.min(mapping)/2
+        fig, ax = plt.subplots(3,4)
+        for x in range(3):
+            for y in range(4):
+                ax[x,y].imshow(map_plot[x][y], vmin=vmin, vmax=vmax, aspect='auto')
+                ax[x,y].set_title(f'({x},{y})')
+        
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)      
+        plt.show()
+    
+    global coord, axes_click
+    coord = []
+    axes_click = []
+    plot2click(mapping)
+    plt.waitforbuttonpress()
+    plt.close()
+
+    xx = int(coord[0][0])
+    yy = int(coord[0][1])
+    
+    %matplotlib inline
+    return xx, yy, axes_click
+
+
+def check_xy(mapping, around_stim, para_map, filename, window = 60, saveplot=False):
+    xx, yy, axes_click = get_xy(mapping, around_stim)
+    axes_click = str(axes_click.title)
+    subplot = int(axes_click[-6])*4+int(axes_click[-4])
+    
+    crop = np.swapaxes(around_stim, 0,1)
+    center = len(crop)//2
+    crop = np.swapaxes(crop[center-int(window/2):center+int(window/2)+1], 0,1)
+    
+    arst = np.reshape(crop, (12,-1,window+1,512,512))
+    arst = np.moveaxis(arst, (3,4), (0,1))
+    arst = arst[yy][xx]
+    
+    psth = np.mean(arst[subplot], axis=0)
+    
+    fig, [ax1,ax2] = plt.subplots(1,2,figsize = (10,12), sharex=True)
+    ax1.imshow(arst[subplot], aspect='auto')
+    ax1.set_yticks([0,4,9,14,19,24,29], [1,5,10,15,20,25,30])
+    ax1.set_xlim(0,window)
+    ax1.set_xticks([0,window//2,window], [-1*(window//2), 0, window//2])
+    ax2.plot(psth)
+    fig_name = f'{filename}-{para_map[subplot][0]}dB-{para_map[subplot][1]/1000}kHz, ({xx}, {yy})'
+    fig.suptitle(fig_name, y=0.92, fontsize=18)
+    if saveplot:
+        plt.savefig(f'{fig_name}.png', dpi=500, bbox_inches='tight')
+        plt.show()
+        plt.clf()
+    else:
+        plt.show()
+        plt.clf()
+    
+# =============================================================================
+#     for i in range(len(arst)):
+#         psth = np.mean(arst[i], axis=0)
+#         
+#         fig, [ax1,ax2] = plt.subplots(1,2,figsize = (10,12), sharex=True)
+#         ax1.imshow(arst[i], aspect='auto')
+#         ax1.set_yticks([0,4,9,14,19,24,29], [1,5,10,15,20,25,30])
+#         ax1.set_xlim(0,window)
+#         ax1.set_xticks([0,window//2,window], [-1*(window//2), 0, window//2])
+#         ax2.plot(psth)
+#         fig_name = f'{filename}-{para_map[i][0]}dB-{para_map[i][1]}kHz, ({xx}, {yy})'
+#         fig.suptitle(fig_name, y=0.92, fontsize=18)
+#         if saveplot:
+#             plt.savefig(f'{fig_name}.png', dpi=500, bbox_inches='tight')
+#             plt.show()
+#             plt.clf()
+#         else:
+#             plt.show()
+#             plt.clf()
+# =============================================================================
+
+            
+def get_coordinate(filename):
+    def onclick(click):
+        global coords 
+        x, y = click.xdata, click.ydata
+         
+        coords.append((x,y))
+        fig.canvas.mpl_disconnect(cid)
+        plt.close()
+        return
+    
+    file = rf'C:\Users\McGinley3\Documents\GitHub\lsfm\mapping_overlay\{filename}_overlay.png'
+    img = io.imread(file)
+    
+    global coords
+    coords = []
+    %matplotlib tk
+    for i in range(6):
+        fig, ax = plt.subplots(figsize=(20,16))
+        ax.imshow(img, aspect='equal')
+        ax.axis('off')
+        
+        cid = fig.canvas.mpl_connect('button_press_event', onclick)  
+        
+        plt.show()
+        plt.waitforbuttonpress()
+    
+    plt.close()
+    plt.clf()
+    
+    %matplotlib inline
+       
+    return coords
+
+
+def transform_coord(coords):
+    """
+    Find coordinates of patch sites.
+    Abbreviation: 
+    a = A1 low frequency 
+    b = A1 high frequency
+    c = A2 high frequency 
+    d = AAF low frequency
+    P1 = upper patch hole
+    P2 = lower patch hole
+    
+    Parameters
+    ----------
+    coords : list of tuple
+        DESCRIPTION.
+
+    Returns
+    -------
+    None.
+
+    """
+   
+    ax, ay = coords[0][0], coords[0][1]
+    bx, by = coords[1][0], coords[1][1]
+    cx, cy = coords[2][0], coords[2][1]
+    dx, dy = coords[3][0], coords[3][1]
+    upx, upy = coords[4][0], coords[4][1]
+    lowx, lowy = coords[5][0], coords[5][1]
+        
+    A = np.array([ax-ax,ay-ay])
+    B = np.array([bx-ax,by-ay])
+    C = np.array([cx-ax,cy-ay])
+    D = np.array([dx-ax,dy-ay])
+    P1 = np.array([upx-ax,upy-ay])
+    P2 = np.array([lowx-ax,lowy-ay])
+    
+    u = B-A
+    unit = np.linalg.norm(u).astype('float64')
+
+    am = C-A
+    v = (am/np.linalg.norm(am)) * unit
+    
+    def get_angle(p, u, v):
+        a1 = p@u/(np.linalg.norm(p)*np.linalg.norm(u))
+        a2 = p@v/(np.linalg.norm(p)*np.linalg.norm(v))
+        
+        return math.acos(round(a1,3)), math.acos(round(a2,3))
+    
+# =============================================================================
+#     def new_coord(p, u, v):
+#         theta,phi  = get_angle(p, u, v)
+#         if theta > np.pi/2 and phi > np.pi/2:
+#             u_scale = -1*np.linalg.norm(p) * math.sin(np.pi-phi) / math.sin(theta+phi-np.pi)
+#             new_x = u_scale/np.linalg.norm(u)
+#             v_scale = -1*np.linalg.norm(p) * math.sin(np.pi-theta) / math.sin(theta+phi-np.pi)
+#             new_y = v_scale/np.linalg.norm(u)        
+#         elif theta > np.pi/2:
+#             u_scale = -1*np.linalg.norm(p) * math.sin(phi) / math.sin(theta-phi)
+#             new_x = u_scale/np.linalg.norm(u)
+#             v_scale = np.linalg.norm(p) * math.sin(np.pi-theta) / math.sin(theta-phi)
+#             new_y = v_scale/np.linalg.norm(u)        
+#         elif phi > np.pi/2:
+#             u_scale = np.linalg.norm(p) * math.sin(np.pi-phi) / math.sin(phi-theta)
+#             new_x = u_scale/np.linalg.norm(u)
+#             v_scale = -1*np.linalg.norm(p) * math.sin(theta) / math.sin(phi-theta)
+#             new_y = v_scale/np.linalg.norm(u)
+#         else:
+#             u_scale = np.linalg.norm(p) * math.sin(phi) / math.sin(np.pi-theta-phi)
+#             new_x = u_scale/np.linalg.norm(u)
+#             v_scale = np.linalg.norm(p) * math.sin(theta) / math.sin(np.pi-theta-phi)
+#             new_y = v_scale/np.linalg.norm(u)
+#         
+#         return (round(new_x,3), round(new_y,3))
+# =============================================================================
+    
+    basis = np.column_stack((u, v))
+    basis_inv = np.linalg.inv(basis)
+    
+    # Transform all points
+    def new_coord(p):
+        p_shift = p - A
+        coeffs = basis_inv @ p_shift
+        return tuple(np.round(coeffs, 3))
+    
+    new_coords = [
+               new_coord(B),
+               new_coord(C),
+               new_coord(D),
+               new_coord(P1),
+               new_coord(P2)
+               ]
+    
+    return new_coords
+
+def get_4point(coords):
+    def line_intersection(p1, p2, p3, p4):
+        """
+        Returns intersection point of lines p1p2 and p3p4 (if they intersect)
+        p1, p2, p3, p4 are (x, y) tuples or arrays
+        """
+        A = np.array(p1, dtype=float)
+        B = np.array(p2, dtype=float)
+        C = np.array(p3, dtype=float)
+        D = np.array(p4, dtype=float)
+    
+        # Vectors along the lines
+        v1 = B - A
+        v2 = D - C
+        w = A - C
+    
+        # Solve: A + t*v1 = C + s*v2
+        matrix = np.column_stack((v1, -v2))
+        if np.linalg.matrix_rank(matrix) < 2:
+            raise ValueError("Lines are parallel and do not intersect")
+    
+        params = np.linalg.solve(matrix, -w)
+        t = params[0]
+    
+        # Intersection point
+        intersection = A + t * v1
+        
+        return intersection
+    
+    A = np.array(coords[0])
+    B = np.array(coords[1])
+    C = np.array(coords[2])
+    D = np.array(coords[3])
+    P1 = np.array(coords[4])
+    P2 = np.array(coords[5])
+    
+    intersec = line_intersection(A,D,C,B)
+    vec_AD = D - A
+    vec_BC = B - C
+    
+    u = vec_AD / np.linalg.norm(vec_AD)
+    v = vec_BC / np.linalg.norm(vec_BC)
+    
+    def get_angle(p, u, v):
+        a1 = p@u/(np.linalg.norm(p)*np.linalg.norm(u))
+        a2 = p@v/(np.linalg.norm(p)*np.linalg.norm(v))
+        
+        return math.acos(round(a1,3)), math.acos(round(a2,3))
+    
+    basis = np.column_stack((u, v))
+    basis_inv = np.linalg.inv(basis)
+    
+    # Transform all points
+    def new_coord(p):
+        p_shift = p - intersec
+        coeffs = basis_inv @ p_shift
+        scale = (coeffs[0]/np.linalg.norm(vec_AD), coeffs[1]/np.linalg.norm(vec_BC))
+        return tuple(np.round(scale, 3))
+    
+    
+    new_coords = [
+        new_coord(A),
+        new_coord(B),
+        new_coord(C),
+        new_coord(D),
+        new_coord(P1),
+        new_coord(P2)
+        ]
+    
+    return new_coords
+
+
+def get_A12(coords):
+    A = np.array(coords[0])
+    B = np.array(coords[1])
+    C = np.array(coords[2])
+    D = np.array(coords[3])
+    P1 = np.array(coords[4])
+    P2 = np.array(coords[5])
+    
+    vec_AC = C - A
+    mid_AC = (A + C) / 2
+    
+    length_AC = np.linalg.norm(vec_AC)
+    
+    u = vec_AC / length_AC
+    v = np.array([u[1], -u[0]])
+    
+    
+    R = np.stack((u, v), axis=1)
+    
+    # Transform all points
+    def new_coord(p):
+        p_shift = p - mid_AC
+        p_rot = R.T @ p_shift
+       
+        return p_rot/length_AC
+    
+    
+    new_coords = [
+        new_coord(A),
+        new_coord(B),
+        new_coord(C),
+        new_coord(D),
+        new_coord(P1),
+        new_coord(P2)
+        ]
+    
+    return new_coords
+
+
+
+# =============================================================================
+# def get_4point(coords):
+#     ax, ay = coords[0][0], coords[0][1]
+#     bx, by = coords[1][0], coords[1][1]
+#     cx, cy = coords[2][0], coords[2][1]
+#     dx, dy = coords[3][0], coords[3][1]
+#     upx, upy = coords[4][0], coords[4][1]
+#     lowx, lowy = coords[5][0], coords[5][1]
+#     
+#     A = np.array([ax-ax,ay-ay])
+#     B = np.array([bx-ax,by-ay])
+#     C = np.array([cx-ax,cy-ay])
+#     D = np.array([dx-ax,dy-ay])
+#     P1 = np.array([upx-ax,upy-ay])
+#     P2 = np.array([lowx-ax,lowy-ay])
+#     
+#     u = D-A
+#     unit = np.linalg.norm(u).astype('float64')
+#     
+#     A2UF = C-B
+#     v = (A2UF/np.linalg.norm(A2UF)) * unit
+#     
+#     def get_angle(p, u, v):
+#         a1 = p@u/(np.linalg.norm(p)*np.linalg.norm(u))
+#         a2 = p@v/(np.linalg.norm(p)*np.linalg.norm(v))
+#         
+#         return math.acos(round(a1,3)), math.acos(round(a2,3))
+#     
+#     basis = np.column_stack((u, v))
+#     basis_inv = np.linalg.inv(basis)
+#     
+#     # Transform all points
+#     def new_coord(p):
+#         p_shift = p - A
+#         coeffs = basis_inv @ p_shift
+#         return tuple(np.round(coeffs, 3))
+#     
+#     new_coords = [
+#                new_coord(B),
+#                new_coord(C),
+#                new_coord(D),
+#                new_coord(P1),
+#                new_coord(P2)
+#                ]
+#     
+#     return new_coords
+# =============================================================================
+    
+
+
+def get_ortho_A1AAF(coords):
+    def line_intersection(A, D, B, C):
+        """
+        Finds the intersection point of lines AD and BC.
+        Parameters:
+            A, D, B, C: numpy arrays of shape (2,) or (3,) representing points.
+        Returns:
+            The intersection point as a numpy array, or None if lines are parallel.
+        """
+
+        # Direction vectors
+        u = D - A
+        v = C - B
+    
+        # Construct matrix system: A + t*(D - A) = B + s*(C - B)
+        # => t*u - s*v = (B - A)
+        matrix = np.array([u, -v]).T
+        rhs = B - A
+    
+        if np.linalg.matrix_rank(matrix) < 2:
+            return None  # Lines are parallel or coincident
+    
+        t_s = np.linalg.solve(matrix, rhs)
+        t = t_s[0]
+        intersection = A + t * u
+        
+        return intersection
+    
+    
+    """A1 low to AAF low"""
+    A = np.array(coords[0])
+    B = np.array(coords[1])
+    C = np.array(coords[2])
+    D = np.array(coords[3])
+    P1 = np.array(coords[4])
+    P2 = np.array(coords[5])
+    
+    origin = line_intersection(A, D, B, C)
+    
+    AD = D-A
+    unit = np.linalg.norm(AD).astype('float64')
+    u = AD/unit
+    
+    p_up = (P1-origin)@u/unit
+    p_low = (P2-origin)@u/unit
+    
+    return p_up, p_low
+
+
+def get_ortho_A2UF(coords):
+    def line_intersection(A, D, B, C):
+        """
+        Finds the intersection point of lines AD and BC.
+        Parameters:
+            A, D, B, C: numpy arrays of shape (2,) or (3,) representing points.
+        Returns:
+            The intersection point as a numpy array, or None if lines are parallel.
+        """
+
+        # Direction vectors
+        u = D - A
+        v = C - B
+    
+        # Construct matrix system: A + t*(D - A) = B + s*(C - B)
+        # => t*u - s*v = (B - A)
+        matrix = np.array([u, -v]).T
+        rhs = B - A
+    
+        if np.linalg.matrix_rank(matrix) < 2:
+            return None  # Lines are parallel or coincident
+    
+        t_s = np.linalg.solve(matrix, rhs)
+        t = t_s[0]
+        intersection = A + t * u
+        
+        return intersection
+    
+    
+    """A1 low to AAF low"""
+    A = np.array(coords[0])
+    B = np.array(coords[1])
+    C = np.array(coords[2])
+    D = np.array(coords[3])
+    P1 = np.array(coords[4])
+    P2 = np.array(coords[5])
+    
+    origin = line_intersection(A, D, B, C)
+    
+    BC = C-B
+    unit = np.linalg.norm(BC)
+    v = BC/unit
+    
+    p_up = (P1-origin)@v/unit
+    p_low = (P2-origin)@v/unit
+    
+    return p_up, p_low
+
+
+def get_ortho_A1A2(coords):
+    A = np.array(coords[0])
+    B = np.array(coords[1])
+    C = np.array(coords[2])
+    D = np.array(coords[3])
+    P1 = np.array(coords[4])
+    P2 = np.array(coords[5])
+    
+    AC = C-A
+    mid_AC = (A + C) / 2
+    unit = np.linalg.norm(AC)
+    u = AC/unit
+    
+    p_up = (P1-mid_AC)@u/unit
+    p_low = (P2-mid_AC)@u/unit
+    
+    return p_up, p_low
+
+
+def get_ortho_A1A2mid(coords):
+    A = np.array(coords[0])
+    B = np.array(coords[1])
+    C = np.array(coords[2])
+    D = np.array(coords[3])
+    P1 = np.array(coords[4])
+    P2 = np.array(coords[5])
+    
+    AC = C-A
+    mid_AC = (A + C) / 2
+    unit = np.linalg.norm(AC)
+    u = AC/unit
+    v = np.array([u[1], -u[0]])
+    
+    p_up = (P1-mid_AC)@v/unit
+    p_low = (P2-mid_AC)@v/unit
+    
+    return p_up, p_low
+
+
+def get_angle(coords):
+    ax, ay = coords[0][0], coords[0][1]
+    bx, by = coords[1][0], coords[1][1]
+    cx, cy = coords[2][0], coords[2][1]
+    dx, dy = coords[3][0], coords[3][1]
+
+    A = np.array([ax-ax,ay-ay])
+    D = np.array([coords[3][0]-ax,coords[3][1]-ay])
+    AD = D-A
+    C = np.array([cx-cx,cy-cy])
+    B = np.array([coords[1][0]-cx,coords[1][1]-cy])
+    CB = B-C
+
+    cross_product = np.cross(AD, CB)
+    mag_AD = np.linalg.norm(AD)
+    mag_CB = np.linalg.norm(CB)
+    mag_cross = np.linalg.norm(cross_product)
+    
+    sin_theta = mag_cross / (mag_AD * mag_CB)
+
+    angle_radians = np.arcsin(sin_theta)
+    angle_degrees = np.degrees(angle_radians)
+    
+    return angle_radians, angle_degrees
+    
+
+def plot_regions():
+    coord = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    a1_x = np.array(coord[coord['regions']=='A1_h']['x'])
+    a1_y = np.array(coord[coord['regions']=='A1_h']['y'])
+    a2_x = np.array(coord[coord['regions']=='A2']['x'])
+    a2_y = np.array(coord[coord['regions']=='A2']['y'])
+    aaf_x = np.array(coord[coord['regions']=='AAF']['x'])        
+    aaf_y = np.array(coord[coord['regions']=='AAF']['y'])
+    patch_x = np.array(coord[(coord['regions']=='Patch_up') | (coord['regions']=='Patch_low')]['x'])
+    patch_y = np.array(coord[(coord['regions']=='Patch_up') | (coord['regions']=='Patch_low')]['y'])
+    xx = [0, np.mean(a1_x), np.mean(a2_x), np.mean(aaf_x)]
+    yy = [0, np.mean(a1_y), np.mean(a2_y), np.mean(aaf_y)]
+    sd_x = [0, np.std(a1_x), np.std(a2_x), np.std(aaf_x)]
+    sd_y = [0, np.std(a1_y), np.std(a2_y), np.std(aaf_y)]
+    tune_x = [0.402, 0.138, 0.245, 0.377, 0.083, 0.262	, 0.132, 0.279, 
+           0.514, 0.52, 0.83, 0.298, 0.56, 0.503]
+    tune_y = [0.599, 0.802, 0.054, -0.148, 0.757, 0.422, 0.318, 0.103, 
+           0.64, 0.05, 1.328, 0.44, 1.049, -0.336]
+    region = [[0, 1.0, 0.0, 1.029], [0, 0.0, 0.926, 0.726], 
+              [0.03, 0.03, 0.03, 0.203], [0.04, 0.04, 0.223, 0.166]]
+    region_xy = list(zip(region[0], region[1]))
+    from matplotlib import patches
+    fig, ax = plt.subplots()
+    ax.scatter(xx, yy, c='k', label='Region')
+    ax.errorbar(xx, yy, sd_y, sd_x, capsize=2, ls='none', color='black', 
+            elinewidth=2)
+    ax.scatter(patch_x, patch_y, label='Patch Site', color='green')
+    ax.scatter(tune_x, tune_y, label='Patch and Tuned', color='red')
+    for i in range(4):
+        ellipse = patches.Ellipse(region_xy[i], region[2][i]*2, region[3][i]*2, angle=0, color='grey', alpha=0.6)
+        ax.add_patch(ellipse)
+    plt.title('Cortical Region and Recording Site')
+    plt.xlabel('A1-UF axis', fontsize=14)
+    plt.ylabel('A1-A2 axis', fontsize=14)
+    plt.savefig('hole_distribution.png', dpi=500, bbox_inches='tight')
+    plt.show()
+    
+    return xx, yy, sd_x, sd_y
+    
+  
+def check_window(around_stim, window, center=None):
+    if not center:
+        center = len(around_stim[0])//2
+    
+    frame_crop = np.swapaxes(around_stim, 0,1)
+    frame_crop = np.swapaxes(frame_crop[center-int(window/2):center+int(window/2)+1], 0,1)
+    act_window=[]
+    for f in frame_crop:
+        pre = f[:int(window/2)]
+        post = f[int(window/2):-1]
+        act = np.mean((post-pre), axis=0)
+        act_window.append(act)
+        
+    return np.array(act_window)
+
+
+def save_npy(act, act_map, mapping, para_map, directory, filename):
+    file = {'activity':act, 'activity_map':act_map, 'map':mapping, 'parameter':para_map,
+            'directory':directory, 'filename':filename}
+    
+    np.save(f'{filename}_mapping', file)
+
+def save_coord(filename, threshold, coords, trans_coords):
+    data = {'filename':filename, 'thresold':threshold, 'raw_coordinate':coords, 
+            'trans_coords': trans_coords}
+    
+    np.save(f'{filename}_coord', data)
+
+
+def seperate_xy(arr, region:str, axis:str):
+    regions = ['a1', 'uf', 'a2', 'aaf', 'up', 'low']
+    idx = [i for i,r in enumerate(regions) if region.lower() == r]
+    target_coord = arr[idx[0]]
+    
+    if axis=='x':
+        return [i[0] for i in target_coord]
+    if axis=='y':
+        return [i[1] for i in target_coord]
+
+def get_anchor(arr):
+    A1_x = seperate_xy(arr, 'A1', 'x')
+    A1_y = seperate_xy(arr, 'A1', 'y')
+    UF_x = seperate_xy(arr, 'UF', 'x')
+    UF_y = seperate_xy(arr, 'UF', 'y')
+    A2_x = seperate_xy(arr, 'A2', 'x')
+    A2_y = seperate_xy(arr, 'A2', 'y')
+    AAF_x = seperate_xy(arr, 'AAF', 'x')
+    AAF_y = seperate_xy(arr, 'AAF', 'y')
+    
+    mean_x = [np.mean(A1_x), np.mean(UF_x), np.mean(A2_x), np.mean(AAF_x)]
+    mean_y = [np.mean(A1_y), np.mean(UF_y), np.mean(A2_y), np.mean(AAF_y)]
+    err_x = [stats.sem(A1_x), stats.sem(UF_x), stats.sem(A2_x), stats.sem(AAF_x)]
+    err_y = [stats.sem(A1_y), stats.sem(UF_y), stats.sem(A2_y), stats.sem(AAF_y)]
+    
+    return [mean_x, mean_y, err_x, err_y]
+
+
+
+
+
+if __name__ == "__main__":
+    coord_files = glob.glob(r'C:\Users\McGinley3\Documents\GitHub\lsfm\*[coord].npy')
+    coord = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    mouseIDs = list(dict.fromkeys(coord['mouseid']))
+    
+    filenames, raw_coords, trans_coords, trans_store, orthos_up, orthos_low, angles = [],[],[],[],[],[],[]
+    ortho12_up, ortho12_low, ortho12m_up, ortho12m_low, two_axis, A12_axis = [],[],[],[],[],[]
+    for m in mouseIDs:
+        f = [a for a in coord_files if m in a][0]
+        coord_file = np.load(f, allow_pickle=True)
+        coords = coord_file.item()['raw_coordinate']
+        raw_coords.append(coords)
+        filenames.append(coord_file.item()['filename'])
+        trans_store.append(coord_file.item()['trans_coords'])
+        trans_coords.append(transform_coord(coords))
+        
+        ortho_coord = get_ortho_A1AAF(coords)
+        ortho12_up.append(ortho_coord[0])
+        ortho12_low.append(ortho_coord[1])
+        
+        ortho12m_coord = get_ortho_A2UF(coords)
+        ortho12m_up.append(ortho12m_coord[0])
+        ortho12m_low.append(ortho12m_coord[1])
+        
+        
+        two_axis.append(get_4point(coords))
+        A12_axis.append(get_A12(coords))
+        angles.append(get_angle(coords)[1])
+    
+    two_axis = np.array(two_axis)
+    two_axis = np.swapaxes(two_axis, 0, 1)
+    A12_axis = np.array(A12_axis)
+    A12_axis = np.swapaxes(A12_axis, 0, 1)
+    
+    pack=[]
+    for i in trans_coords:
+        i = list(i)
+        if i[0] == (0.0, 0.0):
+            i.pop(0)
+        pack.append(i)
+    
+    pack = np.array(pack)
+    pack = np.swapaxes(trans_coords, 0, 1)
+    
+    data = {'filename':filenames, 'A1-A2_up':ortho12_up, 'A1-A2m_up':ortho12m_up, 
+            'A1-A2_low':ortho12_low,'A1-A2m_low':ortho12m_low,
+            'angle':angles,
+            'A1_x':seperate_xy(A12_axis, 'A1', 'x'), 'A1_y':seperate_xy(A12_axis, 'A1', 'y'),
+            'UF_x':seperate_xy(A12_axis, 'UF', 'x'), 'UF_y':seperate_xy(A12_axis, 'UF', 'y'), 
+            'A2_x':seperate_xy(A12_axis, 'A2', 'x'), 'A2_y':seperate_xy(A12_axis, 'A2', 'y'),
+            'AAF_x':seperate_xy(A12_axis, 'AAF', 'x'), 'AAF_y':seperate_xy(A12_axis, 'AAF', 'y'), 
+            'up_x':seperate_xy(A12_axis, 'up', 'x'), 'up_y':seperate_xy(A12_axis, 'up', 'y'), 
+            'low_x':seperate_xy(A12_axis, 'low', 'x'), 'low_y':seperate_xy(A12_axis, 'low', 'y')}
+    
+    df = pd.DataFrame(data)
+    df.to_csv('new_coordinates.csv')
+    
+    anchors = get_anchor(A12_axis)
+        

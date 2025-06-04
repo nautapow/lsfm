@@ -10,34 +10,37 @@ from scipy import interpolate
 import scipy.io
 import TFTool
 import pandas as pd
-import tone 
+import tone
 import math
+from tone import PureTone
 
 
 if  __name__ == "__main__":
-    %matplotlib inline
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
     idx_puretone = df.index[(df['type']=='Pure Tones') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude')]
-    #idx_tone = [26,29,31,34,36,44,48,61,72,75,77,80,83,84,85,88,90,93,94,96,99]
-    idx_tone = [26,29,31,34,36,44,61,72,75,77,80,83,84,85,88,90,93,96]
-    exclude = [0,1,2,3,4,5,6,8,9,12,13,15,16,17,18,22,38,39,41,43,45,47,48,50,52,53,55,57,64,66,68,69,79]
-    cell_note = pd.read_csv('cell_note_all.csv')
-    idx_tone = [26,29]
-    #frequency in octave difference
-    frequency  = np.linspace(-5.,5.,num=301)
-    #pre-create 2d array to store response of resp_mesh from all neurons
-    resp_all_pos_2bf = np.array([[0.0]*len(frequency)]*301)
-    mouseid_all, filename_all, bf_all, width_all, max_intensity, time_to_peak, site_all =[],[],[],[],[],[],[]
+# =============================================================================
+#     #idx_tone = [26,29,31,34,36,44,48,61,72,75,77,80,83,84,85,88,90,93,94,96,99]
+#     idx_tone = [26,29,31,34,36,44,61,72,75,77,80,83,84,85,88,90,93,96]
+#     exclude = [0,1,2,3,4,5,6,8,9,12,13,15,16,17,18,22,38,39,41,43,45,47,48,50,52,53,55,57,64,66,68,69,79]
+#     cell_note = pd.read_csv('cell_note_all.csv')
+#     idx_tone = [26,29]
+#     #frequency in octave difference
+#     frequency  = np.linspace(-5.,5.,num=301)
+#     #pre-create 2d array to store response of resp_mesh from all neurons
+#     resp_all_pos_2bf = np.array([[0.0]*len(frequency)]*301)
+#     mouseid_all, filename_all, bf_all, width_all, max_intensity, time_to_peak, site_all =[],[],[],[],[],[],[]
+# =============================================================================
     
     ##new index to exclude no-tuning
-    idx_puretone = df.index[(df['type']=='Pure Tones') & (df['project']=='Ic_map') & 
-                            (df['hard_exclude']!='exclude') & (df['tuning']!='no')]
-    
+    #idx_puretone = df.index[(df['type']=='Pure Tones') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude') & (df['tuning']!='no')]
+    #tone.get_info(idx_puretone)    
+
     psth_para_list, psth_store = [],[]
     mouseIDs, filenames, patch_sites, bfs, bandwidths = [],[],[],[],[]
+    bf_levels, band_levels, left_levels, right_levels = [],[],[],[]
     
-    #df_loc = 209       
-    #if df_loc == 209:
+    #df_loc = 169       
+    #if df_loc == 169:
     
     for df_loc in idx_puretone:
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
@@ -47,11 +50,37 @@ if  __name__ == "__main__":
         fullname = mouseID+'_'+filename
         site = df['patch_site'][df_loc]
         
+        data = np.load(f'{filename}.npy', allow_pickle=True)
+        resp = data.item()['resp']
+        loud = sorted(set(data.item()['loud']))
+        freq = sorted(set(data.item()['freq']))
+        try:
+            loud.remove(0.0)
+            freq.remove(0.0)
+        except:
+            pass
+                
+        para = data.item()['para']
+        
+        tone1 = PureTone(resp, para, mouseID, filename)
+        _, _, tuning_trace = tone1.get_bf(output=True)
+        tone1.get_bandwidth()
+        tone1.plot_tuning_trace()
+        tone1.plot_tuning(on_off='on', saveplot=True)
+        
         
 # =============================================================================
-#         for i,p in enumerate(para):
-#             tone.tone_stim_resp(i, stim[i], resp[i], p[:2], filename)
+#         tone1.plot_tuning(on_off='on', saveplot=True)
+#         tone1.plot_PSTH_wwobfband(saveplot=True)
+#         bf_level, band_level, left_level, right_level = tone1.get_level()
+#         bf_levels.append(bf_level)
+#         band_levels.append(band_level)
+#         left_levels.append(left_level)
+#         right_levels.append(right_level)
+#         mouseIDs.append(mouseID)
+#         filenames.append(filename)
 # =============================================================================
+        
         
 # =============================================================================
 #         ## read data from tdms file
@@ -77,78 +106,61 @@ if  __name__ == "__main__":
 #         else:
 #             resp_merge = resp
 #             loud, freq, _ = zip(*para)
-# =============================================================================
-            
-# =============================================================================
+#             
 #         data={'resp':resp_merge, 'stim':stim, 'para':para, 'loud':loud, 'freq':freq, 'Ver':LabView_ver}
 #         np.save(filename, data)
 # =============================================================================
         
-        data = np.load(f'{filename}.npy', allow_pickle=True)
-        resp = data.item()['resp']
-        loud = sorted(set(data.item()['loud']))
-        freq = sorted(set(data.item()['freq']))
-        try:
-            loud.remove(0.0)
-            freq.remove(0.0)
-        except:
-            pass
-                
-        para = data.item()['para']
-    
-        resp_merge, para_merge = tone.resp_merge(resp, para)
-        resp_filt = TFTool.prefilter(resp_merge, 25000)
-        resp_adjust = [r - np.mean(r[400:500]) for r in resp_filt]
-        
-        try:
-            x = tone.tuning(resp_adjust, para_merge, fullname, plot=False, 
-                                saveplot=True, data_return=True, window=(500,3000))
-            bf70 = x[4][240]
-            bandwidth = x[3]
-            df.loc[df_loc, 'best_frequency'] = bf70
-            df.loc[df_loc, 'bandwidth (octave)'] = bandwidth
-        except:
-            pass
-        
-        tone.psth(resp_adjust, fullname, x_in_ms=True, saveplot=False)
-        yy = tone.psth_bf(resp, para, bf70, filename, x_in_ms=False, plot=False, saveplot=False)
-        psth_bf = tone.psth_bfband(resp, para, bf70, bandwidth, filename, x_in_ms=True, plot=False, saveplot=False)
-        _,_ = tone.psth_wwobfband(resp, para, bf70, bandwidth, filename, x_in_ms=True, plot=True, saveplot=True)
-        
-        
-        ##Get PSTH parameter
-        df_psth_para_all = pd.read_excel('tone_psth_bf_para.xlsx')
-        if df_loc in list(df_psth_para_all['df_loc']):
-            
-            df_psth_para = df_psth_para_all[(df_psth_para_all['df_loc']==df_loc)]
-            psth_y = psth_bf[1]
-            onset_y = psth_y[500]
-            offset_y = psth_y[3000]
-            peak_amp = (psth_y[df_psth_para['peak']] - psth_y[df_psth_para['peak_start']]).item()
-            time2peak = (df_psth_para['peak'].item() - 500)/25
-            HWFM = (df_psth_para['half_amp_end'] - df_psth_para['half_amp_start']).item()/25
-            peak_end = (df_psth_para['peak_transition'].item()-500)/25
-            on_area = np.sum(psth_bf[1][500:3000])
-            off_area = np.sum(psth_bf[1][3000:])
-        
-            psth_para_list.append([onset_y, offset_y, peak_amp, time2peak, HWFM, peak_end, on_area, off_area])
-            psth_store.append(psth_bf[1])
-            
-            filenames.append(filename)
-            mouseIDs.append(mouseID)
-            patch_sites.append(site)
-            bandwidths.append(bandwidth)
-            bfs.append(bf70)
-        
-    psth_para_list = np.array(psth_para_list).swapaxes(0,1)
-    data = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 'best_frequency':bfs,
-            'bandwidth':bandwidths, 'onset': psth_para_list[0], 'offset': psth_para_list[1], 
-            'peak_amplitude': psth_para_list[2], 'time_to_peak':  psth_para_list[3], 
-            'HWFM': psth_para_list[4], 'peak_end': psth_para_list[5], 
-            'tone_area': psth_para_list[6], 'offtone_area': psth_para_list[7]}
-      
-    psth_df = pd.DataFrame(data)
-    psth_df.to_csv('tone_psth_para_bf_new.csv', index=False)
+# =============================================================================
+#     ##Get category value from PSTH of all resp
+#     mouseIDs, filenames, patch_sites, bfs, bandwidths, band_lefts, band_rights, psth_categories = [],[],[],[],[],[],[],[]
+#     df_psth = pd.read_excel('psth_category_window_tone.xlsx')
+#     for df_loc in list(df_psth['df_loc']):
+#         filename = df['filename'][df_loc]
+#         version = df['Py_version'][df_loc]
+#         mouseID = df['mouse_id'][df_loc]
+#         fullname = mouseID+'_'+filename
+#         site = df['patch_site'][df_loc]
+#         data = np.load(f'{filename}.npy', allow_pickle=True)
+#         resp = data.item()['resp']
+#         para = data.item()['para']
+#         
+#         tone1 = PureTone(resp, para, mouseID, filename)
+#         tone1.get_bf()
+#         tone1.get_bandwidth()
+#         tone1.get_resp_wwobfband()
+#         psth_y = np.mean(tone1.bfband['resp_in'], axis=0)
+#         
+#         df_psth_para = df_psth[(df_psth['df_loc']==df_loc)]
+#         onset_y = psth_y[500]
+#         offset_y = psth_y[3000]
+#         peak_amp = (psth_y[df_psth_para['peak']] - psth_y[df_psth_para['peak_start']]).item()
+#         time2peak = (df_psth_para['peak'].item() - 500)/25
+#         FWHM = (df_psth_para['half_amp_end'] - df_psth_para['half_amp_start']).item()/25
+#         peak_end = (df_psth_para['peak_transition'].item()-500)/25
+#         on_area = np.sum(psth_y[500:3000])
+#         off_area = np.sum(psth_y[3000:])
+#     
+#         psth_categories.append([onset_y, offset_y, peak_amp, time2peak, FWHM, peak_end, on_area, off_area])
+#         
+#         filenames.append(filename)
+#         mouseIDs.append(mouseID)
+#         patch_sites.append(site)
+#         bandwidths.append(tone1.bandwidth)
+#         band_lefts.append(tone1.band_left)
+#         band_rights.append(tone1.band_right)
+#         bfs.append(tone1.bf)
+#         
+#     psth_categories = np.array(psth_categories).swapaxes(0,1)
+#     data = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 'best_frequency':bfs,
+#             'bandwidth':bandwidths, 'band_left':band_lefts, 'band_right':band_rights, 'onset': psth_categories[0], 'offset': psth_categories[1], 
+#             'peak_amplitude': psth_categories[2], 'time_to_peak':  psth_categories[3], 
+#             'FWHM': psth_categories[4], 'peak_end': psth_categories[5], 
+#             'tone_area': psth_categories[6], 'offtone_area': psth_categories[7]}
+#       
+#     psth_df = pd.DataFrame(data)
+#     psth_df.to_csv('tone_psth_category_value_new.csv', index=False)
+# =============================================================================
         
 # =============================================================================
 #         ##plot psth in browser to get xy
@@ -189,151 +201,6 @@ if  __name__ == "__main__":
 #         site_all.append(site)
 # =============================================================================
     
-# =============================================================================
-#     ## store tone psth para
-#     data = {'mouseid': mouseid_all, 'filename': filename_all, 'patch_site': site_all,
-#             'best_frequency': bf_all, 'bandwidth': width_all, 'peak_amplitude': max_intensity, 
-#             'time2peak': time_to_peak}    
-#     bf_psth = pd.DataFrame.from_dict(data)
-#     bf_psth.to_csv('tone_psth_para_bf_new.csv', index=False)  
-# =============================================================================
-    
-    #df.to_csv('patch_list_with_bf.csv', index=False)     
-        #second clamp
-# =============================================================================
-#         filename2 = df['filename'][df_loc+1]
-#         data2 = np.load(f'{filename2}.npy', allow_pickle=True)
-#         resp2 = data2.item()['resp']
-#         resp_filt2 = TFTool.prefilter(resp2, 25000)
-#         resp_adjust2 = [r - np.mean(r[400:500]) for r in resp_filt2]
-#         
-#         for i in range(len(resp)):
-#             plt.plot(resp_adjust[i])
-#             plt.plot(resp_adjust2[i])
-#             plt.show()
-# =============================================================================
-        
-# =============================================================================
-#         peak_x = puretone.psth(resp, filename)
-#         if peak_x < 2000:
-#             window_peak=[peak_x-250,peak_x+250]
-#         else:
-#             window_peak=[1250,1750]
-#         
-#         try:
-#             puretone.tuning(resp, para, filename=f'{filename}_peak', saveplot=False, window=window_peak)
-#             puretone.tuning(resp, para, filename=f'{filename}_sust', saveplot=False, window=[2500,3000])
-#         except:
-#             pass
-# =============================================================================
-        
-# =============================================================================
-#         def octave2bf(bf, freq):
-#             oct_bf = []
-#             for f in freq:
-#                 oct_bf.append(math.log((f/bf),2))
-#             
-#             return oct_bf
-#                 
-#         def on_avg(arr, window):
-#             base = np.mean(arr[:500])
-#             arr = (arr-base)*100            
-#             return np.mean(arr[window[0]:window[1]])   
-#         
-#         def set_hyper2zero(arr):
-#             mask = arr < 0
-#             import copy
-#             arr_pos = copy.deepcopy(arr)
-#             arr_pos[mask] = 0
-#             
-#             return arr_pos
-#         
-#         def set_hyper2nan(arr):
-#             mask = arr < 0
-#             import copy
-#             arr_nan = copy.deepcopy(arr)
-#             arr_nan[mask] = np.nan
-#             
-#             return arr_nan
-#         
-#         def min_index(arr, num):
-#             arr = np.array(arr)
-#             
-#             return np.argmin(abs(arr - num))
-#         
-#         fs=25000
-#         resp_filt = TFTool.prefilter(resp, fs)
-#         resp_mesh = np.reshape(resp_filt, (len(loud),len(freq),-1))
-#         
-#         if 90 in loud:    
-#             resp_mesh = np.delete(resp_mesh, -1, axis=0)
-#             loud.pop()
-#             
-#         #window = [1250,1750]
-#         window = [2500,3000]
-#         resp_on = np.apply_along_axis(on_avg, 2, resp_mesh, window)
-#         resp_pos = set_hyper2zero(resp_on)
-#         
-#         x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
-#         y300 = np.linspace(30,80,301)
-#         
-#         Nzero = int(300/(len(freq)-1))-1
-#         zero2D = np.zeros((6,len(freq),Nzero))        
-#         upsampleX = np.dstack((resp_on, zero2D)).reshape((6,-1))[:,:301]
-#         
-#         filt1D = scipy.ndimage.gaussian_filter1d(upsampleX, Nzero)
-#         #test = np.apply_along_axis(TFTool.butter, 1, upsampleX, 1, 1/50, 'low', 1)
-#         
-# # =============================================================================
-# #         interpX, interpXY=[],[]
-# #         for loud_layer in resp_on:
-# #             interpX.append(np.interp(x300, freq, loud_layer))
-# #         interpX = np.array(interpX)
-# #         resp_300 = np.swapaxes(interpX, 0, 1)
-# # =============================================================================
-#         
-#         resp_300 = np.swapaxes(filt1D, 0, 1)        
-#         
-#         interpXY=[]
-#         for freq_layer in resp_300:
-#             interpXY.append(np.interp(y300, loud, freq_layer))
-#         
-#         interpXY = np.array(interpXY)
-#         interpXY = np.swapaxes(interpXY, 0, 1)
-#         
-#         XX, YY = np.meshgrid(x300, y300)
-#         plt.pcolormesh(XX, YY, interpXY, cmap='RdBu_r', norm=colors.CenteredNorm())
-#         plt.xscale('log')
-#         plt.colorbar()
-# =============================================================================
-
-
-
-
-# =============================================================================
-#         """Get Tuning Width Among All Neurons"""
-#         x300,y300,resp_smooth, width = puretone.tuning(resp, para, filename, plot=True, saveplot=True, data_return=True, window=(2500,3000))
-#         puretone.psth(resp, filename)
-#         resp_pos = puretone.set_hyper2zero(resp_smooth)
-#         widthAt70.append(width)
-#         bf_loud = []
-#         for a in resp_pos:
-#             bf_loud.append(puretone.center_mass_layer(a, x300))
-#         
-#         resp_oct2bf=[]
-#         for i in range(len(y300)):        
-#             resp_oct2bf.append(puretone.octave2bf(bf_loud[i], x300))
-#             
-#         #i for layering loudness, j for iterate through frequency
-#         for i in range(len(y300)):
-#             oct2bf = puretone.octave2bf(bf_loud[i], x300)
-#             for j in range(len(x300)):
-#                 index = puretone.min_index(frequency, oct2bf[j])
-#                 base = resp_all_pos_2bf[i][index]
-#                 arr = np.array([base, resp_smooth[i][j]])
-#                 resp_all_pos_2bf[i][index] = np.mean(arr)
-# =============================================================================
-        
         
 # =============================================================================
 #         #resp_pas = TFTool.pascal_filter(resp_on)
@@ -363,51 +230,8 @@ if  __name__ == "__main__":
 #                 resp_all_pos_2bf[i][index] = np.nanmean(arr)
 # =============================================================================
                 
-# =============================================================================
-#     loudness = np.arange(30,100,10)
-#     XX,YY = np.meshgrid(frequency, y300)
-#     resp2bf = np.array(resp_all_pos_2bf)
-#     fig, ax1 = plt.subplots()
-#     pcm = ax1.pcolormesh(XX,YY,resp2bf, vmax=0.5, vmin=0)
-#     fig.colorbar(pcm, ax=ax1)
-# =============================================================================
-    
-# =============================================================================
-#         def peak_avg(arr):
-#             base = np.mean(arr[:500])
-#             arr = (arr-base)*100            
-#             return np.mean(arr[1000:1500])
-#         def sustain_avg(arr):
-#             base = np.mean(arr[:500])
-#             arr = (arr-base)*100            
-#             return np.mean(arr[2000:2500])
-#         
-#         plus_1, plus_2, minus_1, minus_2 = [],[],[],[]
-#         for min_loud in resp_mesh[0]:
-#             resp_peak = on_avg(min_loud)
-#             #resp@tone_period
-#             if resp_tp>=0:
-#                 base_plus.append(resp_tp)
-#             elif resp_tp<=0:
-#                 base_minus.append(resp_tp)
-#         
-#         CI_plus = stats.t.interval(alpha=0.99, df=len(base_plus)-1, loc=np.mean(base_plus), scale=stats.sem(base_plus))
-#         CI_minus = stats.t.interval(alpha=0.99, df=len(base_minus)-1, loc=np.mean(base_minus), scale=stats.sem(base_minus))
-#         
-#         puretone.tuning(resp_merge, para, filename)
-#         
-#         resp_on = np.apply_along_axis(on_avg, 2, resp_mesh)
-#         
-#         sig_plus = 1*(resp_on>CI_plus[1])
-#         sig_minus = -1*(resp_on<CI_minus[0])
-#         sig = sig_plus+sig_minus
-# =============================================================================
 
-        
-# =============================================================================
-#         cell_data = {'stim':stim, 'resp':resp, 'para':para}
-#         np.save(f'{filename}_tone_data.npy', cell_data)
-# =============================================================================
+
         
         
         #bf = puretone.tunning(resp, para, filename=filename, set_x_intime=False, saveplot=False)
@@ -418,11 +242,40 @@ if  __name__ == "__main__":
         #df.iloc[df_loc, df.columns.get_loc('bandwidth')] = bf['bandwidth']
         #puretone.psth(resp, filename, set_x_intime=True, saveplot=True)
     
-    #df.to_csv('patch_list_E.csv', index=False)
+    #df.to_csv('patch_list_E_new.csv', index=False)
        
         
-        
-
+# =============================================================================
+#     #get tone tuning properties for each level
+#     all_lists = [bf_levels, band_levels, left_levels, right_levels]
+#     from openpyxl import Workbook
+#     # Create workbook
+#     wb = Workbook()
+#     sheet_names = ["bf", "bandwidth", "band_left", "band_right"]
+#     headers = ['mouseID', 'filename', '40db', '50db', '60db', '70db', '80db']
+#     
+#     for idx, data_list in enumerate(all_lists):
+#         # Create or select sheet
+#         if idx == 0:
+#             ws = wb.active
+#             ws.title = sheet_names[idx]
+#         else:
+#             ws = wb.create_sheet(title=sheet_names[idx])
+#     
+#         # Write header
+#         for col, header in enumerate(headers, start=1):
+#             ws.cell(row=1, column=col, value=header)
+#     
+#         # Write transposed data
+#         for row in range(34):
+#             ws.cell(row=row+2, column=1, value=mouseIDs[row])                     # mouseID
+#             ws.cell(row=row+2, column=2, value=filenames[row])                     # filename
+#             for col in range(5):  # 5 values from e1 to e5
+#                 ws.cell(row=row+2, column=col+3, value=data_list[row][col])  # 40db–80db
+# 
+#     # Save workbook
+#     wb.save("tone_para_levels.xlsx")
+# =============================================================================
         
         
         

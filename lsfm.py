@@ -14,6 +14,54 @@ import math
 import lsfm_slope
 
 
+def get_info(list_of_interests):
+    if os.path.isfile('lsfm_cell_note.xlsx'):
+        df_info = pd.read_excel('lsfm_cell_note.xlsx')
+        for i in list_of_interests:
+            if i not in list(df_info['index']):
+                print(f'index {i} not in record\n')
+        
+        print('lsfm_cell_note.xlsx will be renamed to update new entry')
+        try:
+            os.rename('lsfm_cell_note.xlsx', 'lsfm_cell_note_old.xlsx')
+        except FileExistsError:
+            os.remove('lsfm_cell_note_old.xlsx')
+            os.rename('lsfm_cell_note.xlsx', 'lsfm_cell_note_old.xlsx')
+               
+    df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
+    
+    filename, index, version, mouseID, site, tuning, index_tone, bf, bandwidth, band_left, band_right=[],[],[],[],[],[],[],[],[],[],[]
+    for idx in list_of_interests:
+        filename.append(df['filename'][idx])
+        index.append(idx)
+        version.append(df['Py_version'][idx])
+        mouse = df['mouse_id'][idx]
+        mouseID.append(mouse)
+        site.append(df['patch_site'][idx])
+        tuning_tone = df['tuning_from'][idx]
+        tuning.append(tuning_tone)
+        index_tone.append(df[df['filename']==tuning_tone].index.values[0])
+        
+        data = np.load(f'{tuning_tone}.npy', allow_pickle=True)
+        resp = data.item()['resp']
+        para = data.item()['para']
+   
+        from tone import PureTone  
+        tone1 = PureTone(resp, para, mouse, tuning_tone)
+        tone1.get_bf()
+        tone1.get_bandwidth()
+        bf.append(tone1.bf)
+        bandwidth.append(tone1.bandwidth)
+        band_left.append(tone1.band_left)
+        band_right.append(tone1.band_right)
+        
+    data = pd.DataFrame({'filename':filename, 'index':index, 'version':version, 'mouseID':mouseID, 'patch_site':site,
+            'tuning_tone':tuning, 'index_tone':index_tone, 'best_frequency':bf, 'bandwidth':bandwidth, 'band_left':band_left, 'band_right':band_right})
+    data.to_excel('lsfm_cell_note.xlsx')
+    
+        
+
+
 def baseline(arr):
     arr = np.array(arr)
     
@@ -961,9 +1009,10 @@ def stim_resp(i, stim, resp, para, filename, saveplot=False):
     plt.close(fig)
 
 
-def resp_bf_or_not(resp, para, bf):
+def resp_bf_or_not(stim, resp, para, bf, bandwidth=None):
     """
     Devide response by whether stimulus ever crossed best frequency or not.
+    If bandwidth is specified, crossing tuning range will be used instead of bf.
 
     Parameters
     ----------
@@ -986,70 +1035,97 @@ def resp_bf_or_not(resp, para, bf):
         para for resp_bf_ex.
 
     """
-    resp_inbf, resp_exbf = [],[]
-    para_inbf, para_exbf = [],[]
-    index_inbf, index_exbf = [],[]
-    for i,p in enumerate(para):
-        '''calculation frequency band using para'''
-        freq_max = p[0]*1000 * (2**(p[1]/2))
-        freq_min = p[0]*1000 / (2**(p[1]/2))
-        if bf > freq_min and bf < freq_max:
-            resp_inbf.append(resp[i])
-            para_inbf.append(p)
-            index_inbf.append(i)
-        else:
-            resp_exbf.append(resp[i])
-            para_exbf.append(p)
-            index_exbf.append(i)
-    
-    return resp_inbf, resp_exbf, para_inbf, para_exbf, index_inbf, index_exbf
-
-
-def resp_bfband_or_not(resp, para, bf, bandwidth):
-    """
-    Devide response by whether stimulus ever crossed best frequency or not.
-
-    Parameters
-    ----------
-    resp : TYPE
-        DESCRIPTION.
-    para : TYPE
-        DESCRIPTION.
-    bf : float
-        Best frequency in Hz.
-
-    Returns
-    -------
-    resp_bf_in : TYPE
-        resp with stimulus crossed bf.
-    resp_bf_ex : TYPE
-        resp without stimulus ever crossing bf.
-    para_bf_in : TYPE
-        para for resp_bf_in.
-    para_bf_ex : TYPE
-        para for resp_bf_ex.
-
-    """
-    bf_max = bf*2**(bandwidth/2)
-    bf_min = bf/2**(bandwidth/2)
+    stim_inbf, stim_exbf = [],[]
     resp_inbf, resp_exbf = [],[]
     para_inbf, para_exbf = [],[]
     index_inbf, index_exbf = [],[]
     
-    for i,p in enumerate(para):
-        '''calculation frequency band using para'''
-        freq_max = p[0]*1000 * (2**(p[1]/2))
-        freq_min = p[0]*1000 / (2**(p[1]/2))
-        if (bf_max > freq_min and bf_max < freq_max) or (bf_min > freq_min and bf_min < freq_max) or (bf > freq_min and bf < freq_max):
-            resp_inbf.append(resp[i])
-            para_inbf.append(p)
-            index_inbf.append(i)
-        else:
-            resp_exbf.append(resp[i])
-            para_exbf.append(p)
-            index_exbf.append(i)
+    if bandwidth:
+        bf_max = bandwidth[0]
+        bf_min = bandwidth[1]
+        
+        for i,(s,r,p) in enumerate(zip(stim, resp, para)):
+            '''calculation frequency band using para'''
+            freq_max = p[0]*1000 * (2**(p[1]/2))
+            freq_min = p[0]*1000 / (2**(p[1]/2))
+            if (bf_max > freq_min and bf_max < freq_max) or (bf_min > freq_min and bf_min < freq_max) or (bf > freq_min and bf < freq_max):
+                stim_inbf.append(s)
+                resp_inbf.append(r)
+                para_inbf.append(p)
+                index_inbf.append(i)
+            else:
+                stim_exbf.append(s)
+                resp_exbf.append(r)
+                para_exbf.append(p)
+                index_exbf.append(i)
     
-    return resp_inbf, resp_exbf, para_inbf, para_exbf, index_inbf, index_exbf
+    else:
+    
+        for i,(s,r,p) in enumerate(zip(stim, resp, para)):
+            '''calculation frequency band using para'''
+            freq_max = p[0]*1000 * (2**(p[1]/2))
+            freq_min = p[0]*1000 / (2**(p[1]/2))
+            if bf > freq_min and bf < freq_max:
+                stim_inbf.append(s)
+                resp_inbf.append(r)
+                para_inbf.append(p)
+                index_inbf.append(i)
+            else:
+                stim_exbf.append(s)
+                resp_exbf.append(r)
+                para_exbf.append(p)
+                index_exbf.append(i)
+    
+    return stim_inbf, stim_exbf, resp_inbf, resp_exbf, para_inbf, para_exbf, index_inbf, index_exbf
+
+
+# =============================================================================
+# def resp_bfband_or_not(resp, para, bf, bandwidth):
+#     """
+#     Devide response by whether stimulus ever crossed best frequency or not.
+# 
+#     Parameters
+#     ----------
+#     resp : TYPE
+#         DESCRIPTION.
+#     para : TYPE
+#         DESCRIPTION.
+#     bf : float
+#         Best frequency in Hz.
+# 
+#     Returns
+#     -------
+#     resp_bf_in : TYPE
+#         resp with stimulus crossed bf.
+#     resp_bf_ex : TYPE
+#         resp without stimulus ever crossing bf.
+#     para_bf_in : TYPE
+#         para for resp_bf_in.
+#     para_bf_ex : TYPE
+#         para for resp_bf_ex.
+# 
+#     """
+#     bf_max = bf*2**(bandwidth/2)
+#     bf_min = bf/2**(bandwidth/2)
+#     resp_inbf, resp_exbf = [],[]
+#     para_inbf, para_exbf = [],[]
+#     index_inbf, index_exbf = [],[]
+#     
+#     for i,p in enumerate(para):
+#         '''calculation frequency band using para'''
+#         freq_max = p[0]*1000 * (2**(p[1]/2))
+#         freq_min = p[0]*1000 / (2**(p[1]/2))
+#         if (bf_max > freq_min and bf_max < freq_max) or (bf_min > freq_min and bf_min < freq_max) or (bf > freq_min and bf < freq_max):
+#             resp_inbf.append(resp[i])
+#             para_inbf.append(p)
+#             index_inbf.append(i)
+#         else:
+#             resp_exbf.append(resp[i])
+#             para_exbf.append(p)
+#             index_exbf.append(i)
+#     
+#     return resp_inbf, resp_exbf, para_inbf, para_exbf, index_inbf, index_exbf
+# =============================================================================
 
 
 def best_lags():
@@ -1136,3 +1212,5 @@ def seperate_by_para(stim, resp, para, which_parameter=0):
     data = {'para_type':para_idx, 'parameter':category, 'stim':stim_sep, 'resp':resp_sep, 'para':para_sep}
     
     return data
+
+

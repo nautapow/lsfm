@@ -52,7 +52,8 @@ def morlet(arr, fs, width):
 #     plt.pcolormesh(t, freq, np.abs(cwtm)**2, cmap='viridis', shading='gouraud')
 #     plt.show()
 # =============================================================================
-    
+
+
 def mat_out(filename, arr):
     filename = str(filename)
     scipy.io.savemat(filename+'_4cwt.mat', {'stim': arr})
@@ -231,8 +232,8 @@ def butter(arr, order, cutoff, filtertype, fs):
     b,a = signal.butter(order, cutoff, btype=filtertype, fs=fs)
     return signal.filtfilt(b,a, arr)
 
-def sixtyHz(arr, fs):
-    b, a = signal.iirnotch(60, 30, fs)
+def sixtyHz(arr, fs, Q=30):
+    b, a = signal.iirnotch(60, Q, fs)
     return signal.filtfilt(b,a, arr)
 
 
@@ -339,4 +340,22 @@ def puretone_resp_merge(resp, para, repeats):
         para_merge = para[::repeats]
                     
     return np.array(resp_merge), para_merge
+
+
+"""Sync Tool"""
+def get_sync(arr, threshold=2.4):
+    arr = np.array(arr)
+    """use > 0 for leading onset, < 0 for following offset"""
+    above = np.diff(np.sign(arr-threshold))>0
+    sync = [i for i,a in enumerate(above) if a]
+    
+    return np.array(sync)
+
+def check_interval(sync):
+    intervals=[]
+    for s1,s2 in zip(sync[:-1], sync[1:]):
+        intervals.append(s2-s1)
+    
+    return intervals
+    
     
