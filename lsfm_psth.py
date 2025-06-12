@@ -447,11 +447,13 @@ class Psth():
         else:
             stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(self.stim, self.resp, self.para, self.bf)
         
+        resp_in = np.array(resp_in)/100
+        resp_ex = np.array(resp_ex)/100
         p1 = Psth(stim_in, resp_in, para_in, self.filename, self.version, self.bf, self.band_left, self.band_right)
         p2 = Psth(stim_ex, resp_ex, para_ex, self.filename, self.version, self.bf, self.band_left, self.band_right)
         x1,y1,err1 = p1.get_psth()
         x2,y2,err2 = p2.get_psth()
-        
+
         if self.version == 1:
 
             fig, ax = plt.subplots()
