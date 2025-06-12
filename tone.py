@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib import cm
 from matplotlib.image import NonUniformImage
+from matplotlib.widgets import Button
+import matplotlib
 from pathlib import Path
 from scipy import signal
 from scipy import stats
@@ -106,6 +108,34 @@ def pascal_filter(arr):
     weights = np.array([1, 2, 1])[:, None]  # shape (3, 1) for broadcasting
     weighted_sum = np.sum(arr * weights, axis=0)
     return weighted_sum / 4
+
+def pascal_filter_level(data):
+    """
+    Apply Pascal-weighted smoothing along axis 0 of a 2D array.
+    
+    For first row:      (2*row0 +   row1) / 3
+    For middle rows:    (row[i-1] + 2*row[i] + row[i+1]) / 4
+    For last row:       (row[-2] + 2*row[-1]) / 3
+    """
+    if data.ndim != 2:
+        raise ValueError("Input must be a 2D array.")
+    M, N = data.shape
+    if M < 2:
+        raise ValueError("Input must have at least 2 rows.")
+
+    smoothed = np.empty_like(data, dtype=float)
+
+    # First row
+    smoothed[0] = (2 * data[0] + data[1]) / 3
+
+    # Middle rows
+    for i in range(1, M - 1):
+        smoothed[i] = (data[i - 1] + 2 * data[i] + data[i + 1]) / 4
+
+    # Last row
+    smoothed[-1] = (data[-2] + 2 * data[-1]) / 3
+
+    return smoothed
 
 def upscale_fft(data, num_points=301):
     import scipy.fft as fft
@@ -357,7 +387,7 @@ class PureTone:
     
     
     #new, FFT upscale, return maximum and center mass, range bandwidth
-    def get_level(self, on_off='on', ranges=(10,90), upscale=False):
+    def get_level(self, on_off='on', ranges=(15,85), upscale=False):
         #bf
         if on_off=='on':
             working_resp = self.resp_on_mesh
@@ -366,6 +396,7 @@ class PureTone:
         
         x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
         filt_resp = np.apply_along_axis(upscale_fft, 1, working_resp)
+        filt_resp = pascal_filter_level(filt_resp)
         
         if not upscale:
             step = 5
@@ -407,6 +438,18 @@ class PureTone:
             total_depolar = cumsum[-1]
             left = np.searchsorted(cumsum, ranges[0]/100 * total_depolar)
             right = np.searchsorted(cumsum, ranges[1]/100 * total_depolar)
+            
+            bf_half = np.max(resp_pos[level])*0.5
+            
+            def expand_BW(bf_half, resp_pos, left, right):
+                while (left>0 and resp_pos[left] > bf_half):
+                    left -= 1
+                while (right<len(resp_pos)-1 and resp_pos[right] > bf_half):
+                    right += 1
+                
+                return left, right
+            
+            left, right = expand_BW(bf_half, resp_pos[level], left, right)
             
             
             band_level.append(math.log2(x300[right]/x300[left]))
@@ -610,10 +653,12 @@ class PureTone:
         else:
             working_resp = self.resp_on_mesh
         
-        x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
+        #x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
+        x300 = np.logspace(math.log(3000,2), math.log(96000,2), 26, base=2)
         
         level60to80 = pascal_filter(working_resp[3:])
-        filt1D = upscale_fft(level60to80)
+        #filt1D = upscale_fft(level60to80)
+        filt1D = level60to80
         level_idx = int((level/10)-3)
         resp_pos = set_hyper2zero(filt1D)
         bf_max = x300[np.argmax(resp_pos)]
@@ -629,15 +674,28 @@ class PureTone:
             self.bf = bf_max
         
         if output:
-            return bf_max, center_mass, resp_pos
+            return bf_max, center_mass, resp_pos, filt1D
     
-    def get_bandwidth(self, on_off='on', level=70, ranges=(10,90), set_BW=True, output=False):
-        bf, center_mass, resp_pos = self.get_bf(on_off, level=level, set_bf=False, output=True)
-        x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
+    def get_bandwidth(self, on_off='on', level=70, ranges=(20,80), expand=True, set_BW=True, output=False):
+        bf, center_mass, resp_pos, _ = self.get_bf(on_off, level=level, set_bf=False, output=True)
+        #x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
+        x300 = np.logspace(math.log(3000,2), math.log(96000,2), 26, base=2)
         cumsum = np.cumsum(resp_pos)
         total_depolar = cumsum[-1]
         left = np.searchsorted(cumsum, ranges[0]/100 * total_depolar)
         right = np.searchsorted(cumsum, ranges[1]/100 * total_depolar)
+        
+        if expand:
+            bf_half = np.max(resp_pos)*0.5
+            def expand_BW(bf_half, resp_pos, left, right):
+                while (resp_pos[left] > bf_half and left>0):
+                    left -= 1
+                while (resp_pos[right] > bf_half and right<len(resp_pos)):
+                    right += 1
+                
+                return left, right
+            
+            left, right = expand_BW(bf_half, resp_pos, left, right)
         
         if set_BW:
             self.bandwidth = math.log2(x300[right]/x300[left])
@@ -649,10 +707,13 @@ class PureTone:
     
     
     def plot_tuning_trace(self):
-        bf, center_mass, resp_pos = self.get_bf(on_off='on', level=70, output=True)
-        _, x3, x4 = self.get_bandwidth(on_off='on', level=70, ranges=(20,80), set_BW=False, output=True)
+        bf, center_mass, resp_pos, resp_raw = self.get_bf(on_off='on', level=70, output=True)
+        #_, x3, x4 = self.get_bandwidth(on_off='on', level=70, ranges=(20,80), expand=False, set_BW=False, output=True)
         
-        x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
+        
+        #x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
+        x300 = np.logspace(math.log(3000,2), math.log(96000,2), 26, base=2)
+        
         xlabel = [3,6,12,24,48,96]
         xtick = [i * 1000 for i in xlabel]
         ytick = [30,40,50,60,70,80]
@@ -662,11 +723,12 @@ class PureTone:
         
         bf_idx = int(np.argmax(resp_pos))
         fig, ax = plt.subplots()
-        ax.plot(x300, resp_pos)
-        ax.scatter(x300[cm_idx], resp_pos[int(cm_idx)], c='g', label='center mass')
+        ax.plot(x300, resp_raw)
+        #ax.scatter(x300[cm_idx], resp_pos[int(cm_idx)], c='g', label='center mass')
         ax.scatter(x300[bf_idx], resp_pos[bf_idx], c='r', label='maximum')
-        ax.hlines(y=-0.1, xmin=self.band_left, xmax=self.band_right, colors='b', label='10-90%')
-        ax.hlines(y=-0.2, xmin=x3, xmax=x4, colors='orange', label='20-80%')
+        ax.hlines(y=-0.1, xmin=self.band_left, xmax=self.band_right, colors='orange', label='20-80%+expand')
+        #ax.hlines(y=-0.2, xmin=x3, xmax=x4, colors='b', label='20-80%')
+        
         ax.legend(loc='upper right')
         
         ax.set_xscale('log')
@@ -735,24 +797,35 @@ class PureTone:
         x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
         y300 = np.linspace(30,80,301)
         
-        Nzero = int(300/(len(self.freq)-1))-1
-        zero2D = np.zeros((6,len(self.freq),Nzero))        
-        upsampleX = np.dstack((working_resp, zero2D)).reshape((6,-1))[:,:301]
+        filt1D = np.apply_along_axis(upscale_fft, 1, working_resp)
+        filt1D = pascal_filter_level(filt1D)
         
-        filt1D = ndimage.gaussian_filter1d(upsampleX, Nzero)
-        
-        """swap frequency to the first axis to slice"""
-        resp_300 = np.swapaxes(filt1D, 0, 1)        
-
+        resp_300 = np.swapaxes(filt1D, 0, 1)
         interpXY=[]
         for freq_layer in resp_300:
             interpXY.append(np.interp(y300, self.loud, freq_layer))
-        
-        interpXY = np.array(interpXY)
-        
-        resp_smooth = np.swapaxes(interpXY, 0, 1)   
-        resp_pos = set_hyper2zero(resp_smooth)
-        self.resp_smooth = resp_smooth
+        interpXY = np.swapaxes(np.array(interpXY), 0, 1)
+        resp_pos = set_hyper2zero(interpXY)
+# =============================================================================
+#         Nzero = int(300/(len(self.freq)-1))-1
+#         zero2D = np.zeros((6,len(self.freq),Nzero))        
+#         upsampleX = np.dstack((working_resp, zero2D)).reshape((6,-1))[:,:301]
+#         
+#         filt1D = ndimage.gaussian_filter1d(upsampleX, Nzero)
+#         
+#         """swap frequency to the first axis to slice"""
+#         resp_300 = np.swapaxes(filt1D, 0, 1)        
+# 
+#         interpXY=[]
+#         for freq_layer in resp_300:
+#             interpXY.append(np.interp(y300, self.loud, freq_layer))
+#         
+#         interpXY = np.array(interpXY)
+#         
+#         resp_smooth = np.swapaxes(interpXY, 0, 1)   
+#         resp_pos = set_hyper2zero(resp_smooth)
+# =============================================================================
+        self.resp_smooth = interpXY
         self.resp_pos = resp_pos
         
 # =============================================================================
@@ -813,7 +886,7 @@ class PureTone:
 # =============================================================================
         bf_max, center_mass, _, bandwidth_left, bandwidth_right = self.get_level(upscale=True)        
 
-        self.tuning_property = {'X':x300, 'Y':y300, 'resp_upscale':resp_smooth, 
+        self.tuning_property = {'X':x300, 'Y':y300, 'resp_upscale':interpXY, 
                                 'bf_max':bf_max, 'center_mass':center_mass, 
                                 'bandwidth_left':bandwidth_left, 'bandwidth_right':bandwidth_right}
         
@@ -849,25 +922,10 @@ class PureTone:
         ax1.set_ylabel('Loudness (dB SPL)', fontsize=20)
         
         ax1.scatter(prop['bf_max'], prop['Y'], label='bf_max', s=8, c='lightseagreen')
-        ax1.scatter(prop['center_mass'], prop['Y'], label='center_mass', s=8, c='forestgreen')
+        #ax1.scatter(prop['center_mass'], prop['Y'], label='center_mass', s=8, c='forestgreen')
         ax1.scatter(prop['bandwidth_left'], prop['Y'], label='left_edge', s=6, c='lawngreen')
         ax1.scatter(prop['bandwidth_right'], prop['Y'], label='right_edge', s=6, c='lawngreen')
-        #ax1.fill_betweenx(y300, curve_left, curve_right, color='lawngreen', ec='forestgreen', alpha=0.1)
-        #ax1.scatter(curve_left, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
-        #ax1.scatter(curve_right, y300, linestyle='-', marker='.', c='lawngreen', s=20, alpha=0.5)
-        
-# =============================================================================
-#         if use_bf:
-#             bf300 = self.get_bf(on_off='on')
-#             width300 = np.mean(self.get_bandwidth(on_off='on')[2:5])/2
-#             band_left = [bf300/(1.1487**width300)]*301
-#             band_right = [bf300*(1.1487**width300)]*301
-#             bf300 = [bf300]*301
-#             ax1.scatter(bf300, prop['Y'], label='bf', s=5, c='darkgrey')
-#             ax1.fill_betweenx(prop['Y'], band_left, band_right, color='darkgrey', alpha=0.5)
-#             #ax1.scatter(band_left, prop['Y'], s=5, c='darkgrey', marker='|')
-#             #ax1.scatter(band_right, prop['Y'], s=5, c='darkgrey', marker='|')
-# =============================================================================
+
         
         cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
         cbar = plt.colorbar(im, cax=cax)
@@ -878,6 +936,20 @@ class PureTone:
         plt.show()
         plt.close(fig)
         
+    def check_criterion(self):
+        bf, _, resp_pos, _ = self.get_bf(on_off='on', level=70, set_bf=False, output=True)
+        left, right = self.band_left, self.band_right
+        
+        XX = np.logspace(math.log(3000,2), math.log(96000,2), 26, base=2)
+        left = find_which_bin(left, XX)
+        right = find_which_bin(right, XX)
+        
+        depolar_inband = np.sum(resp_pos[left:right])/right-left
+        depolar_exband = (np.sum(resp_pos[:left])+np.sum(resp_pos[right:]))/(left+len(resp_pos)-right)
+        index = (depolar_inband - depolar_exband)/(depolar_inband + depolar_exband)
+        
+        return index
+
         
     def plot_psth(self, x_in_ms=True, saveplot=False):
         err = stats.sem(self.resp, axis=0)
@@ -979,6 +1051,16 @@ class PureTone:
         x2 = np.arange(len(psth2))
         y2 = psth2
         
+        #60-cycle filter
+        from scipy.signal import iirnotch, filtfilt
+
+        def filter_60hz(signal, fs, quality=30):
+            freq = 60  # Hz
+            b, a = iirnotch(freq, quality, fs)
+            return filtfilt(b, a, signal)
+        
+        psth1 = filter_60hz(psth1, 25000, quality=2)
+        
         fig, ax = plt.subplots()
         ax.plot(x1,y1,color='midnightblue')
         ax.fill_between(x1, y1+err1, y1-err1, color='cornflowerblue', alpha=0.6)
@@ -1006,4 +1088,70 @@ class PureTone:
         plt.show()
         plt.clf()
         plt.close(fig)
+    
+    def get_psth_cat(self, wwoband='in'):
+        if wwoband=='out':
+            resp_work = self.bfband['resp_ex']
+        else:
+            resp_work = self.bfband['resp_in']
+        y = np.mean(resp_work, axis=0)
+        x = np.arange(len(y))
         
+        # Initialize figure and axis
+        fig, ax = plt.subplots()
+        plt.subplots_adjust(bottom=0.2)
+        line, = ax.plot(x, y, label="Signal")
+        
+        # Number of cursors
+        NUM_CURSORS = 7
+        cursor_lines = []
+        cursor_positions = np.linspace(x[0], x[-1], NUM_CURSORS+2)[1:-1]  # evenly spread
+        
+        # Add cursor lines
+        for xpos in cursor_positions:
+            line_cursor = ax.axvline(x=xpos, color='r', linestyle='--', lw=1.5, picker=5)
+            cursor_lines.append(line_cursor)
+        
+        # To track which cursor is being dragged
+        dragging_cursor = [None]
+        
+        # Event handlers
+        def on_press(event):
+            if event.inaxes != ax:
+                return
+            for i, line in enumerate(cursor_lines):
+                xline = line.get_xdata()[0]
+                if abs(event.xdata - xline) < 0.5:
+                    dragging_cursor[0] = i
+                    break
+        
+        def on_motion(event):
+            if dragging_cursor[0] is None or event.inaxes != ax:
+                return
+            i = dragging_cursor[0]
+            x_new = event.xdata
+            cursor_lines[i].set_xdata([x_new, x_new])
+            fig.canvas.draw_idle()
+        
+        def on_release(event):
+            dragging_cursor[0] = None
+        
+        fig.canvas.mpl_connect("button_press_event", on_press)
+        fig.canvas.mpl_connect("motion_notify_event", on_motion)
+        fig.canvas.mpl_connect("button_release_event", on_release)
+        
+        # Button to output cursor data
+        def output_cursor_values(event):
+            print("Cursor values:")
+            for line in cursor_lines:
+                x_pos = line.get_xdata()[0]
+                y_pos = np.interp(x_pos, x, y)
+                print(f"x = {x_pos:.2f}, y = {y_pos:.2f}")
+        
+        ax_button = plt.axes([0.8, 0.05, 0.1, 0.075])
+        btn = Button(ax_button, 'Output')
+        btn.on_clicked(output_cursor_values)
+        
+        plt.legend()
+        plt.show()
+
