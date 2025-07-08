@@ -1,0 +1,236 @@
+import os, glob
+import pyabf
+from scipy import signal
+from scipy import stats
+from scipy.ndimage import gaussian_filter1d
+import numpy as np
+import matplotlib.pyplot as plt
+%matplotlib inline
+import pandas as pd
+import TFTool
+
+def find_sustained_bounds(signal, 
+                          baseline_region=(0, 4000), 
+                          threshold_mV=3.0, 
+                          min_sustain=50, 
+                          smooth_sigma=3, 
+                          guess_onset=(5000, 7000), 
+                          guess_offset=(20000, 22000)):
+    signal = np.array(signal)
+
+    # Step 1: Smooth the signal to reduce short-term noise
+    smooth_signal = gaussian_filter1d(signal, sigma=smooth_sigma)
+
+    # Step 2: Estimate baseline from initial region
+    baseline = np.median(smooth_signal[baseline_region[0]:baseline_region[1]])
+    upper = baseline + threshold_mV
+    lower = baseline - threshold_mV
+
+    # Step 3: Build mask where signal is out of baseline range
+    out_of_bounds = (smooth_signal > upper) | (smooth_signal < lower)
+
+    # Step 4: Find onset in the guessed onset region
+    onset = 5468
+    for i in range(guess_onset[0], guess_onset[1] - min_sustain):
+        if np.all(out_of_bounds[i:i + min_sustain]):
+            onset = i
+            break
+
+    # Step 5: Find offset in the guessed offset region (search backward)
+    offset = 20465
+    for i in range(guess_offset[1] - min_sustain, guess_offset[0], -1):
+        if np.all(out_of_bounds[i:i + min_sustain]):
+            offset = i + min_sustain - 1  # end of sustained period
+            break
+
+    return onset, offset
+
+
+
+if __name__ == "__main__":
+    df_cell = pd.read_excel('matching_neurons_final.xlsx')
+    note = pd.read_csv(r'C:\Users\McGinley3\Documents\GitHub\lsfm\#map_patch\patch_note.csv', 
+                       converters={'pClamp_pfx': str, 'pClamp': int})
+    #idxs = note.index[(note['Protocol']=='i-step') & (note['Inclusion']==1)]
+    idxs = note.index[(note['Protocol']=='i-step')]
+    folder = r'Z:\Users\cwchiang\pClamp_Data'
+    iclamp = [-400, -200, 0, 200, 400, 600, 800, 1000] #pA
+    #index10  = [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3]
+    #index    = [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7]
+    threshold = [4,3,3,3,5,3,5,4,4,3,3,4,4,4,3,4,5,3,3,3,3,4,4]
+
+    
+    filenames, mouseIDs, patch_sites, pclamp_files, threshold_traces, thresholds, all_Rs, restings, = [],[],[],[],[],[],[],[]
+    depolar_all, depolar_plus, depolar_minus = [],[],[]
+    spike_rates, spike_adaptations, spike_widths = [],[],[]
+    neurons=[]
+    
+    for ii in range(len(df_cell)):
+        cell = df_cell.iloc[ii]
+        fix_mouseID = cell.ic_ID
+        print(ii, fix_mouseID)
+        
+        if fix_mouseID is np.nan:
+            pass
+        else:
+            fix_filename = cell.ic_filename
+            if cell.ic_actual is not np.nan:
+                mouseID = cell.ic_actual_ID
+                filename = cell.ic_actual
+            else:
+                mouseID = fix_mouseID
+                filename = fix_filename
+            
+            date, pclamp = filename.split('_')
+            note_idx = note.index[(note['ID']==mouseID) & (note['Date']==int(date)) & (note['pClamp']==int(pclamp))].item()
+        
+            pclamp = f'{note.loc[note_idx].pClamp:03d}'
+            pclamp_dir = folder+f'\{str(note.loc[note_idx].pClamp_pfx)+str(pclamp)}.abf'
+            abf = pyabf.ABF(pclamp_dir)
+            idx_threshold = threshold[ii]
+            site = note.loc[note_idx].Hole
+                
+            try:
+                times, traces = [],[]
+                rest, APs, depolar = [],[],[]
+                plt.figure(figsize=(10, 6))
+                for i in range(8):
+                    abf.setSweep(sweepNumber=i, channel=0)
+                    time = abf.sweepX
+                    trace = abf.sweepY
+                    
+                    #trace = TFTool.sixtyHz(trace, 50000, 10)
+                    times.append(time)
+                    traces.append(trace)
+                    
+                    fs = int(abf.dataPointsPerMs*1000)
+                    peaks,para = signal.find_peaks(trace, prominence=8, height=[None, None], width=[20, 500], distance=50)
+                    rest.append(np.mean(trace[4000:5000]))
+                    APs.append(len(peaks))
+                    vlevel = [np.min(trace[8000:11000]), np.min(trace[11000:14000]), np.min(trace[14000:17000])]
+                    depolar.append(np.mean(vlevel))
+                    
+                    if i==idx_threshold:
+                        plt.plot(time*1000, trace, c='r')
+                        try:
+                            peak_store = peaks
+                            para_store = para
+                            nPeak = int(len(peaks)/2)+1
+                            peak_x = [int(para['left_bases'][nPeak]), int(para['right_bases'][nPeak])]
+                        except:
+                            nPeak=0
+                            pass
+                    else:
+                        plt.plot(time*1000, trace, c='k')
+    
+                plt.title(f'{ii} - {mouseID}-{filename}', fontsize=26)
+                plt.xlabel('time (ms)', fontsize=24)
+                plt.ylabel('potential (mV)', fontsize=24)
+                plt.tick_params(axis='both', labelsize=22)
+                #plt.savefig(f'{filename}_iclamp.png', dpi=500, bbox_inches='tight')
+                plt.show()        
+                plt.clf()
+        
+                
+            
+                """adjust series resistance"""
+                target_trace = traces[idx_threshold]
+                adjust_trace = traces[idx_threshold+1]
+                peak1,para1 = signal.find_peaks(target_trace, prominence=8, height=[None, None], width=[20, 500], distance=50)
+                peak2,para2 = signal.find_peaks(adjust_trace, prominence=8, height=[None, None], width=[20, 500], distance=50)
+                depolar1 = depolar[idx_threshold]
+                depolar2 = depolar[idx_threshold+1]
+                
+                if depolar1 < -40:
+                    restP = depolar1 - (depolar2 - depolar1)/2
+                else:
+                    restP = -40
+                
+                Rs1 = (depolar1 - restP)/iclamp[idx_threshold]
+                Rs2 = (depolar2 - restP)/iclamp[idx_threshold+1]
+                Rs = Rs1 if Rs1>Rs2 else Rs2
+
+                #Rs = (np.mean(para2['peak_heights']) - np.mean(para1['peak_heights'])) / (iclamp[idx_threshold+1] -iclamp[idx_threshold])
+                Rs_print = np.round(Rs*1000, 1)
+                
+                traces_adjust = []
+                rest_adjust, APs_adjust, depolar_adjust = [],[],[]
+                handles, labels=[],[]
+                plt.figure(figsize=(10, 6))
+                
+                for i in range(idx_threshold+2):
+                    v_adjust = Rs*iclamp[i]
+                    import copy
+                    trace = copy.deepcopy(traces[i])
+                    
+                    onset, offset = find_sustained_bounds(traces[i])
+                    #trace[onset:offset] -= v_adjust
+                    
+                    trace[5468:20465] -= v_adjust
+                    traces_adjust.append(trace)
+                    
+                    fs = int(abf.dataPointsPerMs*1000)
+                    
+                    #Discard steps having elevated potential such as spikes for rest membrane potential
+                    if all(trace[:5000] < -25):
+                        rest_adjust.append(np.mean(trace[:5000]))
+                    APs_adjust.append(len(peaks))
+                    vlevel = [np.min(trace[8000:11000]), np.min(trace[11000:14000]), np.min(trace[14000:17000])]
+                    depolar_adjust.append(np.mean(vlevel))
+                    
+                    if i==idx_threshold:
+                        plt.plot(time*1000, trace, c='r', label=f'{iclamp[i]} pA')
+                        try:
+                            peak_store = peaks
+                            para_store = para
+                            nPeak = int(len(peaks)/2)+1
+                            peak_x = [int(para['left_bases'][nPeak]), int(para['right_bases'][nPeak])]
+                        except:
+                            nPeak=0
+                            pass
+                    
+                    elif i == idx_threshold+1:
+                        plt.plot(time*1000, trace, c='k', label=f'{iclamp[i]} pA')
+                    else:
+                        plt.plot(time*1000, trace, c='grey')
+                    
+                    if i == idx_threshold or i == idx_threshold+1:
+                        labels.append(iclamp[i])
+                
+                plt.title(f'{fix_mouseID}-{fix_filename}', fontsize=26)
+                plt.xlabel('time (ms)', fontsize=24)
+                plt.ylabel('potential (mV)', fontsize=24)
+                plt.tick_params(axis='both', labelsize=22)
+                plt.legend()
+                plt.savefig(f'{fix_mouseID}-{fix_filename}_iclamp.png', dpi=500, bbox_inches='tight')
+                plt.show()        
+                plt.clf()
+                
+                trace_threshold = traces_adjust[idx_threshold]
+                trace_above = traces_adjust[idx_threshold+1]
+                
+                resting = np.min(rest_adjust)
+                peaks,peak_paras = signal.find_peaks(trace_above, prominence=8, height=[None, None], width=[20, 500], distance=50)
+                spike_rate = len(peaks)/0.3
+                spike_width = np.mean(peak_paras['widths'])/25
+                slope_all, intercept = np.polyfit(iclamp[:idx_threshold-1], depolar[:idx_threshold-1], 1)
+                slope_all*=1000
+                
+                ISI_first = (peaks[1]-peaks[0])/25
+                ISI_last = (peaks[-1]-peaks[-2])/25
+                ISI_index = (1-(ISI_first-ISI_last))
+                
+                neuron = [fix_mouseID, fix_filename, site, pclamp_dir[-12:], 
+                          idx_threshold, iclamp[idx_threshold], abs(Rs_print),
+                          resting, peaks, spike_rate, spike_width, slope_all, ISI_index]
+                neurons.append(neuron)
+
+            except:
+                print(ii, pclamp_dir)
+                pass
+
+        columns = ['mouseID', 'filename', 'patch_site', 'pclamp', 'threshold_step', 'threshold_step',
+                   'Rs', 'resting', 'peaks', 'spike_rate', 'spike_width', 'R_all', 'adaptation']
+        df_intrinsic = pd.DataFrame(neurons, columns=columns)
+        df_intrinsic.to_excel('intrinsic_properties_new.xlsx')
+        

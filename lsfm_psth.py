@@ -8,7 +8,7 @@ import lsfm
 
 
 class Psth():
-    def __init__(self, stim, resp, para, filename, version, bf, band_left, band_right):
+    def __init__(self, stim, resp, para, filename, version, bf, band_left, band_right, use_band=True):
         #exclude carrier less than 3kHz and puretone
         para_temp, resp_temp, stim_temp, raw_temp = [],[],[],[]
         for s,p,r in zip(stim, para, resp):
@@ -36,7 +36,7 @@ class Psth():
         self.bf = bf
         self.band_left = band_left
         self.band_right = band_right
-        
+        self.use_band=use_band
         
         _para = np.swapaxes(np.array(self.para),0,1)
         self.mr_label = sorted(set(_para[2][:]))
@@ -45,17 +45,28 @@ class Psth():
         self.features = pd.DataFrame()
         self.psth = np.mean(self.resp, axis=0)
         
-    def get_psth(self, resp_input=None):
-        if resp_input:
-            resp = resp_input
+    
+    def get_psth(self):
+        y_all = np.mean(self.resp, axis=0)
+        x_all = np.arange(0,len(y_all))
+        err_all = stats.sem(self.resp, axis=0)
+        
+        if self.use_band:
+            stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(self.stim, self.resp, self.para, self.bf, [self.band_left, self.band_right])
         else:
-            resp = self.resp
+            stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(self.stim, self.resp, self.para, self.bf)
         
-        y = np.mean(resp, axis=0)
-        x = np.arange(0,len(y))
-        err = stats.sem(resp, axis=0)
+        y_in = np.mean(resp_in, axis=0)
+        x_in = np.arange(0,len(y_in))
+        err_in = stats.sem(resp_in, axis=0)
         
-        return x, y, err
+        y_ex = np.mean(resp_ex, axis=0)
+        x_ex = np.arange(0,len(y_ex))
+        err_ex = stats.sem(resp_ex, axis=0)
+        
+        return {'x_all':x_all, 'y_all':y_all, 'err_all':err_all,
+                'x_in':x_in, 'y_in':y_in, 'err_in':err_in,
+                'x_ex':x_ex, 'y_ex':y_ex, 'err_ex':err_ex}
     
     
     def plot_psth(self, x_in_ms=True, saveplot=False):
@@ -410,7 +421,7 @@ class Psth():
                 'bandwidth':resp_band}
     
     
-    def plot_psth_wwobf(self, use_band=True, saveplot=False):
+    def plot_psth_wwobf(self, saveplot=False):
         """
         Generate PSTH seperate by stimulus crossed best frequency or not.
         If bandwidth is specified, stimulus ever entered the tuning area would be included.
@@ -441,19 +452,19 @@ class Psth():
             ([psth_x_inbf, psth_y_inbf, err_inbf], [psth_x_exbf, psth_y_exbf, err_exbf]).
 
         """
+        data = self.get_psth()
+        x1 = data['x_in']
+        y1 = data['y_in']
+        err1 = data['err_in']
+        x2 = data['x_ex']
+        y2 = data['y_ex']
+        err2 = data['err_ex']
         
-        if use_band:
-            stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(self.stim, self.resp, self.para, self.bf, [self.band_left, self.band_right])
+        if self.use_band:
+            condition='band'
         else:
-            stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(self.stim, self.resp, self.para, self.bf)
+            condition='bf'
         
-        resp_in = np.array(resp_in)/100
-        resp_ex = np.array(resp_ex)/100
-        p1 = Psth(stim_in, resp_in, para_in, self.filename, self.version, self.bf, self.band_left, self.band_right)
-        p2 = Psth(stim_ex, resp_ex, para_ex, self.filename, self.version, self.bf, self.band_left, self.band_right)
-        x1,y1,err1 = p1.get_psth()
-        x2,y2,err2 = p2.get_psth()
-
         if self.version == 1:
 
             fig, ax = plt.subplots()
@@ -475,7 +486,7 @@ class Psth():
             ax.legend(loc='upper left', fontsize=14)
             
             if saveplot:
-                plt.savefig(f'{self.filename}_PSTH_bfBand.png', dpi=500, bbox_inches='tight')
+                plt.savefig(f'{self.filename}_PSTH_{condition}.png', dpi=500, bbox_inches='tight')
             
             plt.show()
             plt.clf()
@@ -497,80 +508,20 @@ class Psth():
             ax.set_xticklabels(label, rotation = 45)
             #ax.xticks(rotation = 45)
             #ax.set_title(f'{filename}_PSTH_BfBand', fontsize=14)
-            ax.set_title(f'{self.filename} psth wwo bf', fontsize=18)
+            ax.set_title(f'{self.filename} psth wwo {condition}', fontsize=18)
             ax.set_xlabel('time (sec)', fontsize=16)
             ax.set_ylabel('Membrane Potential (mV)', fontsize=16)
             ax.tick_params(axis='both', which='major', labelsize=14)
             
             if saveplot:
-                plt.savefig(f'{self.filename}_PSTH_BfBand.png', dpi=500, bbox_inches='tight')
-                plt.savefig(f'{self.filename}_PSTH_BfBand.pdf', dpi=500, format='pdf', bbox_inches='tight')
+                plt.savefig(f'{self.filename}_PSTH_{condition}.png', dpi=500, bbox_inches='tight')
+                plt.savefig(f'{self.filename}_PSTH_{condition}.pdf', dpi=500, format='pdf', bbox_inches='tight')
             
             plt.show()
             plt.clf()
             plt.close(fig)
-                
-            return [(x1,y1,err1), (x2,y2,err2)]
     
-    
-    
-# =============================================================================
-#     def psth_correlation(self, saveplot=False):
-#         psth_a = Psth.psth_all(self)
-#         psth_p = Psth.psth_para(self)
-#         
-#         '''coeff'''
-#         mod_coeff, cf_coeff, bw_coeff = [],[],[]
-#      
-#         mod = psth_p['modrate']
-#         for i in range(len(mod)):
-#             psth_mod = np.mean(mod[i], axis=0)    
-#             mod_coeff.append(stats.pearsonr(psth_a, psth_mod)[0])
-#         plt.plot(mod_coeff)
-#         plt.xticks(list(range(len(mod))), self.mod_label)
-#         ax = plt.subplot()
-#         txt = (f'{self.filename}_Modrate_coeff')
-#         ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-#         if saveplot:
-#             plt.savefig(f'{self.filename}_PSTH_ModRate_Coeff.png', dpi=500)
-#             plt.clf()
-#         else:
-#             plt.show()
-#         
-#         cf = psth_p['centerfreq']
-#         for i in range(len(cf)):
-#             psth_cf = np.mean(cf[i], axis=0)
-#             cf_coeff.append(stats.pearsonr(psth_a, psth_cf)[0])
-#         plt.plot(cf_coeff)
-#         plt.xticks(list(range(len(cf))), self.cf_label)
-#         plt.xticks(rotation = 45)
-#         ax = plt.subplot()
-#         txt = (f'{self.filename}_centerfreq_coeff')
-#         ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-#         if saveplot:
-#             plt.savefig(f'{self.filename}_PSTH_CenterFreq_Coeff.png', dpi=500)
-#             plt.clf()
-#         else:
-#             plt.show()
-#         
-#         bw = psth_p['bandwidth']
-#         for i in range(len(bw)):
-#             psth_bw = np.mean(bw[i], axis=0)
-#             bw_coeff.append(stats.pearsonr(psth_a, psth_bw)[0])
-#             plt.show()
-#         plt.plot(bw_coeff)
-#         plt.xticks(list(range(len(bw))), self.bw_label)
-#         plt.xticks(rotation = 45)
-#         ax = plt.subplot()
-#         txt = (f'{self.filename}_bandwidth_coeff')
-#         ax.text(0,1.03, txt, horizontalalignment='left', transform=ax.transAxes)
-#         if saveplot:
-#             plt.savefig(f'{self.filename}_PSTH_BandWidth_Coeff.png', dpi=500)
-#             plt.clf()
-#         else:
-#             plt.show()
-# =============================================================================
-            
+        
     def psth_trend(self, tuning=None, plot=True, saveplot=False, **kwargs) -> None:
         """
         Generate average potential vs base. Traces seperated by group.
@@ -703,14 +654,7 @@ class Psth():
                 plt.show()
                 plt.clf()
                 plt.close(fig)
-                
-# =============================================================================
-#             if arange==(1,0,2):
-#                 return samegroup
-#             else:
-#                 pass    
-# =============================================================================
-        
+                      
 
     def psth_window(self, window, featname, tuning=None, saveplot=False, savenotes=False):
         """
@@ -738,7 +682,7 @@ class Psth():
             self.features = pd.DataFrame()
         
         #be aware the resp in resp_list is returned from psth_para which went through
-        #baseline correction thus already scaled to real value. 
+        #baseline correction thus already scaled to real value.
         para_dict = Psth.psth_para(self)
         resp_list = [para_dict['centerfreq'],para_dict['bandwidth'],para_dict['modrate']]
         label_list = [self.cf_label, self.bw_label, self.mod_label]
@@ -781,7 +725,125 @@ class Psth():
                 plt.show()
         if savenotes:
             self.features.to_csv(f'{self.filename}--feature_notes.csv', index=False)
-
+    
+    
+    def get_psth_cat(self, inRF=True):
+        from IPython import get_ipython
+        from matplotlib.lines import Line2D
+        from matplotlib.widgets import Button, CheckButtons
+        get_ipython().run_line_magic('matplotlib', 'qt5')
+        data = self.get_psth()
+        
+        if not inRF:
+            x = data['x_ex']
+            y = data['y_ex']
+        else:
+            x = data['x_in']
+            y = data['y_in']
+        
+        # Initialize figure and axis
+        fig, ax = plt.subplots()
+        plt.subplots_adjust(bottom=0.2)
+        line, = ax.plot(x, y, label="Signal")
+        
+        # === CUSTOM CURSOR NAMES ===
+        cursor_names = ["onpeak_start", "onpeak", "onpeak_stop", "offpeak_start", "offpeak", 'offpeak_stop']
+        NUM_CURSORS = len(cursor_names)
+    
+        cursor_lines = []
+        cursor_labels = []
+        cursor_positions = np.linspace(x[0], x[-1], NUM_CURSORS + 2)[1:-1]
+        dragging = [None]
+        active_cursor = [None]
+        cursor_result = []
+        done_flag = [False]
+    
+        ymin, ymax = ax.get_ylim()
+        for i, xpos in enumerate(cursor_positions):
+            # Draw vertical line
+            line = Line2D([xpos, xpos], [ymin, ymax], color='r', linestyle='--', lw=1.5)
+            ax.add_line(line)
+            cursor_lines.append(line)
+    
+            # Label at middle y
+            mid_y = (ymin + ymax) / 2
+            label = ax.text(xpos, mid_y, cursor_names[i],
+                            rotation=90, fontsize=20,
+                            color='blue', ha='left', va='center',
+                            bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
+            cursor_labels.append(label)
+    
+        # === Checkboxes as one horizontal row ===
+        ax_check = plt.axes([0.05, 0.9, 0.9, 0.08])  # across the top
+        checkbox_status = [False] * NUM_CURSORS
+        check = CheckButtons(ax_check, cursor_names, checkbox_status)
+        [lbl.set_fontsize(16) for lbl in check.labels]
+    
+        changing_checkbox = [False]
+    
+        def on_check(label):
+            if changing_checkbox[0]:
+                return
+            idx = cursor_names.index(label)
+            changing_checkbox[0] = True
+            current_status = check.get_status()
+            for i in range(NUM_CURSORS):
+                if current_status[i] and i != idx:
+                    check.set_active(i)  # toggle off
+            # Re-read status after toggles
+            new_status = check.get_status()
+            active_cursor[0] = idx if new_status[idx] else None
+            changing_checkbox[0] = False
+    
+        check.on_clicked(on_check)
+    
+        def on_press(event):
+            if event.inaxes != ax or event.xdata is None:
+                return
+            if active_cursor[0] is not None:
+                dragging[0] = active_cursor[0]
+    
+        def on_motion(event):
+            if dragging[0] is None or event.inaxes != ax or event.xdata is None:
+                return
+            idx = dragging[0]
+            x_new = event.xdata
+            cursor_lines[idx].set_xdata([x_new, x_new])
+            # Update label position
+            cursor_labels[idx].set_position((x_new, (ymin + ymax) / 2))
+            fig.canvas.draw_idle()
+    
+        def on_release(event):
+            dragging[0] = None
+    
+        fig.canvas.mpl_connect("button_press_event", on_press)
+        fig.canvas.mpl_connect("motion_notify_event", on_motion)
+        fig.canvas.mpl_connect("button_release_event", on_release)
+    
+        def output_and_close(event):
+            for i, line in enumerate(cursor_lines):
+                x_pos = line.get_xdata()[0]
+                y_pos = np.interp(x_pos, x, y)
+                cursor_result.append((cursor_names[i], x_pos, y_pos))
+            print("Cursor values:")
+            for name, xv, yv in cursor_result:
+                print(f"{name}: x = {xv:.2f}, y = {yv:.2f}")
+            done_flag[0] = True
+            plt.close('all')
+            get_ipython().run_line_magic('matplotlib', 'inline')
+    
+        ax_button = plt.axes([0.8, 0.05, 0.12, 0.075])
+        button = Button(ax_button, "Output")
+        button.on_clicked(output_and_close)
+    
+        plt.legend()
+        plt.show(block=False)
+    
+        # Wait loop until output is clicked
+        while not done_flag[0] and plt.fignum_exists(fig.number):
+            plt.pause(0.1)
+    
+        return cursor_result
 
 
 def psth_wwo_bf(stim, resp, para, bf, version, filename, bandwidth=None, saveplot=False):
@@ -1132,11 +1194,13 @@ def get_section_old(psth_sep, para_sep, para_type: int):
     return file    
 
 
-def get_section_simple(filename, mouseID, psth_sep, para_sep, para_type: int):
-    psths = np.array(psth_sep[para_type])
+def get_section(filename, mouseID, site, psth_para_sep, para_sep, para_type: int):
+    psths = np.array(psth_para_sep[para_type])
     paras = np.array(para_sep[para_type])
     current_type = ['cf', 'bw', 'mr'][para_type]
     fs = 25000
+    df_cursor = pd.read_excel('lsfm_PSTH_cursors.xlsx')
+    cursor = df_cursor[(df_cursor['mouseID']==mouseID)&(df_cursor['filename']==filename)]
     
     data = []
     #loop through individual parameter (e.g. mod = 8Hz)
@@ -1146,59 +1210,73 @@ def get_section_simple(filename, mouseID, psth_sep, para_sep, para_type: int):
         para_spec = paras[idx][0]
         repeat = paras[idx][1]
         psth = TFTool.butter(psth, 6, 50, 'low', fs)
+        baseline = np.mean(psth[1000:1250])
+        psth = psth-baseline
         
         """onset"""
-        on_base = np.mean(psth[250:1250])
-        on_peak_range = psth[1250:7500]
+        on_peak_range = psth[1250:3750]
+        peak_plus = np.max(on_peak_range)
+        peak_minus = np.min(on_peak_range)
         
-        on_peak_range = on_peak_range - on_base
-        on_area = np.sum(on_peak_range)
-        if on_area>=0:
-            on_peak = np.max(on_peak_range)
+        if peak_plus >= abs(peak_minus):
+            on_peak_amp = peak_plus
         else:
-            on_peak = np.min(on_peak_range)
+            on_peak_amp = peak_minus
+        
+        """onset_charge"""
+        on_charge = np.sum(psth[int(cursor['onpeak_start_x'].item()):int(cursor['onpeak_stop_x'].item())])
         
         
         """offset"""
-        off_base = np.mean(psth[25250:26250])
-        off_peak_range = psth[26250:35000]
+        plateau = np.mean(psth[26000:26250])
+        peak_x = int(cursor['offpeak_x'].item())
+        off_peak_range = psth[26250:(peak_x - 26250)*2+26250]
+        peak_plus = np.max(off_peak_range)
+        peak_minus = np.min(off_peak_range)
         
-        off_peak_range = off_peak_range - off_base
-        off_area = np.sum(off_peak_range)
-        if off_area>=0:
-            off_peak = np.max(off_peak_range)
+        if peak_plus - plateau >= abs(peak_minus - plateau):
+            off_peak_amp = peak_plus - plateau
         else:
-            off_peak = np.min(off_peak_range)
+            off_peak_amp = peak_minus - plateau
+        
+        """offset -baseline"""
+        if peak_plus >= abs(peak_minus):
+            off_peak_amp_base = peak_plus
+        else:
+            off_peak_amp_base = peak_minus
+        
+        """offset_charge"""
+        off_charge = np.sum(psth[int(cursor['offpeak_start_x'].item()):int(cursor['offpeak_stop_x'].item())])
         
         
         """sustain"""
-        sustain_v = np.mean(psth[15000:25000])
-        sustain_area = np.sum(psth[15000:25000])
+        sustain_v = np.mean(psth[16250:26250])
         
         
         #change unit
-        on_peak = on_peak*100                   #mV
-        off_peak = off_peak*100                 #mV
-        sustain_v  = sustain_v*100              #mV
-        on_area = on_area*100000/fs             #mV*ms
-        off_area = off_area*100000/fs           #mV*ms
-        sustain_area = sustain_area*100000/fs   #mV*ms
+        on_peak_amp = on_peak_amp*100                   #mV
+        off_peak_amp = off_peak_amp*100                 #mV
+        off_peak_amp_base = off_peak_amp_base*100       #mV
+        sustain_v  = sustain_v*100                      #mV
+        on_charge = on_charge*100000/fs               #mV*ms
+        off_charge = off_charge*100000/fs             #mV*ms
+        
         
         """save data from individual parameter to list"""
-        data.append([para_spec, repeat, on_peak, on_area, off_peak, off_area,
-                     sustain_v, sustain_area])
+        data.append([para_spec, repeat, on_peak_amp, on_charge, off_peak_amp, off_peak_amp_base,
+                     off_charge, sustain_v])
     
     data = np.swapaxes(np.array(data), 0, 1)
-    file = {'filename':filename, 'mouseID':mouseID,
+    file = {'filename':filename, 'mouseID':mouseID, 'patch_site':site,
             'parameter':list(data[0]), 'repeat':list(data[1]),
-            'on peak':list(data[2]), 'on charge':list(data[3]),
-            'off peak':list(data[4]), 'off charge':list(data[5]),
-            'sustain potential':list(data[6]), 'sustain charge':list(data[7])}
+            'on_peak':list(data[2]), 'on_charge':list(data[3]),
+            'off_peak':list(data[4]), 'off_peak_base':list(data[5]), 'off_charge':list(data[6]),
+            'sustain_potential':list(data[7])}
     
-    return file    
+    return file
     
 
-def plot_category(filename, bf, data, para_type: int, saveplot=False, **kwargs):
+def plot_para_category(filename, bf, data, para_type: int, saveplot=False, **kwargs):
     """
     plot each parameter category (peak amp, kinetics...etc) seperated by paramenter type(cf, bw, mr),
     along values in each parameter type.
@@ -1327,26 +1405,39 @@ def plot_group_category(df, coordinate, parameter_type:int, category:str):
     cate = category
     
     sessions = set(df['filename'])
+    from matplotlib import cm
+    cmap = cm.get_cmap('viridis')
+    ortho_all = list(coordinate.ortho_A12)
+    norm = colors.Normalize(vmin=np.nanmin(ortho_all), vmax=np.nanmax(ortho_all))
     
     fig, ax = plt.subplots(figsize=(10,6))
     for session in sessions:
-        xx = df[df['filename']==session]['parameter']
-        yy = df[df['filename']==session][cate]
+        xx = np.array(df[df['filename']==session]['parameter'].item())
+        yy = np.array(df[df['filename']==session][cate].item())
         mouse = list(df[df['filename']==session]['mouseID'])[0]
-        coord_ortho = coordinate[coordinate['filename']==session]['coord_ortho']
-        from matplotlib import cm
-        ax.plot(xx, yy, c=cm.viridis(coord_ortho), label=mouse)
+        site = list(df[df['filename']==session]['patch_site'])[0]
+        ortho_x = coordinate[(coordinate['mouseid']==mouse)&(coordinate['regions']==f'Patch_{site}')].ortho_A12.item()
+        
+        color = cmap(norm(ortho_x))
+        im = ax.plot(xx, yy, c=color, label=mouse)
+    
+    if parameter_type == 2:
+        ax.set_xscale('log')
     
     if 'peak' in cate or 'potential' in cate:
-        y_label = 'potential (mV)' 
+        y_label = 'potential (mV)'
     elif 'charge' in cate:
         y_label = 'charge (mV*ms)'
-
-    x_label = ['frequency from bf (kHz)', 'bandwidth (octave)', 'mod rate (Hz)'][parameter_type]
     
+    x_label = ['frequency from bf (octave)', 'bandwidth (octave)', 'mod rate (Hz)'][parameter_type]
     ax.set_ylabel(y_label, fontsize=20)
     ax.set_xlabel(x_label, fontsize=20)
     ax.tick_params(axis='both', which='major', labelsize=18)
+    
+    sm = plt.cm.ScalarMappable(norm=norm, cmap=cmap)
+    sm.set_array([])
+    cbar = fig.colorbar(sm, ax=ax)
+    
     plt.title(f'Type: {para_type}, Category: {cate}', fontsize=22)
     plt.savefig(f'{para_type}_{cate}.png', dpi=500, bbox_inches='tight')
     plt.show()

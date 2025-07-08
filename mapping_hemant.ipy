@@ -1,0 +1,278 @@
+from skimage import io, restoration, exposure
+import os, glob
+import numpy as np
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+import time
+from nptdms import TdmsFile
+from pathlib import Path
+from joblib import Parallel, delayed
+from numba import jit, njit, cuda
+from PIL import Image, ImageSequence
+from scipy import signal, stats
+import scipy.io
+import math
+import pandas as pd
+
+def load_image(tiffs, n_imgs):  
+    from PIL import Image, TiffImagePlugin
+    result = preallocate(n_imgs)
+    idx = 0
+
+    for path in tiffs:
+        try:
+            with Image.open(path) as img:
+                frame = 0
+                while idx < n_imgs:
+                    try:
+                        img.seek(frame)
+                        arr = np.array(img)
+                        if arr.shape != (512, 512):
+                            raise ValueError(f"Frame {frame} in {path} is not 450x450.")
+                        result[idx] = arr
+                        idx += 1
+                        frame += 1
+                    except EOFError:
+                        break  # End of frames in this TIFF
+        except Exception as e:
+            print(f"Error reading {path}: {e}")
+        
+        if idx >= n_imgs:
+            break  # Stop loading once enough frames are loaded
+
+    if idx < n_imgs:
+        raise ValueError(f"Only {idx} frames found, but image_sync = {n_imgs} was requested.")
+
+    return result
+
+@jit(nopython=True, parallel=False)
+def preallocate(n_imgs):
+    return np.empty((n_imgs, 512, 512), dtype=np.uint16)
+
+
+def load_tdms(tdms_dir):
+    tdms_file = TdmsFile.open(tdms_dir)
+    _groups = tdms_file['Untitled']
+    stim_onset = _groups['StimStart'][:]
+    sync = _groups['FVAL'][:]
+    para = _groups['Tone Parameters'][:]
+
+    freq = [i for i in para[0::2] if i != 0]
+    loud = [i for i in para[1::2] if i != 0]
+    para = list(zip(loud, freq))
+    
+    from collections import Counter
+    repeat = Counter(para)[para[0]]
+
+    time_stim = np.diff(np.sign(stim_onset-2.5))>0
+    stim_sync = [i for i,a in enumerate(time_stim) if a]
+    
+    time_ttl = np.diff(np.sign(sync-1.5))>0
+    img_sync = [i for i,a in enumerate(time_ttl) if a]
+    
+    return para, stim_sync, img_sync
+
+def check_sync(stim_sync, img_sync, img_all, para, filename):
+    sync_n = len(img_sync) - len(img_all)
+
+    if len(stim_sync) == len(para) and sync_n == 0:
+        print(f'{filename}: All sync pulse matched')
+    elif abs(len(stim_sync)-len(para))>1:
+        print(f'{filename}: stimulus out of sync')
+    elif sync_n != 0:
+        print(f'{filename}: {sync_n} difference between #TTL and #frame')
+
+def get_stim_resp(img_all, stim_sync, img_sync):
+    activities = []
+    around_stim=[]
+    for stim_idx, stim_time in enumerate(stim_sync):
+        _closest_frame = (np.array(img_sync) - stim_time) > 0
+        img_idx = next(i for i, j in enumerate(_closest_frame) if j)
+        
+        """averaging 10 frame pre-stimulus and 10 frame post-stimulus for comparison"""
+        pre_stim = img_all[img_idx-11:img_idx-1]
+        post_stim = img_all[img_idx:img_idx+10]
+        
+        """crop with a window of 200 frames around stimulus start"""
+        window=200
+        around_stim.append(img_all[img_idx-(window//2):img_idx+(window//2)+1])
+        
+        diff = (np.mean(post_stim, axis=0) - np.mean(pre_stim, axis=0))
+        activities.append(diff)
+        
+    return activities, around_stim
+
+
+def load_data(tdms, tiffs, filename):
+    t1 = time.time()
+    para, stim_sync, img_sync = load_tdms(tdms)
+    img_all = load_image(tiffs, len(img_sync))
+    
+    check_sync(stim_sync, img_sync, img_all, para, filename)
+    activities, around_stim = get_stim_resp(img_all, stim_sync, img_sync)
+        
+    para_argsort = [i[0] for i in sorted(enumerate(para), key=lambda x:x[1])]
+    para_sort = np.array(para)[para_argsort]
+    act_sort = np.array(activities)[para_argsort]
+    around_stim_sort = np.array(around_stim)[para_argsort]
+    
+    t2=time.time()
+    print(t2-t1)
+    
+    return para, para_sort, act_sort, around_stim_sort
+
+def plot_map(mapping, filename, saveplot=False):
+    map_plot = np.reshape(mapping, (3,4,512,512))
+    vmax = np.max(mapping)/3
+    
+    fig, ax = plt.subplots(3,4, figsize=(15, 10))
+    for x in range(3):
+        for y in range(4):
+            ax[x,y].imshow(map_plot[x][y], vmin=0, vmax=vmax, aspect='auto')
+            ax[x,y].set_xticks([0,256,512])
+            ax[x,y].set_yticks([0,256,512])
+    cols = ['4k', '10k', '20k', '30k']
+    rows = ['50dB', '60dB', '70dB']
+    
+    for axes, col in zip(ax[0], cols):
+        axes.set_title(col, fontsize=16)
+        
+    for axes, row in zip(ax[:,0], rows):
+        axes.set_ylabel(row, rotation=90, fontsize=16)
+    
+    
+    _ = fig.suptitle(f'{filename}', y=0.96, fontsize=20)
+    
+    if saveplot:
+        plt.savefig(f'{filename}_mapping_Hemant.png', dpi=500, bbox_inches='tight')
+        plt.show()
+        plt.clf()
+    else:
+        plt.show()
+        plt.clf()
+
+
+def plot_individual(mapping, para_map, filename, saveplot=True):
+    for i,m in enumerate(mapping):
+        vmax = np.max(m)/2
+        vmin = np.min(m)/2
+        plt.imshow(m, vmin=vmin, vmax=vmax, aspect='equal')
+        plt.xticks([0,256,512])
+        plt.yticks([0,256,512])
+        frequency = para_map[i][1]/1000
+        name = f'{i}-{filename}_{para_map[i][0]}dB_{para_map[i][1]/1000}kHz'
+        plt.title(name)
+        
+        if saveplot:
+            plt.savefig(f'{name}.png', dpi=500, bbox_inches='tight')
+            plt.clf()
+        else:
+            plt.show()
+            plt.clf()
+
+
+def image_process(mapping, deconvolute=True, threshold=None):
+    import copy
+    
+    processed = []
+    for i,m in enumerate(mapping):
+        m_work = copy.copy(m)
+        
+        if deconvolute:
+            
+            def gaussuian_kern(size=10, sigma=1):
+                """Returns a 2D Gaussian kernel array."""
+                kern1d = scipy.signal.windows.gaussian(size, std=sigma).reshape(size, 1)
+                kern2d = np.outer(kern1d, kern1d) /size**2
+                
+                return kern2d
+            
+            psf = gaussuian_kern(size=10, sigma=28)
+            
+            m_work = restoration.richardson_lucy(m, psf, num_iter=1, clip=False)
+        
+        if threshold:
+# =============================================================================
+#             m_flat = m_work.flatten()
+#             ci = stats.t.interval(0.95, len(m_flat)-1, loc=np.mean(m_flat), 
+#                                   scale=stats.sem(m_flat))[1]
+#             m_mask = m_work < ci
+# =============================================================================
+            if i in [0,4,8]:
+                m_mask = m_work < (np.max(m_work)*threshold[0])
+            else:
+                m_mask = m_work < (np.max(m_work)*threshold[1])
+            
+            m_work[m_mask] = 0
+            
+        processed.append(m_work)
+    
+    return np.array(processed)
+
+
+def plot_overlay(index, mapping, filename, wide_field, saveplot=True):
+    img_wf = io.imread(wide_field)
+        
+    img_wf = np.moveaxis(img_wf, 2, 0)[0]
+    img_wf = exposure.adjust_gamma(img_wf, 0.5)
+
+    
+    m_low = mapping[index[0]]
+    mask_low = np.ma.masked_where(m_low == 0, m_low)
+    m_mid = mapping[index[1]]
+    mask_mid = np.ma.masked_where(m_mid == 0, m_mid)
+    m_high = mapping[index[2]]
+    mask_high = np.ma.masked_where(m_high == 0, m_high)
+    
+    extent = 0,512,0,512
+    fig = plt.figure(frameon=False)
+    plt.imshow(img_wf, cmap='gray', alpha=.7, extent=extent)
+    plt.imshow(mask_low, cmap='Greens_r', alpha=.7, extent=extent)
+    plt.imshow(mask_mid,cmap='Blues_r', alpha=.5, extent=extent)
+    plt.imshow(mask_high,cmap='Reds_r', alpha=.7, extent=extent)
+    plt.axis('off')
+    
+    if saveplot:
+        plt.savefig(f'{filename}_overlay.png', dpi=500, bbox_inches='tight')
+        plt.show()
+        plt.clf()
+    else:
+        plt.show()
+        plt.clf()
+
+if __name__ == "__main__":
+    %matplotlib inline
+    directory = r'Z:\Users\hsrivastava\WideField\WFI\tg171\1'
+    filename = 'TG171'
+    tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))
+    data_freq = []
+    
+    order = ['LOW', 'MID', 'BMH', 'HIGH']
+    label_map = {label: i for i, label in enumerate(order)}
+    tdms_dir_sort = sorted(tdms_dir, key=lambda f: next(label_map[l] for l in order if l in f))
+    
+    for tdms in tdms_dir_sort:
+        tiff_filename = ('_').join(tdms.split('\\')[-1].split('_')[:1])
+        tiffs = glob.glob(os.path.join(directory, f'*{tiff_filename}*.tif'))
+        
+        data = load_data(tdms, tiffs, filename)
+        data_freq.append(data)
+    
+    para_map = np.array([data_f[1] for data_f in data_freq])
+    para_map = np.reshape(para_map, (-1,30,2))
+    act_map = np.array([data_f[2] for data_f in data_freq])
+    act_map = np.reshape(act_map, (-1,30,512,512))
+    
+    mapping = np.mean(act_map, axis=1)
+    plot_map(mapping, filename, saveplot=True)
+    threshold = (0.3,0.55)
+    map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
+    index = [8,5,7]
+    wf_file = r'Z:\Users\hsrivastava\WideField\WFI\tg171\1\tg171_MEAN_2023-09-04T17-37-37.261.png'
+    plot_overlay(index, map_prosses, filename, wf_file, saveplot=False)
+    
+    file = {'activity_map':act_map, 'map':mapping, 'parameter':para_map,
+            'directory':directory, 'filename':filename}
+    
+    np.save(f'{filename}_mapping', file)

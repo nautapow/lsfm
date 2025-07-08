@@ -20,6 +20,7 @@ import plotly.io as pio
 import plotly.express as px
 import plotly.graph_objects as go
 pio.renderers.default='browser'
+%matplotlib inline
     
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
@@ -30,7 +31,6 @@ if  __name__ == "__main__":
     #resp_cell = [[],[],[],[],[],[]]
     #band_cell_mean=[]
     #lsfm.best_lags()
-
 # =============================================================================
 #     bf = cell_note['best frequency']
 #     lag_all = cell_note['best_lag_all']
@@ -53,21 +53,25 @@ if  __name__ == "__main__":
 #     ax1.tick_params(axis='both', which='major', labelsize=14)
 # =============================================================================
     
-    """new index for only analysing data with valid best frequency"""
-    idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude') 
-                        &(df['tuning']!='no')]
+# =============================================================================
+#     """new index for only analysing data with valid best frequency"""
+#     idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude') 
+#                         &(df['tuning_check']!='exclude')]
+# =============================================================================
+    idx_puretone = df.index[(df['type']=='Log sFM') & (df['final_inclusion']=='yes')]
     
     savefig=False
-    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
     psth_para_inBF, psth_para_exBF = [],[]
     psth_inBF, psth_exBF = [],[]
     mouseIDs, filenames, patch_sites, bfs, bandwidths, bands_left, bands_right = [],[],[],[],[],[],[]
     coords_x, coords_y, coords_ortho, coords_orthoA2UF, angle = [],[],[],[],[] 
-
+    
+    neurons = []
     data_cf, data_bw, data_mr = [],[],[]
-    #idx_lsfm = [i for i in idx_lsfm if i >= 205]
-    #df_loc = 165
-    #if df_loc == 165:
+# =============================================================================
+#     df_loc = 184
+#     if df_loc == 184:
+# =============================================================================
     for idx,df_loc in enumerate(idx_lsfm):
         filename = df['filename'][df_loc]
         df_info = pd.read_excel('lsfm_cell_note.xlsx')
@@ -98,14 +102,58 @@ if  __name__ == "__main__":
         resp = TFTool.prefilter(resp, 25000)
         
         titlename = f'{mouse}-{filename}'
+        if titlename=='TG145-20230630_008':
+            titlename='TG145-20230628_003'
+        if titlename=='TG145-20230630_004':
+            titlename='TG145-20230630_008'
         
         ##psth_para_analysis
-        psth = Psth(stim, resp, para, titlename, version, bf, band_left, band_right)
-        #_ = psth.plot_psth(saveplot=False)
-        t = psth.plot_psth_wwobf(saveplot=False)
-        
+        lsfm1 = Psth(stim, resp, para, titlename, version, bf, band_left, band_right, use_band=True)
+        _ = lsfm1.plot_psth(saveplot=False)
+        lsfm1.plot_psth_wwobf(saveplot=False)
         stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])
         
+# =============================================================================
+#         cursors_in = lsfm1.get_psth_cat()
+#         cursors_ex = lsfm1.get_psth_cat(inRF=False)
+#         
+#         neuron = [mouse, filename, cursors_in, cursors_ex]
+#         neurons.append(neuron)
+#         
+#     
+#     # Rearrange PSTH cursor data to store in excel file
+#     # Prepare "on" data
+#     in_rows = []
+#     for neuron_id, filename, in_cursors, _ in neurons:
+#         row = [neuron_id, filename]
+#         for name, x, y in in_cursors:
+#             row.extend([x, y])
+#         in_rows.append(row)
+#     
+#     # Prepare "off" data
+#     ex_rows = []
+#     for neuron_id, filename, _, ex_cursors in neurons:
+#         row = [neuron_id, filename]
+#         for name, x, y in ex_cursors:
+#             row.extend([x, y])
+#         ex_rows.append(row)
+#     
+#     # Extract header from one sample
+#     cursor_names = [name for name, _, _ in neurons[0][2]]
+#     columns = ['mouseID', 'filename']
+#     for name in cursor_names:
+#         columns.extend([f'{name}_x', f'{name}_y'])
+#     
+#     # Create DataFrames
+#     df_in = pd.DataFrame(in_rows, columns=columns)
+#     df_ex = pd.DataFrame(ex_rows, columns=columns)
+#     
+#     # Write both to Excel
+#     with pd.ExcelWriter('lsfm_PSTH_cursors_new.xlsx') as writer:
+#         df_in.to_excel(writer, sheet_name='in_band', index=False)
+#         df_ex.to_excel(writer, sheet_name='ex_band', index=False)
+# =============================================================================
+    
         """psth seperated by parameter"""
         """0: cf, 1: bw, 2: mr"""
         psth_para_sep=[] #structure = (seperate para type, # of repeats, windows)
@@ -113,9 +161,9 @@ if  __name__ == "__main__":
         for i in range(3):
             which_parameter=i
             psth_para_bf, para_bf = lsfm_psth.psth_para_sepearte(stim_in, resp_in, para_in, 
-                                             which_parameter, bf, filename, 'inBF', plot=False, saveplot=savefig)
+                                             which_parameter, bf, filename, 'inBF', plot=True, saveplot=savefig)
             _,_ = lsfm_psth.psth_para_sepearte(stim_ex, resp_ex, para_ex, 
-                                             which_parameter, bf, filename, 'exBF', plot=False, saveplot=savefig)
+                                             which_parameter, bf, filename, 'exBF', plot=True, saveplot=savefig)
             psth_para_sep.append(psth_para_bf)
             para_sep.append(para_bf)
         
@@ -125,9 +173,9 @@ if  __name__ == "__main__":
         import random
         randoms = random.sample(range(50,len(resp_flat)),1000)
         
-        category_cf = lsfm_psth.get_section_simple(filename, mouse, psth_para_sep, para_sep, 0)
-        category_bw = lsfm_psth.get_section_simple(filename, mouse, psth_para_sep, para_sep, 1)
-        category_mr = lsfm_psth.get_section_simple(filename, mouse, psth_para_sep, para_sep, 2)
+        category_cf = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 0)
+        category_bw = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 1)
+        category_mr = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 2)
         
         from_bf = np.array(category_cf['parameter']) - bf/1000
         category_cf['parameter'] = list(from_bf)
@@ -136,6 +184,8 @@ if  __name__ == "__main__":
         data_cf.append(category_cf)
         data_bw.append(category_bw)
         data_mr.append(category_mr)
+        
+        
         
 # =============================================================================
 #         #organize coordinates, which is not very necessary.
@@ -151,176 +201,45 @@ if  __name__ == "__main__":
 
         
         
-        """
-        Analysis of subfield - psth section - lsfm parameters
+# =============================================================================
+#         """
+#         Analysis of subfield - psth section - lsfm parameters
+# 
+#         dict = {'parameter':data[0], 'repeat':data[1],
+#                 'on_peak':data[2], 'on_loc':data[3], 'on_rise':data[4], 'on_rise10_loc':data[5], 
+#                 'on_rise90_loc':data[6], 'on_decay':data[7], 'on_decay_loc':data[8], 'on_charge':data[9],
+#                 'off_peak':data[10], 'off_loc':data[11], 'off_rise':data[12], 'off_rise10_loc':data[13], 
+#                 'off_rise90_loc':data[14], 'off_decay':data[15], 'off_decay_loc':data[16], 'off_charge':data[17],
+#                 'sustain':data[18]}
+#         """
+#         
+#         para_type = ['cf', 'bw', 'mf']
+#         para_type_full = ['center freq', 'bandwidth', 'mod rate']
+#     
+#     coordinate = pd.DataFrame({'filename':filenames, 'mouseID':mouseIDs, 'site':patch_sites,
+#                                'coord_x':coords_x, 'coord_y':coords_y, 'coord_ortho':coords_ortho})
+#     #coordinate.to_csv('coordination_final.csv', index=False)
+#     
+#     
+#     df_cf = pd.DataFrame(data_cf)
+#     df_bw = pd.DataFrame(data_bw)
+#     df_mr = pd.DataFrame(data_mr)
+#     cols_to_explode = [col for col in df_cf.columns if df_cf[col].apply(lambda x: isinstance(x, list)).all()]
+#     df_cf = df_cf.explode(cols_to_explode, ignore_index=True)
+#     df_bw = df_bw.explode(cols_to_explode, ignore_index=True)
+#     df_mr = df_mr.explode(cols_to_explode, ignore_index=True)
+#     
+#     with pd.ExcelWriter('categories.xlsx') as writer:
+#         df_cf.to_excel(writer, sheet_name='center_frequency')
+#         df_bw.to_excel(writer, sheet_name='bandwidth')
+#         df_mr.to_excel(writer, sheet_name='modulation_rate')
+#     
+#     categories = ['on peak', 'on charge', 'off peak', 'off charge', 'sustain potential', 'sustain charge']
+#     for category in categories:
+#         lsfm_psth.plot_group_category(df_bw, coordinate, 1, category)
+# =============================================================================
+    
 
-        dict = {'parameter':data[0], 'repeat':data[1],
-                'on_peak':data[2], 'on_loc':data[3], 'on_rise':data[4], 'on_rise10_loc':data[5], 
-                'on_rise90_loc':data[6], 'on_decay':data[7], 'on_decay_loc':data[8], 'on_charge':data[9],
-                'off_peak':data[10], 'off_loc':data[11], 'off_rise':data[12], 'off_rise10_loc':data[13], 
-                'off_rise90_loc':data[14], 'off_decay':data[15], 'off_decay_loc':data[16], 'off_charge':data[17],
-                'sustain':data[18]}
-        """
-        
-        para_type = ['cf', 'bw', 'mf']
-        para_type_full = ['center freq', 'bandwidth', 'mod rate']
-    
-    coordinate = pd.DataFrame({'filename':filenames, 'mouseID':mouseIDs, 'site':patch_sites,
-                               'coord_x':coords_x, 'coord_y':coords_y, 'coord_ortho':coords_ortho})
-    #coordinate.to_csv('coordination_final.csv', index=False)
-    
-    
-    df_cf = pd.DataFrame(data_cf)
-    df_bw = pd.DataFrame(data_bw)
-    df_mr = pd.DataFrame(data_mr)
-    cols_to_explode = [col for col in df_cf.columns if df_cf[col].apply(lambda x: isinstance(x, list)).all()]
-    df_cf = df_cf.explode(cols_to_explode, ignore_index=True)
-    df_bw = df_bw.explode(cols_to_explode, ignore_index=True)
-    df_mr = df_mr.explode(cols_to_explode, ignore_index=True)
-    
-    with pd.ExcelWriter('categories.xlsx') as writer:
-        df_cf.to_excel(writer, sheet_name='center_frequency')
-        df_bw.to_excel(writer, sheet_name='bandwidth')
-        df_mr.to_excel(writer, sheet_name='modulation_rate')
-    
-    categories = ['on peak', 'on charge', 'off peak', 'off charge', 'sustain potential', 'sustain charge']
-    for category in categories:
-        lsfm_psth.plot_group_category(df_bw, coordinate, 1, category)
-    
-    
-    
-# =============================================================================
-#         lsfm_psth.plot_category(filename, bf, para_section_cf, para_type=0, saveplot=True)
-#         lsfm_psth.plot_category(filename, bf, para_section_bw, para_type=1, saveplot=True)
-#         lsfm_psth.plot_category(filename, bf, para_section_mr, para_type=2, saveplot=True)
-# =============================================================================
-        
-# =============================================================================
-#         lsfm_psth.plot_single(filename, bf, psth_para_sep, para_section_cf, para_type=0, saveplot=True)
-#         lsfm_psth.plot_single(filename, bf, psth_para_sep, para_section_bw, para_type=1, saveplot=True)
-#         lsfm_psth.plot_single(filename, bf, psth_para_sep, para_section_mr, para_type=2, saveplot=True)
-# =============================================================================
-        
-        
-        
-# =============================================================================
-#         #center frequency
-#         psth_cf = lsfm_psth.get_section(psth_para_sep, para_sep, 0)
-#         cf_para = psth_cf['parameter']
-#         cf_para = cf_para-bf/1000
-#         cf_para_abs = np.abs(cf_para-bf/1000)
-#         
-#         on_peak = psth_cf['on_peak']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(cf_para_abs, on_peak)
-#         on_peak_cf = slope
-#         on_loc = psth_cf['on_loc']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(cf_para_abs, on_loc)
-#         on_loc_cf = slope
-#         on_charge = psth_cf['on_charge']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(cf_para_abs, on_charge)
-#         on_charge_cf = slope
-#         
-#         off_peak = psth_cf['off_peak']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(cf_para_abs, off_peak)
-#         off_peak_cf = slope
-#         off_loc = psth_cf['off_loc']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(cf_para_abs, off_loc)
-#         off_loc_cf = slope
-#         off_charge = psth_cf['off_charge']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(cf_para_abs, off_charge)
-#         off_charge_cf = slope
-#         
-#         sustain = psth_cf['sustain']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(cf_para_abs, sustain)
-#         sustain_cf = slope
-#         
-#         #bandwidth
-#         psth_bw = lsfm_psth.get_section(psth_para_sep, para_sep, 1)
-#         bw_para = psth_bw['parameter']
-#         
-#         on_peak = psth_bw['on_peak']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(bw_para, on_peak)
-#         on_peak_bw = slope
-#         on_loc = psth_bw['on_loc']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(bw_para, on_loc)
-#         on_loc_bw = slope
-#         on_charge = psth_bw['on_charge']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(bw_para, on_charge)
-#         on_charge_bw = slope
-#         
-#         off_peak = psth_bw['off_peak']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(bw_para, off_peak)
-#         off_peak_bw = slope
-#         off_loc = psth_bw['off_loc']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(bw_para, off_loc)
-#         off_loc_bw = slope
-#         off_charge = psth_bw['off_charge']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(bw_para, off_charge)
-#         off_charge_bw = slope
-#         
-#         sustain = psth_bw['sustain']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(bw_para, sustain)
-#         sustain_bw = slope
-#         
-#         #modulation rate
-#         psth_mr = lsfm_psth.get_section(psth_para_sep, para_sep, 2)
-#         mr_para = psth_mr['parameter']
-#         
-#         on_peak = psth_mr['on_peak']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(mr_para, on_peak)
-#         on_peak_mr = slope
-#         on_loc = psth_mr['on_loc']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(mr_para, on_loc)
-#         on_loc_mr = slope
-#         on_charge = psth_mr['on_charge']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(mr_para, on_charge)
-#         on_charge_mr = slope
-#         
-#         off_peak = psth_mr['off_peak']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(mr_para, off_peak)
-#         off_peak_mr = slope
-#         off_loc = psth_mr['off_loc']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(mr_para, off_loc)
-#         off_loc_mr = slope
-#         off_charge = psth_mr['off_charge']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(mr_para, off_charge)
-#         off_charge_mr = slope
-#         
-#         sustain = psth_mr['sustain']
-#         slope, intercept, r_value, p_value, std_err = stats.linregress(mr_para, sustain)
-#         sustain_mr = slope
-#             
-#         data_cf.append({'mouseid':mouse, 'filename':filename, 'patch_site':site, 'best_frequency':bf, 
-#                              'on_peak':on_peak_cf, 'on_loc':on_loc_cf, 'on_charge':on_charge_cf, 
-#                              'off_peak':off_peak_cf, 'off_loc':off_loc_cf, 'off_charge':off_charge_cf, 
-#                              'sustain':sustain_cf})
-#         
-#         data_bw.append({'mouseid':mouse, 'filename':filename, 'patch_site':site, 'best_frequency':bf, 
-#                              'on_peak':on_peak_bw, 'on_loc':on_loc_bw, 'on_charge':on_charge_bw, 
-#                              'off_peak':off_peak_bw, 'off_loc':off_loc_bw, 'off_charge':off_charge_bw, 
-#                              'sustain':sustain_bw})
-#         
-#         data_mr.append({'mouseid':mouse, 'filename':filename, 'patch_site':site, 'best_frequency':bf, 
-#                              'on_peak':on_peak_mr, 'on_loc':on_loc_mr, 'on_charge':on_charge_mr, 
-#                              'off_peak':off_peak_mr, 'off_loc':off_loc_mr, 'off_charge':off_charge_mr, 
-#                              'sustain':sustain_mr})
-#         
-# # =============================================================================
-# #         #save data as list
-# #         #structure = (cell, para_type, category)        
-# #         data.append([[on_peak_cf, on_loc_cf, on_charge_cf, off_peak_cf, off_loc_cf, off_charge_cf, sustain_cf], 
-# #                 [on_peak_bw, on_loc_bw, on_charge_bw, off_peak_bw, off_loc_bw, off_charge_bw, sustain_bw],
-# #                 [on_peak_mr, on_loc_mr, on_charge_mr, off_peak_mr, off_loc_mr, off_charge_mr, sustain_mr]])
-# # =============================================================================
-#     
-#     data_cf = pd.DataFrame(data_cf)
-#     data_bw = pd.DataFrame(data_bw)
-#     data_mr = pd.DataFrame(data_mr)
-#     
-#     data_cf.to_csv('para_sep_cf.csv', index=False)
-#     data_bw.to_csv('para_sep_bw.csv', index=False)
-#     data_mr.to_csv('para_sep_mr.csv', index=False)
-# =============================================================================
     
         
 # =============================================================================
@@ -379,222 +298,224 @@ if  __name__ == "__main__":
         
         
         
-    """PSTH category value, choose between using sweeping RF band or BF"""
-    bf_or_band = 'bf'
-    
-    if bf_or_band == 'band':
-        ##Get PSTH category value using RF band
-        psth_para_all = pd.read_excel('psth_category_window_lsfm.xlsx', sheet_name='band')
-        df_info = pd.read_excel('lsfm_cell_note.xlsx')
-        for df_loc in list(set(psth_para_all['df_loc'])):      
-            filename = df['filename'][df_loc]
-            cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
-            para = cell_data.item().get('para')
-            stim = cell_data.item().get('stim')
-            resp = cell_data.item().get('resp')
-            
-            
-            info_idx = df_info[df_info['index']==df_loc].index.values[0]
-            version = df_info['version'][info_idx]
-            mouse = df_info['mouseID'][info_idx]
-            site = df_info['patch_site'][info_idx]
-            tuning_tone = df_info['tuning_tone'][info_idx]
-            
-            bf = df_info['best_frequency'][info_idx]
-            bandwidth = df_info['bandwidth'][info_idx]
-            band_left = df_info['band_left'][info_idx]
-            band_right = df_info['band_right'][info_idx]
-            
-            cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
-            para = cell_data.item().get('para')
-            stim = cell_data.item().get('stim')
-            resp = cell_data.item().get('resp')
-            #slope_lags = cell_data.item().get('slope_lags')
-            
-            #
-            stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, idx_in, idx_ex = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])
-            
-            ##psth_para_analysis
-            
-            ## sweep bf (or RF band)
-            psth_in = Psth(stim_in, resp_in, para_in, filename, version, bf, band_left, band_right)
-            
-            psth_inbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='in')]
-            psth_y = psth_in.psth
-            onset_y = psth_y[1250]
-            offset_y = psth_y[26250]
-            peak_amp = (psth_y[psth_inbf['peak']] - psth_y[psth_inbf['peak_start']]).item()
-            time2peak = (psth_inbf['peak'].item() - 1250)/25
-            if np.isnan(psth_inbf['after_peak_transition'].item()):
-                sustain_x1 = int(psth_inbf['after_peak_start'].item())
-            else:
-                sustain_x1 = int(psth_inbf['after_peak_transition'].item())
-            sustain_x2 = int(psth_inbf['after_peak_end'].item())
-            
-            avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
-            offpeak_amp = (psth_y[psth_inbf['offset_peak']] - psth_y[psth_inbf['peak_start']]).item()
-            time2offpeak = (psth_inbf['offset_peak'].item() - 26250)/25
-            FWHM = (psth_inbf['half_amp_end'] - psth_inbf['half_amp_start']).item()/25
-        
-            psth_para_inBF.append([onset_y, offset_y, peak_amp, time2peak, FWHM, avg_sustain, offpeak_amp, time2offpeak])
-            #psth_inBF.append(psth_bf[0])
-            
-            ## never sweep bf (or RF band)
-            psth_ex = Psth(stim_ex, resp_ex, para_ex, filename, version, bf, band_left, band_right)
-            
-            psth_exbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='out')]
-            psth_y = psth_ex.psth
-            onset_y = psth_y[1250]
-            offset_y = psth_y[26250]
-            peak_amp = (psth_y[psth_exbf['peak']] - psth_y[psth_exbf['peak_start']]).item()
-            time2peak = (psth_exbf['peak'].item() - 1250)/25
-            if np.isnan(psth_exbf['after_peak_transition'].item()):
-                sustain_x1 = int(psth_exbf['after_peak_start'].item())
-            else:
-                sustain_x1 = int(psth_exbf['after_peak_transition'].item())
-            sustain_x2 = int(psth_exbf['after_peak_end'].item())
-            
-            avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
-            offpeak_amp = (psth_y[psth_exbf['offset_peak']] - psth_y[psth_exbf['peak_start']]).item()
-            time2offpeak = (psth_exbf['offset_peak'].item() - 26250)/25
-            FWHM = (psth_exbf['half_amp_end'] - psth_exbf['half_amp_start']).item()/25
-        
-            psth_para_exBF.append([onset_y, offset_y, peak_amp, time2peak, FWHM, avg_sustain, offpeak_amp, time2offpeak])
-            #psth_exBF.append(psth_bf[1])
-            
-            filenames.append(filename)
-            mouseIDs.append(mouse)
-            patch_sites.append(site)
-            bfs.append(bf)
-            bandwidths.append(bandwidth)
-            bands_left.append(band_left)
-            bands_right.append(band_right)
-            
-        psth_para_inBF = np.array(psth_para_inBF).swapaxes(0,1)
-        data_inBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 
-                     'best_frequency':bfs, 'bandwidth':bandwidths, 'band_left':bands_left, 'band_right':bands_right,
-                     'onset': psth_para_inBF[0], 'offset': psth_para_inBF[1], 'peak_amplitude': psth_para_inBF[2],
-                     'time_to_peak':  psth_para_inBF[3], 'FWHM': psth_para_inBF[4], 'sustain': psth_para_inBF[5],
-                     'offpeak_amplitude': psth_para_inBF[6], 'time_to_offpeak': psth_para_inBF[7]}
-        
-        psth_para_exBF = np.array(psth_para_exBF).swapaxes(0,1)
-        data_exBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 
-                     'best_frequency':bfs, 'bandwidth':bandwidths, 'band_left':bands_left, 'band_right':bands_right,
-                     'onset': psth_para_exBF[0], 'offset': psth_para_exBF[1], 'peak_amplitude': psth_para_exBF[2],
-                     'time_to_peak':  psth_para_exBF[3], 'FWHM': psth_para_exBF[4], 'sustain': psth_para_exBF[5],
-                     'offpeak_amplitude': psth_para_exBF[6], 'time_to_offpeak': psth_para_exBF[7]}
-        
-        df_psth_inbf = pd.DataFrame(data_inBF)
-        df_psth_inbf.to_csv('lsfm_psth_para_inBF_new.csv', index=False)
-        df_psth_exbf = pd.DataFrame(data_exBF)
-        df_psth_exbf.to_csv('lsfm_psth_para_exBF_new.csv', index=False)
-    
-    if bf_or_band == 'bf':
-        ##Get PSTH category value using BF
-        psth_para_all = pd.read_excel('psth_category_window_lsfm.xlsx', sheet_name='bf')
-        df_info = pd.read_excel('lsfm_cell_note.xlsx')
-        for df_loc in list(set(psth_para_all['df_loc'])):      
-            filename = df['filename'][df_loc]
-            cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
-            para = cell_data.item().get('para')
-            stim = cell_data.item().get('stim')
-            resp = cell_data.item().get('resp')
-            
-            
-            info_idx = df_info[df_info['index']==df_loc].index.values[0]
-            version = df_info['version'][info_idx]
-            mouse = df_info['mouseID'][info_idx]
-            site = df_info['patch_site'][info_idx]
-            tuning_tone = df_info['tuning_tone'][info_idx]
-            
-            bf = df_info['best_frequency'][info_idx]
-            bandwidth = df_info['bandwidth'][info_idx]
-            band_left = df_info['band_left'][info_idx]
-            band_right = df_info['band_right'][info_idx]
-            
-            cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
-            para = cell_data.item().get('para')
-            stim = cell_data.item().get('stim')
-            resp = cell_data.item().get('resp')
-            #slope_lags = cell_data.item().get('slope_lags')
-            
-            #
-            stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, idx_in, idx_ex = lsfm.resp_bf_or_not(stim, resp, para, bf)
-            
-            ##psth_para_analysis
-            
-            ## sweep bf (or RF band)
-            psth_in = Psth(stim_in, resp_in, para_in, filename, version, bf, band_left, band_right)
-            
-            psth_inbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='in')]
-            psth_y = psth_in.psth
-            onset_y = psth_y[1250]
-            offset_y = psth_y[26250]
-            peak_amp = (psth_y[psth_inbf['peak']] - psth_y[psth_inbf['peak_start']]).item()
-            time2peak = (psth_inbf['peak'].item() - 1250)/25
-            if np.isnan(psth_inbf['after_peak_transition'].item()):
-                sustain_x1 = int(psth_inbf['after_peak_start'].item())
-            else:
-                sustain_x1 = int(psth_inbf['after_peak_transition'].item())
-            sustain_x2 = int(psth_inbf['after_peak_end'].item())
-            
-            avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
-            offpeak_amp = (psth_y[psth_inbf['offset_peak']] - psth_y[psth_inbf['peak_start']]).item()
-            time2offpeak = (psth_inbf['offset_peak'].item() - 26250)/25
-            FWHM = (psth_inbf['half_amp_end'] - psth_inbf['half_amp_start']).item()/25
-        
-            psth_para_inBF.append([onset_y, offset_y, peak_amp, time2peak, FWHM, avg_sustain, offpeak_amp, time2offpeak])
-            #psth_inBF.append(psth_bf[0])
-            
-            ## never sweep bf (or RF band)
-            psth_ex = Psth(stim_ex, resp_ex, para_ex, filename, version, bf, band_left, band_right)
-            
-            psth_exbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='out')]
-            psth_y = psth_ex.psth
-            onset_y = psth_y[1250]
-            offset_y = psth_y[26250]
-            peak_amp = (psth_y[psth_exbf['peak']] - psth_y[psth_exbf['peak_start']]).item()
-            time2peak = (psth_exbf['peak'].item() - 1250)/25
-            if np.isnan(psth_exbf['after_peak_transition'].item()):
-                sustain_x1 = int(psth_exbf['after_peak_start'].item())
-            else:
-                sustain_x1 = int(psth_exbf['after_peak_transition'].item())
-            sustain_x2 = int(psth_exbf['after_peak_end'].item())
-            
-            avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
-            offpeak_amp = (psth_y[psth_exbf['offset_peak']] - psth_y[psth_exbf['peak_start']]).item()
-            time2offpeak = (psth_exbf['offset_peak'].item() - 26250)/25
-            FWHM = (psth_exbf['half_amp_end'] - psth_exbf['half_amp_start']).item()/25
-        
-            psth_para_exBF.append([onset_y, offset_y, peak_amp, time2peak, FWHM, avg_sustain, offpeak_amp, time2offpeak])
-            #psth_exBF.append(psth_bf[1])
-            
-            filenames.append(filename)
-            mouseIDs.append(mouse)
-            patch_sites.append(site)
-            bfs.append(bf)
-            bandwidths.append(bandwidth)
-            bands_left.append(band_left)
-            bands_right.append(band_right)
-            
-        psth_para_inBF = np.array(psth_para_inBF).swapaxes(0,1)
-        data_inBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 
-                     'best_frequency':bfs, 'bandwidth':bandwidths, 'band_left':bands_left, 'band_right':bands_right,
-                     'onset': psth_para_inBF[0], 'offset': psth_para_inBF[1], 'peak_amplitude': psth_para_inBF[2],
-                     'time_to_peak':  psth_para_inBF[3], 'FWHM': psth_para_inBF[4], 'sustain': psth_para_inBF[5],
-                     'offpeak_amplitude': psth_para_inBF[6], 'time_to_offpeak': psth_para_inBF[7]}
-        
-        psth_para_exBF = np.array(psth_para_exBF).swapaxes(0,1)
-        data_exBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 
-                     'best_frequency':bfs, 'bandwidth':bandwidths, 'band_left':bands_left, 'band_right':bands_right,
-                     'onset': psth_para_exBF[0], 'offset': psth_para_exBF[1], 'peak_amplitude': psth_para_exBF[2],
-                     'time_to_peak':  psth_para_exBF[3], 'FWHM': psth_para_exBF[4], 'sustain': psth_para_exBF[5],
-                     'offpeak_amplitude': psth_para_exBF[6], 'time_to_offpeak': psth_para_exBF[7]}
-        
-        df_psth_inbf = pd.DataFrame(data_inBF)
-        df_psth_inbf.to_csv('lsfm_psth_para_atBF_new.csv', index=False)
-        df_psth_exbf = pd.DataFrame(data_exBF)
-        df_psth_exbf.to_csv('lsfm_psth_para_neverBF_new.csv', index=False)
+# =============================================================================
+#     """PSTH category value, choose between using sweeping RF band or BF"""
+#     bf_or_band = 'bf'
+#     
+#     if bf_or_band == 'band':
+#         ##Get PSTH category value using RF band
+#         psth_para_all = pd.read_excel('psth_category_window_lsfm.xlsx', sheet_name='band')
+#         df_info = pd.read_excel('lsfm_cell_note.xlsx')
+#         for df_loc in list(set(psth_para_all['df_loc'])):      
+#             filename = df['filename'][df_loc]
+#             cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
+#             para = cell_data.item().get('para')
+#             stim = cell_data.item().get('stim')
+#             resp = cell_data.item().get('resp')
+#             
+#             
+#             info_idx = df_info[df_info['index']==df_loc].index.values[0]
+#             version = df_info['version'][info_idx]
+#             mouse = df_info['mouseID'][info_idx]
+#             site = df_info['patch_site'][info_idx]
+#             tuning_tone = df_info['tuning_tone'][info_idx]
+#             
+#             bf = df_info['best_frequency'][info_idx]
+#             bandwidth = df_info['bandwidth'][info_idx]
+#             band_left = df_info['band_left'][info_idx]
+#             band_right = df_info['band_right'][info_idx]
+#             
+#             cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
+#             para = cell_data.item().get('para')
+#             stim = cell_data.item().get('stim')
+#             resp = cell_data.item().get('resp')
+#             #slope_lags = cell_data.item().get('slope_lags')
+#             
+#             #
+#             stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, idx_in, idx_ex = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])
+#             
+#             ##psth_para_analysis
+#             
+#             ## sweep bf (or RF band)
+#             psth_in = Psth(stim_in, resp_in, para_in, filename, version, bf, band_left, band_right)
+#             
+#             psth_inbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='in')]
+#             psth_y = psth_in.psth
+#             onset_y = psth_y[1250]
+#             offset_y = psth_y[26250]
+#             peak_amp = (psth_y[psth_inbf['peak']] - psth_y[psth_inbf['peak_start']]).item()
+#             time2peak = (psth_inbf['peak'].item() - 1250)/25
+#             if np.isnan(psth_inbf['after_peak_transition'].item()):
+#                 sustain_x1 = int(psth_inbf['after_peak_start'].item())
+#             else:
+#                 sustain_x1 = int(psth_inbf['after_peak_transition'].item())
+#             sustain_x2 = int(psth_inbf['after_peak_end'].item())
+#             
+#             avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
+#             offpeak_amp = (psth_y[psth_inbf['offset_peak']] - psth_y[psth_inbf['peak_start']]).item()
+#             time2offpeak = (psth_inbf['offset_peak'].item() - 26250)/25
+#             FWHM = (psth_inbf['half_amp_end'] - psth_inbf['half_amp_start']).item()/25
+#         
+#             psth_para_inBF.append([onset_y, offset_y, peak_amp, time2peak, FWHM, avg_sustain, offpeak_amp, time2offpeak])
+#             #psth_inBF.append(psth_bf[0])
+#             
+#             ## never sweep bf (or RF band)
+#             psth_ex = Psth(stim_ex, resp_ex, para_ex, filename, version, bf, band_left, band_right)
+#             
+#             psth_exbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='out')]
+#             psth_y = psth_ex.psth
+#             onset_y = psth_y[1250]
+#             offset_y = psth_y[26250]
+#             peak_amp = (psth_y[psth_exbf['peak']] - psth_y[psth_exbf['peak_start']]).item()
+#             time2peak = (psth_exbf['peak'].item() - 1250)/25
+#             if np.isnan(psth_exbf['after_peak_transition'].item()):
+#                 sustain_x1 = int(psth_exbf['after_peak_start'].item())
+#             else:
+#                 sustain_x1 = int(psth_exbf['after_peak_transition'].item())
+#             sustain_x2 = int(psth_exbf['after_peak_end'].item())
+#             
+#             avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
+#             offpeak_amp = (psth_y[psth_exbf['offset_peak']] - psth_y[psth_exbf['peak_start']]).item()
+#             time2offpeak = (psth_exbf['offset_peak'].item() - 26250)/25
+#             FWHM = (psth_exbf['half_amp_end'] - psth_exbf['half_amp_start']).item()/25
+#         
+#             psth_para_exBF.append([onset_y, offset_y, peak_amp, time2peak, FWHM, avg_sustain, offpeak_amp, time2offpeak])
+#             #psth_exBF.append(psth_bf[1])
+#             
+#             filenames.append(filename)
+#             mouseIDs.append(mouse)
+#             patch_sites.append(site)
+#             bfs.append(bf)
+#             bandwidths.append(bandwidth)
+#             bands_left.append(band_left)
+#             bands_right.append(band_right)
+#             
+#         psth_para_inBF = np.array(psth_para_inBF).swapaxes(0,1)
+#         data_inBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 
+#                      'best_frequency':bfs, 'bandwidth':bandwidths, 'band_left':bands_left, 'band_right':bands_right,
+#                      'onset': psth_para_inBF[0], 'offset': psth_para_inBF[1], 'peak_amplitude': psth_para_inBF[2],
+#                      'time_to_peak':  psth_para_inBF[3], 'FWHM': psth_para_inBF[4], 'sustain': psth_para_inBF[5],
+#                      'offpeak_amplitude': psth_para_inBF[6], 'time_to_offpeak': psth_para_inBF[7]}
+#         
+#         psth_para_exBF = np.array(psth_para_exBF).swapaxes(0,1)
+#         data_exBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 
+#                      'best_frequency':bfs, 'bandwidth':bandwidths, 'band_left':bands_left, 'band_right':bands_right,
+#                      'onset': psth_para_exBF[0], 'offset': psth_para_exBF[1], 'peak_amplitude': psth_para_exBF[2],
+#                      'time_to_peak':  psth_para_exBF[3], 'FWHM': psth_para_exBF[4], 'sustain': psth_para_exBF[5],
+#                      'offpeak_amplitude': psth_para_exBF[6], 'time_to_offpeak': psth_para_exBF[7]}
+#         
+#         df_psth_inbf = pd.DataFrame(data_inBF)
+#         df_psth_inbf.to_csv('lsfm_psth_para_inBF_new.csv', index=False)
+#         df_psth_exbf = pd.DataFrame(data_exBF)
+#         df_psth_exbf.to_csv('lsfm_psth_para_exBF_new.csv', index=False)
+#     
+#     if bf_or_band == 'bf':
+#         ##Get PSTH category value using BF
+#         psth_para_all = pd.read_excel('psth_category_window_lsfm.xlsx', sheet_name='bf')
+#         df_info = pd.read_excel('lsfm_cell_note.xlsx')
+#         for df_loc in list(set(psth_para_all['df_loc'])):      
+#             filename = df['filename'][df_loc]
+#             cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
+#             para = cell_data.item().get('para')
+#             stim = cell_data.item().get('stim')
+#             resp = cell_data.item().get('resp')
+#             
+#             
+#             info_idx = df_info[df_info['index']==df_loc].index.values[0]
+#             version = df_info['version'][info_idx]
+#             mouse = df_info['mouseID'][info_idx]
+#             site = df_info['patch_site'][info_idx]
+#             tuning_tone = df_info['tuning_tone'][info_idx]
+#             
+#             bf = df_info['best_frequency'][info_idx]
+#             bandwidth = df_info['bandwidth'][info_idx]
+#             band_left = df_info['band_left'][info_idx]
+#             band_right = df_info['band_right'][info_idx]
+#             
+#             cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
+#             para = cell_data.item().get('para')
+#             stim = cell_data.item().get('stim')
+#             resp = cell_data.item().get('resp')
+#             #slope_lags = cell_data.item().get('slope_lags')
+#             
+#             #
+#             stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, idx_in, idx_ex = lsfm.resp_bf_or_not(stim, resp, para, bf)
+#             
+#             ##psth_para_analysis
+#             
+#             ## sweep bf (or RF band)
+#             psth_in = Psth(stim_in, resp_in, para_in, filename, version, bf, band_left, band_right)
+#             
+#             psth_inbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='in')]
+#             psth_y = psth_in.psth
+#             onset_y = psth_y[1250]
+#             offset_y = psth_y[26250]
+#             peak_amp = (psth_y[psth_inbf['peak']] - psth_y[psth_inbf['peak_start']]).item()
+#             time2peak = (psth_inbf['peak'].item() - 1250)/25
+#             if np.isnan(psth_inbf['after_peak_transition'].item()):
+#                 sustain_x1 = int(psth_inbf['after_peak_start'].item())
+#             else:
+#                 sustain_x1 = int(psth_inbf['after_peak_transition'].item())
+#             sustain_x2 = int(psth_inbf['after_peak_end'].item())
+#             
+#             avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
+#             offpeak_amp = (psth_y[psth_inbf['offset_peak']] - psth_y[psth_inbf['peak_start']]).item()
+#             time2offpeak = (psth_inbf['offset_peak'].item() - 26250)/25
+#             FWHM = (psth_inbf['half_amp_end'] - psth_inbf['half_amp_start']).item()/25
+#         
+#             psth_para_inBF.append([onset_y, offset_y, peak_amp, time2peak, FWHM, avg_sustain, offpeak_amp, time2offpeak])
+#             #psth_inBF.append(psth_bf[0])
+#             
+#             ## never sweep bf (or RF band)
+#             psth_ex = Psth(stim_ex, resp_ex, para_ex, filename, version, bf, band_left, band_right)
+#             
+#             psth_exbf = psth_para_all[(psth_para_all['df_loc']==df_loc) & (psth_para_all['bf']=='out')]
+#             psth_y = psth_ex.psth
+#             onset_y = psth_y[1250]
+#             offset_y = psth_y[26250]
+#             peak_amp = (psth_y[psth_exbf['peak']] - psth_y[psth_exbf['peak_start']]).item()
+#             time2peak = (psth_exbf['peak'].item() - 1250)/25
+#             if np.isnan(psth_exbf['after_peak_transition'].item()):
+#                 sustain_x1 = int(psth_exbf['after_peak_start'].item())
+#             else:
+#                 sustain_x1 = int(psth_exbf['after_peak_transition'].item())
+#             sustain_x2 = int(psth_exbf['after_peak_end'].item())
+#             
+#             avg_sustain = np.mean(psth_y[sustain_x1:sustain_x2])
+#             offpeak_amp = (psth_y[psth_exbf['offset_peak']] - psth_y[psth_exbf['peak_start']]).item()
+#             time2offpeak = (psth_exbf['offset_peak'].item() - 26250)/25
+#             FWHM = (psth_exbf['half_amp_end'] - psth_exbf['half_amp_start']).item()/25
+#         
+#             psth_para_exBF.append([onset_y, offset_y, peak_amp, time2peak, FWHM, avg_sustain, offpeak_amp, time2offpeak])
+#             #psth_exBF.append(psth_bf[1])
+#             
+#             filenames.append(filename)
+#             mouseIDs.append(mouse)
+#             patch_sites.append(site)
+#             bfs.append(bf)
+#             bandwidths.append(bandwidth)
+#             bands_left.append(band_left)
+#             bands_right.append(band_right)
+#             
+#         psth_para_inBF = np.array(psth_para_inBF).swapaxes(0,1)
+#         data_inBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 
+#                      'best_frequency':bfs, 'bandwidth':bandwidths, 'band_left':bands_left, 'band_right':bands_right,
+#                      'onset': psth_para_inBF[0], 'offset': psth_para_inBF[1], 'peak_amplitude': psth_para_inBF[2],
+#                      'time_to_peak':  psth_para_inBF[3], 'FWHM': psth_para_inBF[4], 'sustain': psth_para_inBF[5],
+#                      'offpeak_amplitude': psth_para_inBF[6], 'time_to_offpeak': psth_para_inBF[7]}
+#         
+#         psth_para_exBF = np.array(psth_para_exBF).swapaxes(0,1)
+#         data_exBF = {'mouseid':mouseIDs, 'filename':filenames, 'patch_site':patch_sites, 
+#                      'best_frequency':bfs, 'bandwidth':bandwidths, 'band_left':bands_left, 'band_right':bands_right,
+#                      'onset': psth_para_exBF[0], 'offset': psth_para_exBF[1], 'peak_amplitude': psth_para_exBF[2],
+#                      'time_to_peak':  psth_para_exBF[3], 'FWHM': psth_para_exBF[4], 'sustain': psth_para_exBF[5],
+#                      'offpeak_amplitude': psth_para_exBF[6], 'time_to_offpeak': psth_para_exBF[7]}
+#         
+#         df_psth_inbf = pd.DataFrame(data_inBF)
+#         df_psth_inbf.to_csv('lsfm_psth_para_atBF_new.csv', index=False)
+#         df_psth_exbf = pd.DataFrame(data_exBF)
+#         df_psth_exbf.to_csv('lsfm_psth_para_neverBF_new.csv', index=False)
+# =============================================================================
 
 # =============================================================================
 #         ##plot psth in browser to get xy

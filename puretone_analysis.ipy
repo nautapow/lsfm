@@ -3,6 +3,8 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
+import matplotlib
+%matplotlib inline
 from pathlib import Path
 from scipy import signal
 from scipy import stats
@@ -13,7 +15,6 @@ import pandas as pd
 import tone
 import math
 from tone import PureTone
-
 
 if  __name__ == "__main__":
     df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
@@ -32,16 +33,18 @@ if  __name__ == "__main__":
 # =============================================================================
     
     ##new index to exclude no-tuning
-    #idx_puretone = df.index[(df['type']=='Pure Tones') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude') & (df['tuning']!='no')]
+    #idx_puretone = df.index[(df['type']=='Pure Tones') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude') & (df['tuning_check']!='exclude')]
     #tone.get_info(idx_puretone)    
-
+    
+    idx_puretone = df.index[(df['type']=='Pure Tones') & (df['final_inclusion']=='yes')]
+    
     psth_para_list, psth_store = [],[]
     mouseIDs, filenames, patch_sites, bfs, bandwidths = [],[],[],[],[]
     bf_levels, band_levels, left_levels, right_levels = [],[],[],[]
+    psth_neurons=[]
     
-    #df_loc = 169       
-    #if df_loc == 169:
-    
+    #df_loc = 153       
+    #if df_loc == 153:
     for df_loc in idx_puretone:
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
@@ -63,24 +66,38 @@ if  __name__ == "__main__":
         para = data.item()['para']
         
         tone1 = PureTone(resp, para, mouseID, filename)
-        _, _, tuning_trace = tone1.get_bf(output=True)
+        _, _, tuning_trace, _ = tone1.get_bf(output=True)
         tone1.get_bandwidth()
-        tone1.plot_tuning_trace()
+        #tone1.plot_tuning_trace()
+        #tone1.plot_tuning(on_off='on', saveplot=True)
+        
         tone1.plot_tuning(on_off='on', saveplot=True)
+        tone1.plot_PSTH_wwobfband(saveplot=False)
+
+        mouseIDs.append(mouseID)
+        filenames.append(filename)
         
+        psth = tone1.get_psth()[0]
+        base = np.mean(psth[:500])
+        peak = np.max(psth[500:3000]) - base
+        latency = np.argmax(psth[500:3000])-500
+        peri_charge = np.sum(psth[500:3000])
+        post_charge = np.sum(psth[3000:5500])
         
-# =============================================================================
-#         tone1.plot_tuning(on_off='on', saveplot=True)
-#         tone1.plot_PSTH_wwobfband(saveplot=True)
-#         bf_level, band_level, left_level, right_level = tone1.get_level()
-#         bf_levels.append(bf_level)
-#         band_levels.append(band_level)
-#         left_levels.append(left_level)
-#         right_levels.append(right_level)
-#         mouseIDs.append(mouseID)
-#         filenames.append(filename)
-# =============================================================================
-        
+        psth_neurons.append([mouseID, filename, site, tone1.bf, tone1.bandwidth, peak, latency, peri_charge, post_charge])
+    
+    neurons_arr = np.array(psth_neurons)
+
+    # Create DataFrames
+    category_labels = ['mouseID', 'filename', 'patch_site', 'bf', 'bandwidth',
+                       'peak', 'latency', 'peri_charge', 'post_charge']
+
+    tone_cat = pd.DataFrame(neurons_arr, columns=category_labels)
+
+
+    # Write to Excel with two sheets
+    with pd.ExcelWriter("tone_PSTH_category_new.xlsx", engine="openpyxl") as writer:
+        tone_cat.to_excel(writer, sheet_name="inband")     
         
 # =============================================================================
 #         ## read data from tdms file
@@ -276,6 +293,6 @@ if  __name__ == "__main__":
 #     # Save workbook
 #     wb.save("tone_para_levels.xlsx")
 # =============================================================================
-        
-        
+    
+          
         

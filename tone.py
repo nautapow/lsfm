@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from matplotlib import cm
 from matplotlib.image import NonUniformImage
-from matplotlib.widgets import Button
+from matplotlib.widgets import Button, RadioButtons
 import matplotlib
 from pathlib import Path
 from scipy import signal
@@ -136,6 +136,124 @@ def pascal_filter_level(data):
     smoothed[-1] = (data[-2] + 2 * data[-1]) / 3
 
     return smoothed
+
+
+def pascal_smooth_loudness(data):
+    """
+    Apply Pascal smoothing (1, 2, 1) along the loudness axis (axis=0) for each frequency.
+
+    Parameters:
+        data (np.ndarray): A 2D array of shape (6, 26), where axis 0 is loudness (from 30 to 80 dB), and axis 1 is frequency.
+
+    Returns:
+        np.ndarray: Smoothed data of same shape (6, 26)
+    """
+    if data.shape[0] != 6:
+        raise ValueError("Expected data to have 6 loudness levels along axis 0.")
+
+    smoothed = np.zeros_like(data, dtype=float)
+
+    for j in range(data.shape[1]):  # loop over each frequency
+        for i in range(data.shape[0]):  # loop over each loudness
+            vals = []
+            weights = []
+
+            if i > 0:
+                vals.append(data[i-1, j])
+                weights.append(1)
+            vals.append(data[i, j])
+            weights.append(2)
+            if i < data.shape[0] - 1:
+                vals.append(data[i+1, j])
+                weights.append(1)
+
+            weights = np.array(weights)
+            vals = np.array(vals)
+            smoothed[i, j] = np.sum(vals * weights) / np.sum(weights)
+
+    return smoothed
+
+def pascal_smooth_loudness_large(data):
+    """
+    Apply Pascal smoothing [1, 4, 6, 4, 1] along the loudness axis (axis=0) for each frequency.
+
+    Parameters:
+        data (np.ndarray): A 2D array of shape (6, 26), where axis 0 is loudness, and axis 1 is frequency.
+
+    Returns:
+        np.ndarray: Smoothed data of same shape (6, 26)
+    """
+    if data.shape[0] != 6:
+        raise ValueError("Expected data to have 6 loudness levels along axis 0.")
+
+    kernel = np.array([1, 4, 6, 4, 1])
+    half_k = len(kernel) // 2  # = 2
+    smoothed = np.zeros_like(data, dtype=float)
+
+    for j in range(data.shape[1]):  # for each frequency
+        for i in range(data.shape[0]):  # for each loudness
+            vals = []
+            weights = []
+
+            for k in range(-half_k, half_k + 1):
+                idx = i + k
+                if 0 <= idx < data.shape[0]:
+                    vals.append(data[idx, j])
+                    weights.append(kernel[k + half_k])
+
+            vals = np.array(vals)
+            weights = np.array(weights)
+            smoothed[i, j] = np.sum(vals * weights) / np.sum(weights)
+
+    return smoothed
+
+
+def pascal_filter_convolve(data, weights=[1,4,6,4,1]):
+    """
+    Apply Pascal-weighted smoothing along axis 0 of a 2D array using convolution.
+
+    Parameters:
+        data (2D array): Input array.
+        weights (list): Pascal weights (default [1, 2, 1]).
+
+    Returns:
+        2D array: Smoothed result.
+    """
+    from scipy.ndimage import convolve1d
+    
+    if data.ndim != 2:
+        raise ValueError("Input must be a 2D array.")
+    if len(weights) % 2 == 0:
+        raise ValueError("Weights must have an odd length for symmetric smoothing.")
+
+    weights = np.array(weights, dtype=float)
+    weights /= weights.sum()  # normalize weights
+
+    # Apply convolution along axis 0 with reflect padding to handle boundaries
+    smoothed = convolve1d(data, weights, axis=0, mode='nearest')
+
+    return smoothed
+
+def pascal_filter_1D(arr):
+    kernel = np.array([1, 4, 6, 4, 1])
+    radius = len(kernel) // 2
+    n = len(arr)
+    result = np.zeros_like(arr, dtype=float)
+
+    for i in range(n):
+        vals = []
+        weights = []
+
+        for offset in range(-radius, radius + 1):
+            idx = i + offset
+            if 0 <= idx < n:
+                weight = kernel[offset + radius]
+                vals.append(weight * arr[idx])
+                weights.append(weight)
+
+        result[i] = sum(vals) / sum(weights)
+
+    return result
 
 def upscale_fft(data, num_points=301):
     import scipy.fft as fft
@@ -396,7 +514,8 @@ class PureTone:
         
         x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
         filt_resp = np.apply_along_axis(upscale_fft, 1, working_resp)
-        filt_resp = pascal_filter_level(filt_resp)
+        filt_resp = pascal_smooth_loudness_large(filt_resp)
+        #filt_resp = pascal_filter_convolve(filt_resp, weights=[1,4,6,4,1])
         
         if not upscale:
             step = 5
@@ -796,9 +915,14 @@ class PureTone:
         
         x300 = np.logspace(math.log(3000,2), math.log(96000,2), 301, base=2)
         y300 = np.linspace(30,80,301)
+        bf_max, center_mass, _, bandwidth_left, bandwidth_right = self.get_level(upscale=True)
         
         filt1D = np.apply_along_axis(upscale_fft, 1, working_resp)
         filt1D = pascal_filter_level(filt1D)
+        kernel = np.array([1, 4, 6, 4, 1])
+        kernel = kernel / kernel.sum()
+        bandwidth_left = pascal_filter_1D(bandwidth_left)
+        bandwidth_right = pascal_filter_1D(bandwidth_right)
         
         resp_300 = np.swapaxes(filt1D, 0, 1)
         interpXY=[]
@@ -806,89 +930,26 @@ class PureTone:
             interpXY.append(np.interp(y300, self.loud, freq_layer))
         interpXY = np.swapaxes(np.array(interpXY), 0, 1)
         resp_pos = set_hyper2zero(interpXY)
-# =============================================================================
-#         Nzero = int(300/(len(self.freq)-1))-1
-#         zero2D = np.zeros((6,len(self.freq),Nzero))        
-#         upsampleX = np.dstack((working_resp, zero2D)).reshape((6,-1))[:,:301]
-#         
-#         filt1D = ndimage.gaussian_filter1d(upsampleX, Nzero)
-#         
-#         """swap frequency to the first axis to slice"""
-#         resp_300 = np.swapaxes(filt1D, 0, 1)        
-# 
-#         interpXY=[]
-#         for freq_layer in resp_300:
-#             interpXY.append(np.interp(y300, self.loud, freq_layer))
-#         
-#         interpXY = np.array(interpXY)
-#         
-#         resp_smooth = np.swapaxes(interpXY, 0, 1)   
-#         resp_pos = set_hyper2zero(resp_smooth)
-# =============================================================================
+        
+        contour_band = np.zeros((301,301))
+        contour_bf = np.zeros((301,301))
+        for y, (bf, bl, br) in enumerate(zip(bf_max, bandwidth_left, bandwidth_right)):
+            x_bf = find_which_bin(bf, x300)
+            contour_bf[y, x_bf] = 1 
+            
+            x_bl = find_which_bin(bl, x300)
+            x_br = find_which_bin(br, x300)
+            contour_band[y, x_bl] = 1
+            contour_band[y, x_br] = 1
+        
         self.resp_smooth = interpXY
         self.resp_pos = resp_pos
         
-# =============================================================================
-#         """bf with center of mass"""
-#         freq_log = [math.log(i, 2) for i in x300]
-#         center_mass = []
-#         for level in resp_pos:
-#             massX = freq_log*level
-#             mass_sum = np.sum(level)
-#             mass_Xsum = np.sum(massX)
-#             center_mass.append(2**(mass_Xsum/mass_sum))
-#         
-#         self.center_mass = center_mass
-#         
-#         """bandwidth using 67% total depolarization"""
-#         """find start point on resp_on_mesh x axis"""
-#         def find_which_bin(bf, freq_bin):
-#             for i,(f1,f2) in enumerate(zip(freq_bin[:-1], freq_bin[1:])):
-#                 if f1 < bf and f2 > bf:
-#                     return i
-#                     break
-#         
-#         def find_range(arr, i, percentage=0.67):
-#             total_sum = np.sum(arr)
-#             target_sum = percentage * total_sum
-#         
-#             left, right = i, i
-#             current_sum = arr[i]
-#             #print(i, current_sum, target_sum)
-#             while current_sum < target_sum:
-#                 expand_left = left > 0
-#                 expand_right = right < len(arr) - 1
-#         
-#                 # Decide which direction to expand
-#                 if expand_left and expand_right:
-#                     if arr[left - 1] > arr[right + 1]:  # Expand towards larger value
-#                         left -= 1
-#                         current_sum += arr[left]
-#                     else:
-#                         right += 1
-#                         current_sum += arr[right]
-#                 elif expand_left:
-#                     left -= 1
-#                     current_sum += arr[left]
-#                 elif expand_right:
-#                     right += 1
-#                     current_sum += arr[right]
-#                 else:
-#                     break  # No more elements to expand
-#         
-#             return left, right  # Return the indices of the range
-#             
-#         bandwidth_left, bandwidth_right=[],[]
-#         for bf_mass, level in zip(center_mass, resp_pos):
-#             point0 = find_which_bin(bf_mass, x300)
-#             left, right = find_range(level, point0, 1-1/np.e)
-#             bandwidth_left.append(x300[left]),  bandwidth_right.append(x300[right])
-# =============================================================================
-        bf_max, center_mass, _, bandwidth_left, bandwidth_right = self.get_level(upscale=True)        
-
+        
         self.tuning_property = {'X':x300, 'Y':y300, 'resp_upscale':interpXY, 
                                 'bf_max':bf_max, 'center_mass':center_mass, 
-                                'bandwidth_left':bandwidth_left, 'bandwidth_right':bandwidth_right}
+                                'bandwidth_left':bandwidth_left, 'bandwidth_right':bandwidth_right,
+                                'contour_bf':contour_bf, 'contour_bandwidth':contour_band}
         
         return self.tuning_property
     
@@ -921,11 +982,36 @@ class PureTone:
         ax1.set_xlabel('Frequency (kHz)', fontsize=20)
         ax1.set_ylabel('Loudness (dB SPL)', fontsize=20)
         
-        ax1.scatter(prop['bf_max'], prop['Y'], label='bf_max', s=8, c='lightseagreen')
-        #ax1.scatter(prop['center_mass'], prop['Y'], label='center_mass', s=8, c='forestgreen')
-        ax1.scatter(prop['bandwidth_left'], prop['Y'], label='left_edge', s=6, c='lawngreen')
-        ax1.scatter(prop['bandwidth_right'], prop['Y'], label='right_edge', s=6, c='lawngreen')
+# =============================================================================
+#         ax1.scatter(prop['bf_max'], prop['Y'], label='bf_max', s=8, c='lightseagreen')
+#         #ax1.scatter(prop['center_mass'], prop['Y'], label='center_mass', s=8, c='forestgreen')
+#         ax1.scatter(prop['bandwidth_left'], prop['Y'], label='left_edge', s=6, c='lawngreen')
+#         ax1.scatter(prop['bandwidth_right'], prop['Y'], label='right_edge', s=6, c='lawngreen')
+# =============================================================================
+# =============================================================================
+#         masked_bf  = np.ma.masked_equal(prop['contour_bf'], 0)        
+#         ax1.pcolormesh(XX, YY, masked_bf, c='Greys')
+#         masked_bw  = np.ma.masked_equal(prop['contour_bandwidth'], 0)
+#         ax1.pcolormesh(XX, YY, masked_bw, c='Greys')
+# =============================================================================
+        # Make a binary mask for contour plotting
+        bf_mask = (prop['contour_bf'] != 0).astype(int)
+        
+        # Plot contour with thick turquoise outline
+        ax1.contour(
+            XX, YY, bf_mask,
+            levels=[0.5],  # single contour line at 0.5 between 0 and 1
+            colors=['turquoise'],
+            linewidths=2.5  # adjust thickness here
+        )
+        bw_mask = (prop['contour_bandwidth'] != 0).astype(int)
 
+        ax1.contour(
+            XX, YY, bw_mask,
+            levels=[0.5],
+            colors=['limegreen'],
+            linewidths=2.5
+        )
         
         cax = fig.add_axes([ax1.get_position().x1+0.02,ax1.get_position().y0,0.03,ax1.get_position().height])
         cbar = plt.colorbar(im, cax=cax)
@@ -935,6 +1021,7 @@ class PureTone:
             plt.savefig(f'{self.mouseID}_{self.filename}_tuning.png', dpi=300, bbox_inches='tight')
         plt.show()
         plt.close(fig)
+        
         
     def check_criterion(self):
         bf, _, resp_pos, _ = self.get_bf(on_off='on', level=70, set_bf=False, output=True)
@@ -950,7 +1037,15 @@ class PureTone:
         
         return index
 
+    def get_psth(self):
+        self.get_resp_wwobfband()
+        psth_in = np.mean(self.bfband['resp_in'], axis=0)
+        psth_ex = np.mean(self.bfband['resp_ex'], axis=0)
         
+        return [psth_in, psth_ex]
+            
+    
+
     def plot_psth(self, x_in_ms=True, saveplot=False):
         err = stats.sem(self.resp, axis=0)
         x = np.arange(len(self.psth))
@@ -1015,9 +1110,13 @@ class PureTone:
         plt.clf()
         plt.close(fig)
 
-    def get_resp_wwobfband(self):
-        bf_range = [self.band_left, self.band_right]
-        target_freq = [f for f in self.freq if f>bf_range[0] and f<bf_range[1]]
+    def get_resp_wwobfband(self, use_band=True):
+        if use_band:
+            target_freq = [f for f in self.freq if f>self.band_left and f<self.band_right]
+        else:
+            for f1, f2 in zip(self.freq[:-1], self.freq[1:]):
+                if f1 <= self.bf and f2 <= self.bf:
+                    target_freq = [f1, f2]
         
         resp_in, resp_ex = [],[]
         para_in, para_ex = [],[]
@@ -1090,6 +1189,11 @@ class PureTone:
         plt.close(fig)
     
     def get_psth_cat(self, wwoband='in'):
+        from IPython import get_ipython
+        from matplotlib.lines import Line2D
+        from matplotlib.widgets import Button, CheckButtons
+        get_ipython().run_line_magic('matplotlib', 'qt5')
+
         if wwoband=='out':
             resp_work = self.bfband['resp_ex']
         else:
@@ -1102,56 +1206,102 @@ class PureTone:
         plt.subplots_adjust(bottom=0.2)
         line, = ax.plot(x, y, label="Signal")
         
-        # Number of cursors
-        NUM_CURSORS = 7
+        # === CUSTOM CURSOR NAMES ===
+        cursor_names = ["stim A", "stim B", "resp 1", "resp 2", "end"]
+        NUM_CURSORS = len(cursor_names)
+    
         cursor_lines = []
-        cursor_positions = np.linspace(x[0], x[-1], NUM_CURSORS+2)[1:-1]  # evenly spread
-        
-        # Add cursor lines
-        for xpos in cursor_positions:
-            line_cursor = ax.axvline(x=xpos, color='r', linestyle='--', lw=1.5, picker=5)
-            cursor_lines.append(line_cursor)
-        
-        # To track which cursor is being dragged
-        dragging_cursor = [None]
-        
-        # Event handlers
+        cursor_labels = []
+        cursor_positions = np.linspace(x[0], x[-1], NUM_CURSORS + 2)[1:-1]
+        dragging = [None]
+        active_cursor = [None]
+        cursor_result = []
+        done_flag = [False]
+    
+        ymin, ymax = ax.get_ylim()
+        for i, xpos in enumerate(cursor_positions):
+            # Draw vertical line
+            line = Line2D([xpos, xpos], [ymin, ymax], color='r', linestyle='--', lw=1.5)
+            ax.add_line(line)
+            cursor_lines.append(line)
+    
+            # Label at middle y
+            mid_y = (ymin + ymax) / 2
+            label = ax.text(xpos, mid_y, cursor_names[i],
+                            rotation=0, fontsize=10,
+                            color='blue', ha='left', va='center',
+                            bbox=dict(facecolor='white', edgecolor='none', alpha=0.7))
+            cursor_labels.append(label)
+    
+        # === Checkboxes as one horizontal row ===
+        ax_check = plt.axes([0.05, 0.9, 0.9, 0.08])  # across the top
+        checkbox_status = [False] * NUM_CURSORS
+        check = CheckButtons(ax_check, cursor_names, checkbox_status)
+        [lbl.set_fontsize(12) for lbl in check.labels]
+    
+        changing_checkbox = [False]
+    
+        def on_check(label):
+            if changing_checkbox[0]:
+                return
+            idx = cursor_names.index(label)
+            changing_checkbox[0] = True
+            current_status = check.get_status()
+            for i in range(NUM_CURSORS):
+                if current_status[i] and i != idx:
+                    check.set_active(i)  # toggle off
+            # Re-read status after toggles
+            new_status = check.get_status()
+            active_cursor[0] = idx if new_status[idx] else None
+            changing_checkbox[0] = False
+    
+        check.on_clicked(on_check)
+    
         def on_press(event):
-            if event.inaxes != ax:
+            if event.inaxes != ax or event.xdata is None:
                 return
-            for i, line in enumerate(cursor_lines):
-                xline = line.get_xdata()[0]
-                if abs(event.xdata - xline) < 0.5:
-                    dragging_cursor[0] = i
-                    break
-        
+            if active_cursor[0] is not None:
+                dragging[0] = active_cursor[0]
+    
         def on_motion(event):
-            if dragging_cursor[0] is None or event.inaxes != ax:
+            if dragging[0] is None or event.inaxes != ax or event.xdata is None:
                 return
-            i = dragging_cursor[0]
+            idx = dragging[0]
             x_new = event.xdata
-            cursor_lines[i].set_xdata([x_new, x_new])
+            cursor_lines[idx].set_xdata([x_new, x_new])
+            # Update label position
+            cursor_labels[idx].set_position((x_new, (ymin + ymax) / 2))
             fig.canvas.draw_idle()
-        
+    
         def on_release(event):
-            dragging_cursor[0] = None
-        
+            dragging[0] = None
+    
         fig.canvas.mpl_connect("button_press_event", on_press)
         fig.canvas.mpl_connect("motion_notify_event", on_motion)
         fig.canvas.mpl_connect("button_release_event", on_release)
-        
-        # Button to output cursor data
-        def output_cursor_values(event):
-            print("Cursor values:")
-            for line in cursor_lines:
+    
+        def output_and_close(event):
+            for i, line in enumerate(cursor_lines):
                 x_pos = line.get_xdata()[0]
                 y_pos = np.interp(x_pos, x, y)
-                print(f"x = {x_pos:.2f}, y = {y_pos:.2f}")
-        
-        ax_button = plt.axes([0.8, 0.05, 0.1, 0.075])
-        btn = Button(ax_button, 'Output')
-        btn.on_clicked(output_cursor_values)
-        
+                cursor_result.append((cursor_names[i], x_pos, y_pos))
+            print("Cursor values:")
+            for name, xv, yv in cursor_result:
+                print(f"{name}: x = {xv:.2f}, y = {yv:.2f}")
+            done_flag[0] = True
+            plt.close('all')
+            get_ipython().run_line_magic('matplotlib', 'inline')
+    
+        ax_button = plt.axes([0.8, 0.05, 0.12, 0.075])
+        button = Button(ax_button, "Output")
+        button.on_clicked(output_and_close)
+    
         plt.legend()
-        plt.show()
+        plt.show(block=False)
+    
+        # Wait loop until output is clicked
+        while not done_flag[0] and plt.fignum_exists(fig.number):
+            plt.pause(0.1)
+    
+        return cursor_result
 

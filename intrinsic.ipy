@@ -10,12 +10,14 @@ import TFTool
 if __name__ == "__main__":
     note = pd.read_csv(r'C:\Users\McGinley3\Documents\GitHub\lsfm\#map_patch\patch_note.csv', 
                        converters={'pClamp_pfx': str, 'pClamp': int})
-    idxs = note.index[(note['Protocol']=='i-step') & (note['Inclusion']==1)]
+    #idxs = note.index[(note['Protocol']=='i-step') & (note['Inclusion']==1)]
+    idxs = note.index[(note['Protocol']=='i-step')]
     folder = r'Z:\Users\cwchiang\pClamp_Data'
     iclamp = [-400, -200, 0, 200, 400, 600, 800, 1000] #pA
-    #index10  = [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,3,3,3]
-    #index    = [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2]
-    threshold = [4,4,3,4,5,5,4,4,4,3,0,3,3,5,4,4,4,4,4,3,4,3,3,3,4,3,3,3,4,4,5,6,0]
+    #index10  = [0,0,0,0,0,0,0,0,0,0,1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3]
+    #index    = [0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7]
+    threshold = [4,3,3,4,5,4,4,4,4,3,3,3,3,5,3,3,4,4,4,3,4,4,5,3,3,3,3,3,3,4,3,3,3,3,5,4,4,5]
+
     
     filenames, mouseIDs, patch_sites, pclamp_files, threshold_traces, thresholds, all_Rs, restings, = [],[],[],[],[],[],[],[]
     spike_rates, spike_adaptations, spike_widths = [],[],[]
@@ -25,7 +27,7 @@ if __name__ == "__main__":
 #         ii=8
 # =============================================================================
     for ii, idx in enumerate(idxs):
-        filename = f'{note.loc[idx].Date}_{note.loc[idx].ID}_{note.loc[idx].pClamp}'
+        filename = f'{note.loc[idx].ID}_{note.loc[idx].Date}_{note.loc[idx].pClamp}'
         pclamp = f'{note.loc[idx].pClamp:03d}'
         pclamp_dir = folder+f'\{str(note.loc[idx].pClamp_pfx)+str(pclamp)}.abf'
         abf = pyabf.ABF(pclamp_dir)
@@ -33,7 +35,19 @@ if __name__ == "__main__":
         mouseID = note.loc[idx].ID
         site = note.loc[idx].Hole
         
-        
+        if filename == 'TG145_20230628_4':
+            filename = 'TG145_20230630_4'
+        if filename == 'TP074_20231208_1':
+            filename = 'TG150_20230607_22'
+        if filename == 'TP087_20231128_20':
+            filename = 'TG150_20230607_26'
+        if filename == 'TP032_20231009_0':
+            filename = 'TP032_20231008_0'
+        if filename == 'TP032_20231009_4':
+            filename = 'TP032_20231008_4'
+        if filename == 'TP064_20231110_1':
+            filename = 'TP064_20231121_0'
+            
         try:
             times, traces = [],[]
             rest, APs, depolar = [],[],[]
@@ -82,11 +96,15 @@ if __name__ == "__main__":
             adjust_trace = traces[idx_threshold+1]
             peak1,para1 = signal.find_peaks(target_trace, prominence=8, height=[None, None], width=[20, 500], distance=50)
             peak2,para2 = signal.find_peaks(adjust_trace, prominence=8, height=[None, None], width=[20, 500], distance=50)
-            depolar1 = depolar[idx_threshold]
-            depolar2 = depolar[idx_threshold+1]
 
-            #Rs = (depolar2 - depolar1)/1000/(iclamp[idx_threshold+1]-iclamp[idx_threshold])
-            Rs = (np.mean(para2['peak_heights']) - np.mean(para1['peak_heights'])) / (iclamp[idx_threshold+1] -iclamp[idx_threshold])
+            #Rs = (depolar[idx_threshold+1] - depolar[idx_threshold])/1000/(iclamp[idx_threshold+1]-iclamp[idx_threshold])
+            Rs1 = (-40 - depolar[idx_threshold]) / iclamp[idx_threshold]
+            Rs2 = (-40 - depolar[idx_threshold+1]) / iclamp[idx_threshold+1]
+            Rs3 = (-40 - depolar[idx_threshold+2]) / iclamp[idx_threshold+2]
+            Rs4 = (-40 - depolar[idx_threshold+3]) / iclamp[idx_threshold+3]
+            Rs = np.mean(Rs1+Rs2+Rs3+Rs4)
+            
+            #Rs = (np.mean(para2['peak_heights']) - np.mean(para1['peak_heights'])) / (iclamp[idx_threshold+1] -iclamp[idx_threshold])
             Rs_print = np.round(Rs*1000, 1)
             
             traces_adjust = []
@@ -96,7 +114,7 @@ if __name__ == "__main__":
                 v_adjust = Rs*iclamp[i]
                 import copy
                 trace = copy.deepcopy(traces[i])
-                trace[5468:20468]  = trace[5468:20468] - v_adjust
+                trace[5468:20465]  = trace[5468:20465] - v_adjust
                 traces_adjust.append(trace)
                 
                 fs = int(abf.dataPointsPerMs*1000)
@@ -130,14 +148,14 @@ if __name__ == "__main__":
             target_trace = traces_adjust[idx_threshold]
             adjust_trace = traces_adjust[idx_threshold+1]
             
-            peaks,peak_paras = signal.find_peaks(target_trace, prominence=8, height=[None, None], width=[20, 500], distance=50)
+            peaks,peak_paras = signal.find_peaks(adjust_trace, prominence=8, height=[None, None], width=[20, 500], distance=50)
             ISI1 = peaks[1] - peaks[0]
             ISI_rest = np.mean([j-i for i,j in zip(peaks[1:-2], peaks[2:])])
-            spike_rates.append(np.round(len(peaks)/0.3,1))
+            spike_rates.append(np.round(len(peaks)/0.3,1)-1)
             spike_adaptations.append(ISI_rest/ISI1*100)
             spike_widths.append(np.mean(peak_paras['widths']))
             all_Rs.append(abs(Rs_print))
-            restings.append(np.mean(rest_adjust))
+            restings.append(np.round(rest_adjust[2],1))
             
             filenames.append(filename)
             mouseIDs.append(mouseID)
@@ -150,7 +168,7 @@ if __name__ == "__main__":
             plt.plot(time*1000, target_trace, c='r', label=f'{iclamp[idx_threshold]} mA')
             plt.plot(time*1000, adjust_trace, c='k', label=f'{iclamp[idx_threshold+1]} mA')
             plt.legend(fontsize=18)
-            plt.title(f'{filename} {len(peaks)}', fontsize=26)
+            plt.title(f'{filename} rate:{len(peaks)}', fontsize=26)
             plt.xlabel('time (ms)', fontsize=24)
             plt.ylabel('potential (mV)', fontsize=24)
             plt.tick_params(axis='both', labelsize=22)
@@ -160,39 +178,40 @@ if __name__ == "__main__":
             
             
             
-            
-            fig, ax1 = plt.subplots(figsize=(10,6))
-        
-            ax2 = ax1.twinx()
-            ax1.plot(iclamp, rest, 'g-', lw=4)
-            ax1.plot(iclamp, depolar, 'b-', lw=4)
-            labels=iclamp
-            ax1.set_xticks(iclamp, labels)
-            ax2.scatter(iclamp, APs, c='r', marker='s', s=60)
-            ax2.plot(iclamp, APs, 'r-')
-            
-            ax1.set_xlabel('Current Inject (pA)', fontsize=24)
-            ax1.set_ylabel('Potential (mV)', color='b', fontsize=24)
-            ax2.set_ylabel('#APs', color='r', fontsize=24)
-            
-            fig.suptitle(filename, fontsize=26)
-            ax1.tick_params(axis='both', labelsize=20)
-            ax2.tick_params(axis='y', labelsize=20)
-            #plt.savefig(f'{filename}_intrisic.png', dpi=500, bbox_inches='tight')
-            plt.show()
-            plt.clf()
-            plt.close(fig)
-            
-            
-            plt.plot(spike_rates)
-            
+# =============================================================================
+#             #plot potential/#AP vs current inject
+#             fig, ax1 = plt.subplots(figsize=(10,6))
+#         
+#             ax2 = ax1.twinx()
+#             ax1.plot(iclamp, rest, 'g-', lw=4)
+#             ax1.plot(iclamp, depolar, 'b-', lw=4)
+#             labels=iclamp
+#             ax1.set_xticks(iclamp, labels)
+#             ax2.scatter(iclamp, APs, c='r', marker='s', s=60)
+#             ax2.plot(iclamp, APs, 'r-')
+#             
+#             ax1.set_xlabel('Current Inject (pA)', fontsize=24)
+#             ax1.set_ylabel('Potential (mV)', color='b', fontsize=24)
+#             ax2.set_ylabel('#APs', color='r', fontsize=24)
+#             
+#             fig.suptitle(filename, fontsize=26)
+#             ax1.tick_params(axis='both', labelsize=20)
+#             ax2.tick_params(axis='y', labelsize=20)
+#             #plt.savefig(f'{filename}_intrisic.png', dpi=500, bbox_inches='tight')
+#             plt.show()
+#             plt.clf()
+#             plt.close(fig)
+#             
+#             
+#             plt.plot(spike_rates)
+# =============================================================================
+
         except:
+            print(ii, idx, pclamp_dir)
             pass
         
                 
-# =============================================================================
-#         data = pd.DataFrame({'filename':filenames, 'mouseID':mouseIDs, 'patch_site':patch_sites, 'pClamp':pclamp_files, 
-#                              'threshold_trace': threshold_traces, 'threshold':thresholds, 'Rs':all_Rs, 'resting': restings, 
-#                              'spike_rate':spike_rates, 'spike_adaptation':spike_adaptations, 'spike_width':spike_widths})
-#         data.to_csv('intrinsic_properties.csv', index=False)
-# =============================================================================
+        data = pd.DataFrame({'filename':filenames, 'mouseID':mouseIDs, 'patch_site':patch_sites, 'pClamp':pclamp_files, 
+                             'threshold_trace': threshold_traces, 'threshold':thresholds, 'Rs':all_Rs, 'resting': restings, 
+                             'spike_rate':spike_rates, 'spike_adaptation':spike_adaptations, 'spike_width':spike_widths})
+        data.to_csv('intrinsic_properties.csv', index=False)

@@ -682,7 +682,7 @@ def save_coord(filename, threshold, coords, trans_coords):
 
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\cwchiang\mapping\TP046\1'
+    directory = r'Z:\Users\cwchiang\mapping\TP110\1'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))[0]
     filename = ('_').join(tdms_dir.split('\\')[-1].split('_')[:2])
     

@@ -1,0 +1,289 @@
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+import matplotlib as mpl
+%matplotlib inline
+from pathlib import Path
+from scipy import signal
+from scipy import stats
+from scipy import interpolate
+import scipy.io
+import TFTool
+import pandas as pd
+import lsfm
+import lsfm_psth
+from lsfm_psth import Psth
+
+
+df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
+infos = pd.read_excel('lsfm_cell_note.xlsx')
+df_cursor_in = pd.read_excel('lsfm_PSTH_cursors.xlsx', sheet_name='in_band')
+df_cursor_ex = pd.read_excel('lsfm_PSTH_cursors.xlsx', sheet_name='ex_band')
+coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude') 
+                    &(df['tuning_check']!='exclude')]
+
+neurons = []
+data_cf, data_bw, data_mr=[],[],[]
+#df_loc = 148
+#if df_loc == 148:
+#for idx, df_loc in enumerate(idx_lsfm):
+for i in range(len(infos)):
+    info = infos.iloc[i]
+    # Load individual neuron data
+    filename = info.filename
+    mouseID = info.mouseID
+    version = info.version
+    site = info.patch_site
+    tuning_tone = info.tuning_tone
+    bf = info.best_frequency
+    bandwidth = info.bandwidth
+    band_left = info.band_left
+    band_right = info.band_right
+    
+# =============================================================================
+#     info_idx = info[info['index']==df_loc].index.values[0]
+#     mouse = info['mouseID'][info_idx]
+#     version = info['version'][info_idx]
+#     site = info['patch_site'][info_idx]
+#     tuning_tone = info['tuning_tone'][info_idx]
+#     
+#     bf = info['best_frequency'][info_idx]
+#     bandwidth = info['bandwidth'][info_idx]
+#     band_left = info['band_left'][info_idx]
+#     band_right = info['band_right'][info_idx]
+# =============================================================================
+    
+    cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
+    para = cell_data.item().get('para')
+    stim = cell_data.item().get('stim')
+    resp = cell_data.item().get('resp')
+    resp = TFTool.prefilter(resp, 25000)
+    
+    titlename = f'{mouseID}-{filename}'
+    if titlename=='TG145-20230630_008':
+        titlename='TG145-20230628_003'
+    if titlename=='TG145-20230630_004':
+        titlename='TG145-20230630_008'
+    
+    
+# =============================================================================
+#     ### Get PSTH category value using visual cursors
+#     def set_plus2zero(arr):
+#         mask = arr>0
+#         arr[mask] = 0
+#         
+#         return arr
+#     
+#     psth_main = Psth(stim, resp, para, titlename, version, bf, band_left, band_right, use_band=True)
+#     psth_data = psth_main.get_psth()
+#     for i in ['in', 'ex']:
+#         if i == 'in':
+#             psth= np.array(psth_data['y_in'])
+#             cursor = df_cursor_in[(df_cursor_in['mouseID']==mouseID) & (df_cursor_in['filename']==filename)]
+#         elif i == 'ex':
+#             psth = np.array(psth_data['y_ex'])
+#             cursor = df_cursor_ex[(df_cursor_ex['mouseID']==mouseID) & (df_cursor_ex['filename']==filename)]
+#         
+#         baseline = np.mean(psth[1000:1250])
+#         plateau = np.mean(psth[26000:26250])
+#         
+#         on_peak_amp = cursor['onpeak_y'].item() - baseline
+#         on_latency = (cursor['onpeak_start_x'].item() - 1250)/25000*1000    #unit: ms
+#         start = int(cursor['onpeak_start_x'].item())
+#         stop = int(cursor['onpeak_stop_x'].item())
+#         on_charge = np.sum(psth[start:stop])
+#         
+#         off_peak_amp = cursor['offpeak_y'].item() - plateau
+#         off_peak_amp_base = cursor['offpeak_y'].item() - baseline
+#         off_latency = (cursor['offpeak_start_x'].item() - 26250)/25000*1000 #unit: ms
+#         start = int(cursor['offpeak_start_x'].item())
+#         stop = int(cursor['offpeak_stop_x'].item())
+#         off_charge = np.sum(psth[start:stop])
+#         
+#         sustain = np.mean(psth[16250:26250])
+#         
+#         early = psth[int(cursor['onpeak_y'].item()):12500]
+#         inhibit_early = np.sum(set_plus2zero(early))
+#         
+#         late = psth[12500:26250]
+#         inhibit_late = np.sum(set_plus2zero(late))
+#         
+#         off = psth[26250:]
+#         inhibit_off = np.sum(set_plus2zero(off))
+#         
+#         if i == 'in':
+#             PSTH_in = [mouseID, filename, site, bf, bandwidth, on_peak_amp, on_latency, on_charge,
+#                        off_peak_amp, off_peak_amp_base, off_latency, off_charge, 
+#                        sustain, inhibit_early, inhibit_late, inhibit_off]
+#         elif i == 'ex':
+#             PSTH_ex = [mouseID, filename, site, bf, bandwidth, on_peak_amp, on_latency, on_charge,
+#                        off_peak_amp, off_peak_amp_base, off_latency, off_charge, 
+#                        sustain, inhibit_early, inhibit_late, inhibit_off]
+#     
+#     neurons.append([PSTH_in, PSTH_ex])
+# =============================================================================
+    
+    
+    ### Get PSTH category value using machine code
+    def set_plus2zero(arr):
+        mask = arr>0
+        arr[mask] = 0
+        
+        return arr
+    
+    psth_main = Psth(stim, resp, para, titlename, version, bf, band_left, band_right, use_band=True)
+    psth_data = psth_main.get_psth()
+    for i in ['in', 'ex']:
+        if i == 'in':
+            psth= np.array(psth_data['y_in'])
+        elif i == 'ex':
+            psth = np.array(psth_data['y_ex'])
+        
+        baseline = np.mean(psth[1000:1250])
+        plateau = np.mean(psth[26000:26250])
+        std = np.std(psth[1250:26250])
+        
+        #on_peak, range 200 ms
+        peak_max = np.max(psth[1250:6250])
+        peak_min = np.min(psth[1250:6250])
+        start = 1250
+        
+        if peak_min < 0 and abs(peak_min) > peak_max:
+            on_peak_amp = peak_min - baseline
+            peak_loc = np.argmin(psth[1250:6250])+1250
+            
+            for i in range(peak_loc, len(psth)):
+                if (on_peak_amp*0.1 < plateau and psth[i] >= on_peak_amp*0.1) or (on_peak_amp*0.1 > plateau*1.1 and psth[i] >= plateau):
+                    stop = i
+                    break
+        else:
+            on_peak_amp = peak_max - baseline
+            peak_loc = np.argmax(psth[1250:6250])+1250
+            
+            for i in range(peak_loc, len(psth)):
+                if (on_peak_amp*0.1 > plateau and psth[i] <= on_peak_amp*0.1) or (on_peak_amp*0.1 < plateau*1.1 and psth[i] <= plateau):
+                    stop = i
+                    break
+        
+        on_latency = (peak_loc - 1250)/25000*1000    #unit: ms
+        on_charge = np.sum(psth[start:stop])
+        
+        #off_peak, range 250ms
+        peak_max_pla = np.max(psth[26250:32500]) - plateau
+        peak_max_bas = np.max(psth[26250:32500]) - baseline
+        peak_min_pla = np.min(psth[26250:32500]) - plateau
+        peak_min_bas = np.min(psth[26250:32500]) - baseline
+        peak_max_loc = np.argmax(psth[26250:32500])
+        peak_min_loc = np.argmin(psth[26250:32500])
+        start = 26250
+        
+        # Positive Stimulus
+        if plateau + std >= 0:
+            if peak_min_pla > 0:
+                off_peak_amp_pla = peak_max_pla
+                off_peak_amp_bas = peak_max_bas
+            elif peak_max_pla < std:
+                off_peak_amp_pla = peak_min_pla
+                off_peak_amp_bas = peak_min_bas
+                
+        
+        
+        off_peak_amp = cursor['offpeak_y'].item() - plateau
+        off_peak_amp_base = cursor['offpeak_y'].item() - baseline
+        off_latency = (cursor['offpeak_start_x'].item() - 26250)/25000*1000 #unit: ms
+        start = int(cursor['offpeak_start_x'].item())
+        stop = int(cursor['offpeak_stop_x'].item())
+        off_charge = np.sum(psth[start:stop])
+        
+        sustain = np.mean(psth[16250:26250])
+        
+        early = psth[int(cursor['onpeak_y'].item()):12500]
+        inhibit_early = np.sum(set_plus2zero(early))
+        
+        late = psth[12500:26250]
+        inhibit_late = np.sum(set_plus2zero(late))
+        
+        off = psth[26250:]
+        inhibit_off = np.sum(set_plus2zero(off))
+        
+        if i == 'in':
+            PSTH_in = [mouseID, filename, site, bf, bandwidth, on_peak_amp, on_latency, on_charge,
+                       off_peak_amp, off_peak_amp_bas, off_latency, off_charge, 
+                       sustain, inhibit_early, inhibit_late, inhibit_off]
+        elif i == 'ex':
+            PSTH_ex = [mouseID, filename, site, bf, bandwidth, on_peak_amp, on_latency, on_charge,
+                       off_peak_amp, off_peak_amp_base, off_latency, off_charge, 
+                       sustain, inhibit_early, inhibit_late, inhibit_off]
+    
+    neurons.append([PSTH_in, PSTH_ex])
+    
+    
+    ### Get PSTH category value separate by lsFM parameter
+    stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])
+    """psth seperated by parameter"""
+    """0: cf, 1: bw, 2: mr"""
+    psth_para_sep=[] #structure = (seperate para type, # of repeats, windows)
+    para_sep=[] #structure = (seperate para type, tuple (parameter, # of repeats))
+    for i in range(3):
+        which_parameter=i
+        psth_para_bf, para_bf = lsfm_psth.psth_para_sepearte(stim_in, resp_in, para_in, 
+                                         which_parameter, bf, filename, 'inBF', plot=False, saveplot=False)
+        psth_para_sep.append(psth_para_bf)
+        para_sep.append(para_bf)
+    
+        
+    resp_flat = np.reshape(resp, (-1))
+    resp_flat = TFTool.butter(resp_flat, 6, 50, 'low', 25000)
+    import random
+    randoms = random.sample(range(50,len(resp_flat)),1000)
+    
+    category_cf = lsfm_psth.get_section(filename, mouseID, site, psth_para_sep, para_sep, 0)
+    category_bw = lsfm_psth.get_section(filename, mouseID, site, psth_para_sep, para_sep, 1)
+    category_mr = lsfm_psth.get_section(filename, mouseID, site, psth_para_sep, para_sep, 2)
+    
+    from_bf = np.log2(np.array(category_cf['parameter']) / (bf/1000))
+    category_cf['parameter'] = list(from_bf)
+    
+    
+    data_cf.append(category_cf)
+    data_bw.append(category_bw)
+    data_mr.append(category_mr)
+    
+    
+### Neuron PSTH output    
+neurons_arr = np.array(neurons)
+# Split data into "in" and "out"
+in_data = neurons_arr[:, 0, :]   # shape (39, 11)
+ex_data = neurons_arr[:, 1, :]  # shape (39, 11)
+
+# Create DataFrames
+category_labels = ['mouseID', 'filename', 'patch_site', 'bf', 'bandwidth',
+                   'onpeak', 'on_latency', 'on_charge', 'offpeak', 'offpeak_base', 'off_latency', 'off_charge', 
+                   'sustain', 'inhibit_early', 'inhibit_late', 'inhibit_off']
+
+df_in = pd.DataFrame(in_data, columns=category_labels)
+df_out = pd.DataFrame(ex_data, columns=category_labels)
+
+# Write to Excel with two sheets
+with pd.ExcelWriter("lsfm_PSTH_category_new.xlsx", engine="openpyxl") as writer:
+    df_in.to_excel(writer, sheet_name="inband")
+    df_out.to_excel(writer, sheet_name="exband")    
+    
+    
+
+### Plot para_sep categories, color coded with x-projection
+df_cf = pd.DataFrame(data_cf)
+df_bw = pd.DataFrame(data_bw)
+df_mr = pd.DataFrame(data_mr)
+
+categories = list(df_cf.keys())
+for para_type in range(3):
+    df_type = [df_cf, df_bw, df_mr][para_type]
+    for cate in categories[5:]:
+        lsfm_psth.plot_group_category(df_type, coords, para_type, cate)
+    
+    
+    
+    
+    

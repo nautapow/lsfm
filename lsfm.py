@@ -1195,21 +1195,21 @@ def seperate_by_para(stim, resp, para, which_parameter=0):
     """
     
     para_idx = which_parameter
-    category = set([p[para_idx] for p in para])
-    stim_sep, resp_sep, para_sep = [],[],[]
+    parameters = set([p[para_idx] for p in para])
+    stim_paraSep, resp_paraSep, para_paraSep = [],[],[]
     
-    for c in category:
-        stim_cat, resp_cat, para_cat = [],[],[]
+    for param in parameters:
+        stim_para, resp_para, para_para = [],[],[]
         for i , p in enumerate(para):
-            if p[para_idx] == c:
-                stim_cat.append(stim[i])
-                resp_cat.append(resp[i])
-                para_cat.append(para[i])
-        stim_sep.append(stim_cat)
-        resp_sep.append(resp_cat)
-        para_sep.append(para_cat)
+            if p[para_idx] == param:
+                stim_para.append(stim[i])
+                resp_para.append(resp[i])
+                para_para.append(para[i])
+        stim_paraSep.append(stim_para)
+        resp_paraSep.append(resp_para)
+        para_paraSep.append(para_para)
     
-    data = {'para_type':para_idx, 'parameter':category, 'stim':stim_sep, 'resp':resp_sep, 'para':para_sep}
+    data = {'para_type':para_idx, 'parameter':parameters, 'stim':stim_paraSep, 'resp':resp_paraSep, 'para':para_paraSep}
     
     return data
 
