@@ -58,7 +58,7 @@ if  __name__ == "__main__":
 #     idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']=='Ic_map') & (df['hard_exclude']!='exclude') 
 #                         &(df['tuning_check']!='exclude')]
 # =============================================================================
-    idx_puretone = df.index[(df['type']=='Log sFM') & (df['final_inclusion']=='yes')]
+    idx_lsfm = df.index[(df['type']=='Log sFM') & (df['final_inclusion']=='yes')]
     
     savefig=False
     psth_para_inBF, psth_para_exBF = [],[]
@@ -68,11 +68,9 @@ if  __name__ == "__main__":
     
     neurons = []
     data_cf, data_bw, data_mr = [],[],[]
-# =============================================================================
-#     df_loc = 184
-#     if df_loc == 184:
-# =============================================================================
-    for idx,df_loc in enumerate(idx_lsfm):
+    df_loc = 241
+    if df_loc == 241:
+    #for idx, df_loc in enumerate(idx_lsfm):
         filename = df['filename'][df_loc]
         df_info = pd.read_excel('lsfm_cell_note.xlsx')
         
@@ -110,7 +108,7 @@ if  __name__ == "__main__":
         ##psth_para_analysis
         lsfm1 = Psth(stim, resp, para, titlename, version, bf, band_left, band_right, use_band=True)
         _ = lsfm1.plot_psth(saveplot=False)
-        lsfm1.plot_psth_wwobf(saveplot=False)
+        lsfm1.plot_psth_wwobf(filter60=False, saveplot=False)
         stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])
         
 # =============================================================================
@@ -154,36 +152,38 @@ if  __name__ == "__main__":
 #         df_ex.to_excel(writer, sheet_name='ex_band', index=False)
 # =============================================================================
     
-        """psth seperated by parameter"""
-        """0: cf, 1: bw, 2: mr"""
-        psth_para_sep=[] #structure = (seperate para type, # of repeats, windows)
-        para_sep=[] #structure = (seperate para type, tuple (parameter, # of repeats))
-        for i in range(3):
-            which_parameter=i
-            psth_para_bf, para_bf = lsfm_psth.psth_para_sepearte(stim_in, resp_in, para_in, 
-                                             which_parameter, bf, filename, 'inBF', plot=True, saveplot=savefig)
-            _,_ = lsfm_psth.psth_para_sepearte(stim_ex, resp_ex, para_ex, 
-                                             which_parameter, bf, filename, 'exBF', plot=True, saveplot=savefig)
-            psth_para_sep.append(psth_para_bf)
-            para_sep.append(para_bf)
-        
-            
-        resp_flat = np.reshape(resp, (-1))
-        resp_flat = TFTool.butter(resp_flat, 6, 50, 'low', 25000)
-        import random
-        randoms = random.sample(range(50,len(resp_flat)),1000)
-        
-        category_cf = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 0)
-        category_bw = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 1)
-        category_mr = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 2)
-        
-        from_bf = np.array(category_cf['parameter']) - bf/1000
-        category_cf['parameter'] = list(from_bf)
-        
-        
-        data_cf.append(category_cf)
-        data_bw.append(category_bw)
-        data_mr.append(category_mr)
+# =============================================================================
+#         """psth seperated by parameter"""
+#         """0: cf, 1: bw, 2: mr"""
+#         psth_para_sep=[] #structure = (seperate para type, # of repeats, windows)
+#         para_sep=[] #structure = (seperate para type, tuple (parameter, # of repeats))
+#         for i in range(3):
+#             which_parameter=i
+#             psth_para_bf, para_bf = lsfm_psth.psth_para_sepearte(stim_in, resp_in, para_in, 
+#                                              which_parameter, bf, filename, 'inBF', plot=True, saveplot=savefig)
+#             _,_ = lsfm_psth.psth_para_sepearte(stim_ex, resp_ex, para_ex, 
+#                                              which_parameter, bf, filename, 'exBF', plot=True, saveplot=savefig)
+#             psth_para_sep.append(psth_para_bf)
+#             para_sep.append(para_bf)
+#         
+#             
+#         resp_flat = np.reshape(resp, (-1))
+#         resp_flat = TFTool.butter(resp_flat, 6, 50, 'low', 25000)
+#         import random
+#         randoms = random.sample(range(50,len(resp_flat)),1000)
+#         
+#         category_cf = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 0)
+#         category_bw = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 1)
+#         category_mr = lsfm_psth.get_section(filename, mouse, site, psth_para_sep, para_sep, 2)
+#         
+#         from_bf = np.array(category_cf['parameter']) - bf/1000
+#         category_cf['parameter'] = list(from_bf)
+#         
+#         
+#         data_cf.append(category_cf)
+#         data_bw.append(category_bw)
+#         data_mr.append(category_mr)
+# =============================================================================
         
         
         

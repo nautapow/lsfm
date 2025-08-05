@@ -1,0 +1,210 @@
+from nptdms import TdmsFile
+from TDMS_ver6 import Tdms_V2
+import mat73
+import numpy as np
+from scipy import signal
+import os
+import matplotlib.pyplot as plt
+from ssqueezepy import cwt
+from ssqueezepy.utils import cwt_scalebounds, make_scales, p2up
+from ssqueezepy.utils import logscale_transition_idx
+import TFTool
+%matplotlib inline
+import pandas as pd
+
+def viz(wavelet, scales, scaletype, show_last, nv):
+    plt.plot(scales, show=1, title="scales | scaletype=%s, nv=%s" % (scaletype, nv))
+    if scaletype == 'log-piecewise':
+        extra = ", logscale_transition_idx=%s" % logscale_transition_idx(scales)
+    else:
+        extra = ""
+    print("n_scales={}, max(scales)={:.1f}{}".format(
+        len(scales), scales.max(), extra))
+
+    psih = wavelet(scale=scales)
+    last_psihs = psih[-show_last:]
+
+    # find xmax of plot
+    least_large = last_psihs[0]
+    mx_idx = np.argmax(least_large)
+    last_nonzero_idx = np.where(least_large[mx_idx:] < least_large.max()*.1)[0][0]
+    last_nonzero_idx += mx_idx + 2
+
+    plt.plot(last_psihs.T[:last_nonzero_idx], color='tab:blue', show=1,
+         title="Last %s largest scales" % show_last)
+
+
+spectrogram = False
+cwt = False
+resp_atBF = False
+tone_raw = False
+lsfm_raw = True
+
+if spectrogram:
+    # 1. Stimuli Spectrogram
+    tone = mat73.loadmat('tone_cwt.mat')
+    wt = tone['wt']
+    f = tone['f']
+    del tone
+    
+    magnitude = np.abs(wt)
+    mask = magnitude > 2e-04
+    dupli = np.empty((169,2000001))
+    dupli[mask] = 1
+    dupli = dupli[117:,:]
+    f_dupli = f[:52]
+    
+    fs = 200000  # example: 200 kHz sampling rate
+    duration = magnitude.shape[1] / fs
+    extent = [0, duration, f_dupli[0], f_dupli[-1]]
+    
+    plt.figure(figsize=(10, 6))
+    plt.imshow(magnitude, aspect='auto', origin='lower', extent=extent, cmap='turbo')
+    
+    plt.colorbar(label='Magnitude')
+    plt.xlabel('Time (s)')
+    plt.ylabel('Frequency (Hz)')
+    plt.title('CWT Spectrogram')
+    plt.tight_layout()
+    plt.show()
+
+
+if cwt:
+    # Load Sound
+    file = r'Z:\Users\cwchiang\Sound_woFIR\lsFM_Sound.tdms'
+    tdms = TdmsFile.open(file)
+    groups = tdms['Untitled']
+    sound = groups['SoundO'][:]
+    section = sound[7050000:9200000]
+    
+    # signal length
+    N=len(section)
+    fs = 200000
+    t = np.arange(N) / fs 
+    
+    min_scale, max_scale = cwt_scalebounds('gmw', N=N)
+    scales = make_scales(N=N, min_scale=min_scale, max_scale=max_scale, nv=48, scaletype='log', wavelet='gmw')
+    Wx, _ = cwt(section, wavelet=('gmw', {'beta': 64, 'gamma': 32}), scales=scales)
+    #Wx, scales = cwt(section, wavelet=('gmw', {'beta': 64, 'gamma': 32}))
+    mag = signal.decimate(np.abs(Wx), 40, axis=1)
+    
+    fs_ds = fs / 40
+    n_ds = mag.shape[1]
+    t_ds = np.arange(n_ds) / fs_ds
+    
+    plt.figure(figsize=(10, 6))
+    plt.imshow(np.abs(Wx), aspect='auto', cmap='turbo',
+               extent=[0, t[-1], np.log2(scales[-1]), np.log2(scales[0])])
+    yticks = [3000, 6000, 12000, 24000, 48000, 96000]
+    plt.yticks(np.log2(yticks), [f'{f/1000:.0f}kHz' for f in yticks])
+    plt.xlabel("Time [s]")
+    plt.ylabel("Frequency")
+    plt.title("CWT with Log-Spaced Frequencies (48 per Octave)")
+    plt.colorbar(label='Magnitude')
+    plt.tight_layout()
+    plt.show()
+    
+    
+    plt.figure(figsize=(12, 6))
+    plt.pcolormesh(t_ds, scales, mag, shading='gouraud')
+    plt.yscale('log')  # Optional: use log scale for frequencies
+    plt.ylabel('Frequency (Hz)')
+    plt.xlabel('Time (s)')
+    plt.title('Wavelet Transform Magnitude (Downsampled)')
+    plt.colorbar(label='Magnitude')
+    plt.tight_layout()
+    plt.show()
+    
+if resp_atBF:
+    filename = '20230607_001'
+    df = pd.read_excel('tone_cell_note.xlsx')
+    data = np.load(f'{filename}.npy', allow_pickle=True)
+    bf = df.loc[df['filename']==filename].best_frequency.item()
+    resp = data.item()['resp']
+    para = data.item()['para']
+    loud = sorted(set(data.item()['loud']))
+    freq = sorted(set(data.item()['freq']))
+    
+    #Find closest frequency to bf in para
+    def find_which_bin(bf, freq_bin):
+        for i,(f1,f2) in enumerate(zip(freq_bin[:-1], freq_bin[1:])):
+            if f1 <= bf and f2 > bf:
+                closest = min(f1, f2, key=lambda x: abs(x - bf))
+                return i, closest
+                break
+            elif (i==0 and f1>=bf) or (i==len(freq_bin[:-1])-1 and f2<=bf):
+                closest = min(f1, f2, key=lambda x: abs(x - bf))
+                return i, closest
+                break
+            
+    para_bf = find_which_bin(bf, freq)[1]
+    
+    resp_atBF_loudSEP = []
+    for l in loud:
+        resp_atBF = []
+        for r, p in zip(resp, para):
+            if p[0] == l and p[1] == para_bf:
+                #baseline correction
+                r = 100*(r-np.mean(r[250:500]))
+                resp_atBF.append(r)
+        #average repeat then smooth
+        resp_mean = np.mean(resp_atBF, axis=0)
+        from scipy.ndimage import gaussian_filter1d
+        resp_smooth = gaussian_filter1d(resp_mean, sigma=50)
+        resp_atBF_loudSEP.append(resp_smooth)
+    
+    fig, ax = plt.subplots()
+    for l, rr in zip(loud, resp_atBF_loudSEP):       
+        ax.plot(rr, label=f'{l} dB')
+    [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [500,3000]]
+    label = np.linspace(0,350,6)
+    ax.set_xticks(np.linspace(500,8750,6),label)
+    ax.set_xlabel('time (ms)')
+    ax.set_ylabel('membrane potential (mV)', fontsize=14)
+    plt.legend()
+    plt.title('Response at best frequency', fontsize=18)
+    plt.savefig(f'{filename}_resp_atBF.png', dpi=500, bbox_inches='tight')
+    plt.show()
+    
+if tone_raw:
+    df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
+    filename = '20230607_001'
+    index = df.index[df['filename']==filename]
+    fdir = df['path'][index].item()
+    
+    tdms = Tdms_V2()
+    tdms.loadtdms(fdir, protocol=1, load_sound=True)
+    
+    fig, ax = plt.subplots(figsize=(30, 1))
+    ax.plot(tdms.resp_dpk_raw[2000000:3500000])
+
+    label = np.linspace(0,60,11)
+    ax.set_xticks(np.linspace(0,1500000,11),label)
+    ax.set_xlim(0,1500000)
+    ax.set_xlabel('time (s)')
+    ax.set_ylabel('response (V)', fontsize=14)
+    plt.title('Raw trace with puretone stimuli', fontsize=18)
+    plt.savefig(f'{filename}_tone_raw.png', dpi=500, bbox_inches='tight')
+    plt.show()
+
+
+if lsfm_raw:
+    df = pd.read_csv('patch_list_E.csv', dtype={'date':str, '#':str})
+    filename = '20230607_002'
+    index = df.index[df['filename']==filename]
+    fdir = df['path'][index].item()
+    
+    tdms = Tdms_V2()
+    tdms.loadtdms(fdir, protocol=0, load_sound=True)
+    
+    fig, ax = plt.subplots(figsize=(30, 1))
+    ax.plot(tdms.resp_dpk_raw[2000000:3500000])
+
+    label = np.linspace(0,60,11)
+    ax.set_xticks(np.linspace(0,1500000,11),label)
+    ax.set_xlim(0,1500000)
+    ax.set_xlabel('time (s)')
+    ax.set_ylabel('response (V)', fontsize=14)
+    plt.title('Raw trace with lsfm stimuli', fontsize=18)
+    plt.savefig(f'{filename}_lsfm_raw.png', dpi=500, bbox_inches='tight')
+    plt.show()

@@ -43,8 +43,8 @@ if  __name__ == "__main__":
     bf_levels, band_levels, left_levels, right_levels = [],[],[],[]
     psth_neurons=[]
     
-    #df_loc = 153       
-    #if df_loc == 153:
+    #df_loc = 200       
+    #if df_loc == 200:
     for df_loc in idx_puretone:
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
@@ -69,10 +69,8 @@ if  __name__ == "__main__":
         _, _, tuning_trace, _ = tone1.get_bf(output=True)
         tone1.get_bandwidth()
         #tone1.plot_tuning_trace()
-        #tone1.plot_tuning(on_off='on', saveplot=True)
-        
-        tone1.plot_tuning(on_off='on', saveplot=True)
-        tone1.plot_PSTH_wwobfband(saveplot=False)
+        tone1.plot_tuning(on_off='on', saveplot=False)
+        tone1.plot_PSTH_wwobfband(filter60=True, saveplot=True)
 
         mouseIDs.append(mouseID)
         filenames.append(filename)
@@ -81,8 +79,8 @@ if  __name__ == "__main__":
         base = np.mean(psth[:500])
         peak = np.max(psth[500:3000]) - base
         latency = np.argmax(psth[500:3000])-500
-        peri_charge = np.sum(psth[500:3000])
-        post_charge = np.sum(psth[3000:5500])
+        peri_charge = np.sum(psth[500:3000])/1000
+        post_charge = np.sum(psth[3000:5500])/1000
         
         psth_neurons.append([mouseID, filename, site, tone1.bf, tone1.bandwidth, peak, latency, peri_charge, post_charge])
     

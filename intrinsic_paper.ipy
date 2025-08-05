@@ -177,7 +177,7 @@ if __name__ == "__main__":
                     APs_adjust.append(len(peaks))
                     vlevel = [np.min(trace[8000:11000]), np.min(trace[11000:14000]), np.min(trace[14000:17000])]
                     depolar_adjust.append(np.mean(vlevel))
-                    
+
                     if i==idx_threshold:
                         plt.plot(time*1000, trace, c='r', label=f'{iclamp[i]} pA')
                         try:

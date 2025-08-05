@@ -34,42 +34,13 @@ saveplot=False
 
 
 get_region = False
-map_bf = False
+map_patch = False
 tone_analysis = False
-lsfm_analysis = True
+lsfm_analysis = False
 intrisic_analysis = False
+para_sep_fit = True
 spike_analysis = False
 
-        
-        
-      
-# =============================================================================
-# if map_bf:
-#     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
-#     df2 = pd.read_csv('patch_list_with_bf.csv', dtype={'date':str, '#':str})
-#     idx = df2.index[(df2['type']=='Pure Tones') & (df2['project']=='Ic_map') & (df2['hard_exclude']!='exclude')]
-#     
-#     patch_x, patch_y = [],[]
-#     bf = []
-#     for i in idx:
-#         mouseID = df2.iloc[i]['mouse_id']
-#         site = f'Patch_{df2.iloc[i]["site"]}'
-#  
-#         patch_x.append(coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].x_A12.item())
-#         patch_y.append(coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].y_A12.item())
-#         bf.append(df2.iloc[i].best_frequency.item())
-#     
-#     bf_k = np.array([i/1000 for i in bf])
-#     patch_x = np.array(patch_x)
-#     patch_y = np.array(patch_y)
-#     
-#     fig, ax = plt.subplots()
-#     ax.scatter(region[0], region[1], c='black', s=500)
-#     im = ax.scatter(patch_x+np.random.normal(0, .03, patch_x.size), patch_y+np.random.normal(0, .03, patch_y.size), c=bf_k, cmap='inferno') 
-# 
-#     plt.title('bf_map')
-#     plt.savefig('bf_map.png', dpi=500)
-# =============================================================================
 
 
 def detect_outliers(arr):
@@ -207,7 +178,10 @@ def plot_ortho_xx(ortho_x, arr, fit, saveplot=False, outlier_mask=None, **kwargs
         ax.scatter(ortho_x[outlier_mask], arr[outlier_mask], s=50, alpha=0.5, color='gray', label='Outlier')
     else:
         ax.scatter(ortho_x, arr, s=50, alpha=0.7)
-
+    
+    if 'best frequency' in ylabel.lower():
+        ax.set_yscale('log')
+    
     ax.plot(fit[0], fit[1], color='red', label='Fit')
     ax.annotate(f'$R^2$: {fit[2]:.2f}', xy=(0.99, 0.97), xycoords='axes fraction', size=14, ha='right', va='top')
     ax.annotate(f'P = {float(fit[3]):.3g}', xy=(0.99, 0.90), xycoords='axes fraction', size=14, ha='right', va='top')
@@ -244,7 +218,10 @@ def plot_ortho_yy(ortho_y, arr, fit, saveplot=False, outlier_mask=None, **kwargs
         ax.scatter(ortho_y[outlier_mask], arr[outlier_mask], s=50, alpha=0.5, color='gray', label='Outlier')
     else:
         ax.scatter(ortho_y, arr, s=50, alpha=0.7)
-
+        
+    if 'best frequency' in ylabel.lower():
+        ax.set_yscale('log')
+        
     ax.plot(fit[0], fit[1], color='red', label='Fit')
     ax.annotate(f'$R^2$: {fit[2]:.2f}', xy=(0.99, 0.97), xycoords='axes fraction', size=14, ha='right', va='top')
     ax.annotate(f'P = {fit[3]:.3g}', xy=(0.99, 0.90), xycoords='axes fraction', size=14, ha='right', va='top')
@@ -282,7 +259,7 @@ def check_map(df, x, y, ortho, arr):
 
     
     
-if map_bf:
+if map_patch:
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
     tone_info = pd.read_excel('tone_cell_note.xlsx')
     mouseid = list(tone_info['mouseID'])
@@ -298,28 +275,39 @@ if map_bf:
         ortho_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].ortho_A12m.item())
         
     
-    bf = np.array(list(tone_info['best_frequency']))/1000
-    plot_map(patch_x, patch_y, bf, saveplot=True, title='Best_Frequency', ylabel='Best Frequency (kHz)', cmap='viridis')
-    #regression.regression_test(ortho, bf)
-    fit_orthox = regression.regression_poly(ortho_x, bf, degree=1)
-    fit_orthoy = regression.regression_poly(ortho_y, bf, degree=1)
-    plot_ortho_xx(ortho_x, bf, fit_orthox, saveplot=True, title='Best_Frequency', ylabel='Best Frequency (kHz)')
-    plot_ortho_yy(ortho_y, bf, fit_orthoy, saveplot=True, title='Best_Frequency', ylabel='Best Frequency (kHz)')
     
-    #patch = [f'{a}_{b}_{c}' for (a,b,c) in zip(filename, mouseid, sites)]
-    patch = [f'{a}_{b}_{c}' for (a,b,c) in zip(filename, mouseid, sites)]
-    #plot_map_special(patch_x, patch_y, patch, saveplot=True, title='Patch Map2', ylabel='Patch Map2', data_type='text')
-    
-    bf_k = np.array([i/1000 for i in bf])
+    ids = [f'{a}_{b}_{c}' for (a,b,c) in zip(filename, mouseid, sites)]
+    title='Patch Map'
     patch_x = np.array(patch_x)
     patch_y = np.array(patch_y)
     
-    fig, ax = plt.subplots()
-    ax.scatter(region[0], region[1], c='black', s=500)
-    im = ax.scatter(patch_x+np.random.normal(0, .03, patch_x.size), patch_y+np.random.normal(0, .03, patch_y.size), c=bf_k, cmap='inferno')
-  
-    plt.title('bf_map')
-    plt.savefig('bf_map.png', dpi=500)
+
+    x_range = patch_x.max() - patch_x.min()
+    y_range = patch_y.max() - patch_y.min()
+    
+    x_jitter = (np.random.rand(len(patch_x)) - 0.5) * 0.05 * x_range
+    y_jitter = (np.random.rand(len(patch_y)) - 0.5) * 0.3 * y_range
+    
+    # Apply jitter
+    jittered_x = patch_x + x_jitter
+    jittered_y = patch_y + y_jitter
+    
+    # Plot
+    plt.figure(figsize=(8, 6))
+    plt.scatter(jittered_x, jittered_y, color='blue', s=20)
+    
+    # Add jittered labels
+    for i, txt in enumerate(ids):
+        plt.text(jittered_x[i], jittered_y[i], txt, fontsize=8, ha='right', va='bottom')
+    
+    plt.title('Patch Map')
+    plt.xlabel('X')
+    plt.ylabel('Y')
+    plt.axis('equal')
+    plt.grid(True)
+    plt.tight_layout()
+    plt.savefig('map_neuonIDs.png', dpi=500, bbox_inches='tight')
+    plt.show()
 
 # =============================================================================
 #     #mapping each levels
@@ -368,38 +356,63 @@ if tone_analysis:
     ids = list(zip(mouseid, sites))
     
     parameters = {
-        'bf': ('Best_Frequency', 'Best Frequency (kHz)', 'viridis'),
-        'bandwidth': ('Bandwidth', 'Bandwidth (octave)', 'viridis'),
-        'peak': ('Peak_Amplitude', 'Peak Amplitude (mV)', 'viridis'),
-        'latency': ('Time_to_Peak', 'Time to Peak (ms)', 'viridis'),
-        'peri_charge': ('peri_charge', 'Peri-Integration (mV*ms)', 'viridis'),
-        'post_charge': ('post_charge', 'Post-Integration (mV*ms)', 'viridis'),
+        'bf': ('Best_Frequency', 'Best Frequency (kHz)', 'turbo'),
+        'bandwidth': ('Bandwidth', 'Bandwidth (octave)', 'turbo'),
+        'peak': ('Peak_Amplitude', 'Peak Amplitude (mV)', 'turbo'),
+        'latency': ('Time_to_Peak', 'Time to Peak (ms)', 'turbo'),
+        'peri_charge': ('peri_charge', 'Peri-Integration (mV*ms)', 'turbo'),
+        'post_charge': ('post_charge', 'Post-Integration (mV*ms)', 'turbo'),
     }
 
     for key, (title, ylabel, cmap) in parameters.items():
         values = np.array(tone_psth[key])
         if key == 'bf':
             values = values / 1000  # Convert to kHz
-
-        outlier_mask = detect_outliers(values)
-
-        fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], values[~outlier_mask], degree=1)
-        fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], values[~outlier_mask], degree=1)
-
-        plot_map(patch_x, patch_y, values, ids=ids, saveplot=True, title=title,
-                 ylabel=ylabel, cmap=cmap, outlier_mask=outlier_mask)
-
-        plot_ortho_xx(ortho_x, values, fit_x, saveplot=True,
-                      title=title, ylabel=ylabel, outlier_mask=outlier_mask)
-
-        plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
-                      title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+            log_values = np.log10(values)
+            outlier_mask = detect_outliers(log_values)
+            
+            # Fit using log(BF)
+            fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], log_values[~outlier_mask], degree=1)
+            fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], log_values[~outlier_mask], degree=1)
+            
+            # Convert fit back to raw kHz space for plotting
+            fit_x_vals = fit_x[0]
+            fit_x_curve = 10**np.array(fit_x[1])
+            fit_x = (fit_x_vals, fit_x_curve, fit_x[2], fit_x[3])
+            
+            fit_y_vals = fit_y[0]
+            fit_y_curve = 10**np.array(fit_y[1])
+            fit_y = (fit_y_vals, fit_y_curve, fit_y[2], fit_y[3])
+            
+            plot_map(patch_x, patch_y, values, ids=ids, saveplot=True, title=title,
+                     ylabel=ylabel, cmap=cmap, outlier_mask=outlier_mask)
+    
+            plot_ortho_xx(ortho_x, values, fit_x, saveplot=True,
+                          title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+    
+            plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
+                          title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+            
+        else:  
+            outlier_mask = detect_outliers(values)
+    
+            fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], values[~outlier_mask], degree=1)
+            fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], values[~outlier_mask], degree=1)
+    
+            plot_map(patch_x, patch_y, values, ids=ids, saveplot=True, title=title,
+                     ylabel=ylabel, cmap=cmap, outlier_mask=outlier_mask)
+    
+            plot_ortho_xx(ortho_x, values, fit_x, saveplot=True,
+                          title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+    
+            plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
+                          title=title, ylabel=ylabel, outlier_mask=outlier_mask)
     
 
 if lsfm_analysis:
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
-    lsfm_psth_inBF = pd.read_excel('lsfm_PSTH_category.xlsx', sheet_name='inband')
-    lsfm_psth_exBF = pd.read_excel('lsfm_PSTH_category.xlsx', sheet_name='exband')
+    lsfm_psth_inBF = pd.read_excel('lsfm_PSTH_category_bf.xlsx', sheet_name='inband')
+    lsfm_psth_exBF = pd.read_excel('lsfm_PSTH_category_bf.xlsx', sheet_name='exband')
     
     mouseIDs = list(lsfm_psth_inBF['mouseID'])
     sites = list(lsfm_psth_inBF['patch_site'])
@@ -415,11 +428,11 @@ if lsfm_analysis:
     parameters = {
     'onpeak': ('OnPeak_Amplitude', 'Onset Peak Amplitude (mV)', None, None),
     'on_latency': ('Time_to_Peak', 'Time to Onset Peak (ms)', None, None),
-    'on_charge': ('Onset_Charge', 'Onset Integrated Polarization (ms*mV)', None, None),
+    'on_charge': ('Onset_Charge', 'Onset Integrated Polarization (mV*s)', None, None),
     'sustain': ('Sustain', 'Sustain Potential (mV)', None, None),
     'offpeak': ('OffPeak_Amplitude', 'Offset Peak Amp plateau (mV)', None, None),
     'offpeak_base': ('OffPeak_Amplitude_baseline', 'Offset Peak Amp baseline (mV)', None, None),
-    'off_charge': ('Offset_Charge', 'Offset Integrated Polarization (ms*mV)', None, None),
+    'off_charge': ('Offset_Charge', 'Offset Integrated Polarization (mV*s)', None, None),
     }
 
     for condition in ['inband', 'exband']:
@@ -445,6 +458,7 @@ if lsfm_analysis:
             
             plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
                           title=f'{title_base}_{condition}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
+
 
         
 if intrisic_analysis:
@@ -487,6 +501,79 @@ if intrisic_analysis:
 
         plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
                       title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+
+
+if para_sep_fit:
+    def plot_slope_maps(result_df, coords, name_prefix=''):
+        measurement_labels = [
+            'onP_amp', 'on_latency', 'on_charge',
+            'offP_amp_pla', 'offP_amp_bas', 'off_latency',
+            'off_charge', 'sustain',
+            'inhibit_early', 'inhibit_late', 'inhibit_off'
+        ]
+        
+        # Collect coordinates
+        mouseid = list(result_df['mouseID'])
+        filename = list(result_df['filename'])
+        sites = list(result_df['patch_site'])
+    
+        patch_x, patch_y, ortho_x, ortho_y = [],[],[],[]
+        for m, s in zip(mouseid, sites):
+            site = f'Patch_{s}'
+            row = coords[(coords['mouseid'] == m) & (coords['regions'] == site)]
+            if row.empty:
+                patch_x.append(np.nan)
+                patch_y.append(np.nan)
+            else:
+                patch_x.append(row['x_A12'].item())
+                patch_y.append(row['y_A12'].item())
+                ortho_x.append(row['ortho_A12'].item())
+                ortho_y.append(row['ortho_A12m'].item())
+    
+        patch_x = np.array(patch_x)
+        patch_y = np.array(patch_y)
+        ortho_x = np.array(ortho_x)
+        ortho_y = np.array(ortho_y)
+    
+        # Plot each slope map
+        for cat in measurement_labels:
+            values = np.array(result_df[f'{cat}_slope'], dtype=np.float64)
+            ids = list(zip(mouseid, sites))
+    
+            outlier_mask = detect_outliers(values)
+            
+            fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], values[~outlier_mask], degree=1)
+            fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], values[~outlier_mask], degree=1)
+    
+            title = f'{name_prefix} - {cat} slope'
+            ylabel = f'{cat} Slope'
+            cmap = 'viridis'
+    
+            plot_map(patch_x, patch_y, values, ids=ids, saveplot=True,
+                     title=title, ylabel=ylabel, cmap=cmap, outlier_mask=outlier_mask)
+            
+            plot_ortho_xx(ortho_x, values, fit_x, saveplot=True,
+                          title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+
+            plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
+                          title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+    
+    # Load coordinate file
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    
+    # Load the .npz file
+    loaded = np.load('para_sep_fit.npz', allow_pickle=True)
+    
+    # Convert each dictionary back to a DataFrame
+    df_cf_out = pd.DataFrame(loaded['df_cf_out'].item())
+    df_mr_out = pd.DataFrame(loaded['df_mr_out'].item())
+    df_bw_out = pd.DataFrame(loaded['df_bw_out'].item())
+    
+    # Plot slopes for all datasets
+    plot_slope_maps(df_cf_out, coords, name_prefix='CF')
+    plot_slope_maps(df_mr_out, coords, name_prefix='MR')
+    plot_slope_maps(df_bw_out, coords, name_prefix='BW')
+    
 
 
 if spike_analysis:

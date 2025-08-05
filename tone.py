@@ -234,8 +234,43 @@ def pascal_filter_convolve(data, weights=[1,4,6,4,1]):
 
     return smoothed
 
-def pascal_filter_1D(arr):
-    kernel = np.array([1, 4, 6, 4, 1])
+# =============================================================================
+# def pascal_filter_1D(arr):
+#     kernel = np.array([1, 4, 6, 4, 1])
+#     radius = len(kernel) // 2
+#     n = len(arr)
+#     result = np.zeros_like(arr, dtype=float)
+# 
+#     for i in range(n):
+#         vals = []
+#         weights = []
+# 
+#         for offset in range(-radius, radius + 1):
+#             idx = i + offset
+#             if 0 <= idx < n:
+#                 weight = kernel[offset + radius]
+#                 vals.append(weight * arr[idx])
+#                 weights.append(weight)
+# 
+#         result[i] = sum(vals) / sum(weights)
+# 
+#     return result
+# =============================================================================
+
+def pascal_filter_1D(arr, order=4):
+    from scipy.special import comb
+    """
+    Apply 1D smoothing with a Pascal (binomial) kernel of given order.
+    
+    Parameters:
+        arr   : 1D array to filter
+        order : Order of the Pascal filter (number of coefficients - 1)
+                e.g., order=4 gives kernel [1, 4, 6, 4, 1]
+    
+    Returns:
+        Smoothed 1D array (same length as input)
+    """
+    kernel = np.array([comb(order, k) for k in range(order + 1)], dtype=float)
     radius = len(kernel) // 2
     n = len(arr)
     result = np.zeros_like(arr, dtype=float)
@@ -254,6 +289,7 @@ def pascal_filter_1D(arr):
         result[i] = sum(vals) / sum(weights)
 
     return result
+
 
 def upscale_fft(data, num_points=301):
     import scipy.fft as fft
@@ -844,8 +880,12 @@ class PureTone:
         fig, ax = plt.subplots()
         ax.plot(x300, resp_raw)
         #ax.scatter(x300[cm_idx], resp_pos[int(cm_idx)], c='g', label='center mass')
-        ax.scatter(x300[bf_idx], resp_pos[bf_idx], c='r', label='maximum')
-        ax.hlines(y=-0.1, xmin=self.band_left, xmax=self.band_right, colors='orange', label='20-80%+expand')
+        #ax.scatter(x300[bf_idx], resp_pos[bf_idx], c='r', label='maximum')
+        ax.axhline(y=0, c='k')
+        ax.axvline(x=self.bf, c='red', label='maximum')
+        plt.fill_between(x300, resp_raw, where=(x300 >= self.band_left) & (x300 <= self.band_right),
+                 color='orange', alpha=0.3, label='20-80%+expand')
+        #ax.hlines(y=-0.1, xmin=self.band_left, xmax=self.band_right, colors='orange', label='20-80%+expand')
         #ax.hlines(y=-0.2, xmin=x3, xmax=x4, colors='b', label='20-80%')
         
         ax.legend(loc='upper right')
@@ -921,8 +961,9 @@ class PureTone:
         filt1D = pascal_filter_level(filt1D)
         kernel = np.array([1, 4, 6, 4, 1])
         kernel = kernel / kernel.sum()
-        bandwidth_left = pascal_filter_1D(bandwidth_left)
-        bandwidth_right = pascal_filter_1D(bandwidth_right)
+        bf_max = pascal_filter_1D(bf_max, order=10)
+        bandwidth_left = pascal_filter_1D(bandwidth_left, order=10)
+        bandwidth_right = pascal_filter_1D(bandwidth_right, order=10)
         
         resp_300 = np.swapaxes(filt1D, 0, 1)
         interpXY=[]
@@ -1135,7 +1176,7 @@ class PureTone:
         self.bfband = {'idx_in':idx_in, 'resp_in':resp_in, 'para_in':para_in, 
                        'idx_ex':idx_ex, 'resp_ex':resp_ex, 'para_ex':para_ex}
         
-    def plot_PSTH_wwobfband(self, x_in_ms=True, saveplot=False):
+    def plot_PSTH_wwobfband(self, x_in_ms=True, filter60=True, saveplot=False):
         self.get_resp_wwobfband()
         
         resp1 = self.bfband['resp_in']
@@ -1151,14 +1192,20 @@ class PureTone:
         y2 = psth2
         
         #60-cycle filter
-        from scipy.signal import iirnotch, filtfilt
-
-        def filter_60hz(signal, fs, quality=30):
-            freq = 60  # Hz
-            b, a = iirnotch(freq, quality, fs)
-            return filtfilt(b, a, signal)
-        
-        psth1 = filter_60hz(psth1, 25000, quality=2)
+        if filter60:
+            from scipy.signal import butter, iirnotch, filtfilt
+            def filter_60hz(signal, fs, quality=30):
+                freq = 59.7  # Hz
+                b, a = iirnotch(freq, quality, fs)
+                return filtfilt(b, a, signal)
+            def lowpass_filter(signal, fs, cutoff=150, order=4):
+                b, a = butter(order, cutoff / (0.5 * fs), btype='low')
+                return filtfilt(b, a, signal)
+            
+            y1 = filter_60hz(y1, 25000, quality=30)
+            y2 = filter_60hz(y2, 25000, quality=30)
+            y1 = lowpass_filter(y1, fs=25000, cutoff=150)
+            y2 = lowpass_filter(y2, fs=25000, cutoff=150)
         
         fig, ax = plt.subplots()
         ax.plot(x1,y1,color='midnightblue')

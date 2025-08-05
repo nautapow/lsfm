@@ -342,7 +342,7 @@ if __name__ == '__main__':
     
     """Compare Map from Literatures"""
     # 1. Load image
-    image_path = r'C:\Users\McGinley3\Documents\GitHub\lsfm\sample_map\kato.jpg'
+    image_path = r'C:\Users\McGinley3\Documents\GitHub\lsfm\sample_map\TG171_crop.jpg'
     image = imread(image_path)
     
     # 2. Display image and allow user to click 4 points
@@ -379,14 +379,14 @@ if __name__ == '__main__':
     }
     plt.figure(figsize=(8,6))
     
-    plt.title('Coordinates colored by Frequency Group (percentile)')
+    plt.title('Patch sites overlay with auditory mapping')
     plt.xlabel('X')
     plt.ylabel('Y')
     overlay_x, overlay_y = zip(*new_points)
     new_x, new_y = zip(*new_coords)
-    plt.scatter(overlay_x, overlay_y, c=overlay_colors_norm, s=80, marker='o', edgecolor='none', label='Overlay points', alpha=0.3)
+    plt.scatter(overlay_x, overlay_y, c=overlay_colors_norm, s=80, marker='o', edgecolor='none', alpha=0.3)
     sns.scatterplot(data=df, x='x_jitter', y='y_jitter', hue='freq_group_label', palette=custom_palette, s=80)
-    plt.scatter(new_x, new_y, c='r')
+    #plt.scatter(new_x, new_y, c='r')
     plt.legend(title='Frequency Group')
     plt.savefig('tonotopy_TP035.png', dpi=500, bbox_inches='tight')
     plt.show()

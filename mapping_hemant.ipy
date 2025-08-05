@@ -28,7 +28,7 @@ def load_image(tiffs, n_imgs):
                     try:
                         img.seek(frame)
                         arr = np.array(img)
-                        if arr.shape != (512, 512):
+                        if arr.shape != (450, 450):
                             raise ValueError(f"Frame {frame} in {path} is not 450x450.")
                         result[idx] = arr
                         idx += 1
@@ -48,7 +48,7 @@ def load_image(tiffs, n_imgs):
 
 @jit(nopython=True, parallel=False)
 def preallocate(n_imgs):
-    return np.empty((n_imgs, 512, 512), dtype=np.uint16)
+    return np.empty((n_imgs, 450, 450), dtype=np.uint16)
 
 
 def load_tdms(tdms_dir):
@@ -123,15 +123,15 @@ def load_data(tdms, tiffs, filename):
     return para, para_sort, act_sort, around_stim_sort
 
 def plot_map(mapping, filename, saveplot=False):
-    map_plot = np.reshape(mapping, (3,4,512,512))
+    map_plot = np.reshape(mapping, (3,4,450,450))
     vmax = np.max(mapping)/3
     
     fig, ax = plt.subplots(3,4, figsize=(15, 10))
     for x in range(3):
         for y in range(4):
             ax[x,y].imshow(map_plot[x][y], vmin=0, vmax=vmax, aspect='auto')
-            ax[x,y].set_xticks([0,256,512])
-            ax[x,y].set_yticks([0,256,512])
+            ax[x,y].set_xticks([0,256,450])
+            ax[x,y].set_yticks([0,256,450])
     cols = ['4k', '10k', '20k', '30k']
     rows = ['50dB', '60dB', '70dB']
     
@@ -172,58 +172,59 @@ def plot_individual(mapping, para_map, filename, saveplot=True):
             plt.clf()
 
 
-def image_process(mapping, deconvolute=True, threshold=None):
+def image_process(mapping, threshold, deconvolute=True):
     import copy
     
     processed = []
     for i,m in enumerate(mapping):
-        m_work = copy.copy(m)
-        
         if deconvolute:
-            
-            def gaussuian_kern(size=10, sigma=1):
+            def gaussian_kern(size=10, sigma=1):
                 """Returns a 2D Gaussian kernel array."""
-                kern1d = scipy.signal.windows.gaussian(size, std=sigma).reshape(size, 1)
+                kern1d = signal.windows.gaussian(size, std=sigma).reshape(size, 1)
                 kern2d = np.outer(kern1d, kern1d) /size**2
                 
                 return kern2d
             
-            psf = gaussuian_kern(size=10, sigma=28)
+            psf = gaussian_kern(size=10, sigma=28)
             
             m_work = restoration.richardson_lucy(m, psf, num_iter=1, clip=False)
         
-        if threshold:
-# =============================================================================
-#             m_flat = m_work.flatten()
-#             ci = stats.t.interval(0.95, len(m_flat)-1, loc=np.mean(m_flat), 
-#                                   scale=stats.sem(m_flat))[1]
-#             m_mask = m_work < ci
-# =============================================================================
-            if i in [0,4,8]:
-                m_mask = m_work < (np.max(m_work)*threshold[0])
-            else:
-                m_mask = m_work < (np.max(m_work)*threshold[1])
-            
-            m_work[m_mask] = 0
+        m_mask = m_work < (np.max(m_work)*threshold[i])
+        m_work[m_mask] = 0
             
         processed.append(m_work)
     
     return np.array(processed)
 
 
-def plot_overlay(index, mapping, filename, wide_field, saveplot=True):
+def plot_overlay(mapping, filename, wide_field, saveplot=True):
     img_wf = io.imread(wide_field)
         
     img_wf = np.moveaxis(img_wf, 2, 0)[0]
     img_wf = exposure.adjust_gamma(img_wf, 0.5)
-
     
-    m_low = mapping[index[0]]
+    m_low = mapping[0]
+    m_mid = mapping[1]
+    m_high = mapping[2]
+    
+        
+    from scipy.ndimage import median_filter
+    m_low = median_filter(m_low, size=1)
+    m_mid = median_filter(m_mid, size=1)
+    m_high = median_filter(m_high, size=1)
+    
+    from scipy.ndimage import gaussian_filter
+    import numpy.ma as ma
+    
+    # Apply Gaussian smoothing
+    m_low = gaussian_filter(m_low.astype(float), sigma=1.5)
+    m_mid = gaussian_filter(m_mid.astype(float), sigma=1.5)
+    m_high = gaussian_filter(m_high.astype(float), sigma=1.5)
+    
     mask_low = np.ma.masked_where(m_low == 0, m_low)
-    m_mid = mapping[index[1]]
     mask_mid = np.ma.masked_where(m_mid == 0, m_mid)
-    m_high = mapping[index[2]]
     mask_high = np.ma.masked_where(m_high == 0, m_high)
+
     
     extent = 0,512,0,512
     fig = plt.figure(frameon=False)
@@ -241,14 +242,49 @@ def plot_overlay(index, mapping, filename, wide_field, saveplot=True):
         plt.show()
         plt.clf()
 
+def plot_individual_overlay(mapping, filename, wide_field, saveplot=True):
+    img_wf = io.imread(wide_field)
+        
+    img_wf = np.moveaxis(img_wf, 2, 0)[0]
+    img_wf = exposure.adjust_gamma(img_wf, 0.5)
+    
+    m_low = mapping[0]
+    mask_low = np.ma.masked_where(m_low == 0, m_low)
+    m_mid = mapping[1]
+    mask_mid = np.ma.masked_where(m_mid == 0, m_mid)
+    m_high = mapping[2]
+    mask_high = np.ma.masked_where(m_high == 0, m_high)
+    
+    extent = 0, 512, 0, 512
+    overlays = [
+        ('mask_low', mask_low, 'Greens_r', 0.7),
+        ('mask_mid', mask_mid, 'Blues_r', 0.5),
+        ('mask_high', mask_high, 'Reds_r', 0.7)
+    ]
+    
+    for name, mask, cmap, alpha in overlays:
+        fig = plt.figure(frameon=False)
+        plt.imshow(img_wf, cmap='gray', alpha=0.7, extent=extent)
+        plt.imshow(mask, cmap=cmap, alpha=alpha, extent=extent)
+        plt.axis('off')
+        
+        if saveplot:
+            plt.savefig(f'{filename}_{name}_overlay.png', dpi=500, bbox_inches='tight')
+            plt.clf()
+        else:
+            plt.show()
+            plt.clf()
+
+
 if __name__ == "__main__":
     %matplotlib inline
-    directory = r'Z:\Users\hsrivastava\WideField\WFI\tg171\1'
-    filename = 'TG171'
+    ### Load and process from tiff file
+    directory = r'Z:\Users\hsrivastava\WideField\WFI\TG72\123022'
+    filename = 'TG76'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))
     data_freq = []
     
-    order = ['LOW', 'MID', 'BMH', 'HIGH']
+    order = ['low', 'mid', 'bmh', 'high']
     label_map = {label: i for i, label in enumerate(order)}
     tdms_dir_sort = sorted(tdms_dir, key=lambda f: next(label_map[l] for l in order if l in f))
     
@@ -265,14 +301,27 @@ if __name__ == "__main__":
     act_map = np.reshape(act_map, (-1,30,512,512))
     
     mapping = np.mean(act_map, axis=1)
-    plot_map(mapping, filename, saveplot=True)
-    threshold = (0.3,0.55)
-    map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
-    index = [8,5,7]
-    wf_file = r'Z:\Users\hsrivastava\WideField\WFI\tg171\1\tg171_MEAN_2023-09-04T17-37-37.261.png'
-    plot_overlay(index, map_prosses, filename, wf_file, saveplot=False)
     
     file = {'activity_map':act_map, 'map':mapping, 'parameter':para_map,
             'directory':directory, 'filename':filename}
     
     np.save(f'{filename}_mapping', file)
+    ###Section end
+    
+    
+    ### Load from npy
+    filename = 'TG76'
+    data = np.load(f'{filename}_mapping.npy', allow_pickle=True).item()
+    mapping = data['map']
+    
+    
+    plot_map(mapping, filename, saveplot=True)
+    threshold = (0.4,0.55,0.7)
+    index = [8,5,7]
+    map_prosses = image_process(mapping[index], threshold=threshold, deconvolute=True)
+    
+    wf_file = r'Z:\Users\hsrivastava\WideField\WFI\tg171\1\tg171_MEAN_2023-09-04T17-37-37.261.png'
+    plot_overlay(map_prosses, filename, wf_file, saveplot=True)
+    #plot_individual_overlay(map_prosses, filename, wf_file, saveplot=True)
+    
+

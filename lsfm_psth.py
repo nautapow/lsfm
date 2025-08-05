@@ -421,7 +421,7 @@ class Psth():
                 'bandwidth':resp_band}
     
     
-    def plot_psth_wwobf(self, saveplot=False):
+    def plot_psth_wwobf(self, filter60=True, saveplot=False):
         """
         Generate PSTH seperate by stimulus crossed best frequency or not.
         If bandwidth is specified, stimulus ever entered the tuning area would be included.
@@ -464,6 +464,17 @@ class Psth():
             condition='band'
         else:
             condition='bf'
+        
+        #60-cycle filter
+        if filter60:
+            from scipy.signal import iirnotch, filtfilt
+            def filter_60hz(signal, fs, quality=10):
+                freq = 59.7  # Hz
+                b, a = iirnotch(freq, quality, fs)
+                return filtfilt(b, a, signal)
+            
+            y1 = filter_60hz(y1, 25000, quality=20)
+            y2 = filter_60hz(y2, 25000, quality=20)
         
         if self.version == 1:
 
@@ -1193,8 +1204,169 @@ def get_section_old(psth_sep, para_sep, para_type: int):
     
     return file    
 
-
 def get_section(filename, mouseID, site, psth_para_sep, para_sep, para_type: int):
+    def set_plus2zero(arr):
+        mask = arr>0
+        arr[mask] = 0
+        
+        return arr
+    
+    psths = np.array(psth_para_sep[para_type])
+    paras = np.array(para_sep[para_type])
+    current_type = ['cf', 'bw', 'mr'][para_type]
+    fs = 25000
+    
+    data = []
+    #loop through individual parameter (e.g. mod = 8Hz)
+    for idx, psth in enumerate(psths):     
+        print(f'current: type {current_type}, parameter {paras[idx]}, list index {idx}')
+        
+        para_spec = paras[idx][0]
+        repeat = paras[idx][1]
+        psth = TFTool.butter(psth, 6, 50, 'low', fs)
+        
+        baseline = np.mean(psth[1000:1250])
+        plateau = np.mean(psth[26000:26250])
+        std = np.std(psth[1250:26250])
+        
+        #on_peak, range 200 ms
+        peak_max = np.max(psth[1250:6250])
+        peak_min = np.min(psth[1250:6250])
+        on_start = 1250
+        
+        if peak_min < 0 and abs(peak_min) > peak_max:
+            on_peak_amp = peak_min - baseline
+            peak_loc = np.argmin(psth[1250:6250])+1250
+            
+            for i in range(peak_loc+125, 26250):
+                if (on_peak_amp*0.2 < plateau and psth[i] >= on_peak_amp*0.2) or (on_peak_amp*0.2 > plateau*0.8 and psth[i] >= plateau*0.8):
+                    on_stop = i
+                    break
+        else:
+            on_peak_amp = peak_max - baseline
+            peak_loc = np.argmax(psth[1250:6250])+1250
+            
+            for i in range(peak_loc+125, 26250):
+                if (on_peak_amp*0.2 > plateau and psth[i] <= on_peak_amp*0.2) or (on_peak_amp*0.2 < plateau*1.2 and psth[i] <= plateau*1.2):
+                    on_stop = i
+                    break
+        
+        on_latency = (peak_loc - 1250)/25000*1000    #unit: ms
+        on_charge = np.sum(psth[on_start:on_stop])/1000
+        
+        #off_peak, range 250ms
+        peak_max_pla = np.max(psth[26250:32500]) - plateau
+        peak_max_bas = np.max(psth[26250:32500]) - baseline
+        peak_min_pla = np.min(psth[26250:32500]) - plateau
+        peak_min_bas = np.min(psth[26250:32500]) - baseline
+        peak_max_loc = np.argmax(psth[26250:32500])+26250
+        peak_min_loc = np.argmin(psth[26250:32500])+26250
+        off_start = 26250
+        determine = False
+        
+        # Exitotory Stimulus
+        if plateau + std >= 0:
+            if peak_min_pla > 0 and peak_min_loc > peak_max_loc:
+                off_peak_amp_pla = peak_max_pla
+                off_peak_amp_bas = peak_max_bas
+                offpeak_loc = peak_max_loc
+                for i in range(offpeak_loc+125, len(psth)):
+                    if psth[i] <= baseline + std:
+                        off_stop = i
+                        determine = True
+                        break
+                
+                if not determine:
+                    for i in range(offpeak_loc+125, len(psth)):
+                        if psth[i] <= plateau + peak_max_pla*0.2:
+                            off_stop = i
+                            determine = True
+                            break
+                
+                if not determine:
+                    off_stop = 32500
+                
+            elif peak_max_pla < std and peak_min_pla > peak_max_pla:
+                off_peak_amp_pla = peak_min_pla
+                off_peak_amp_bas = peak_min_bas
+                offpeak_loc = peak_min_loc
+                off_stop = peak_min_loc
+                
+            else:
+                off_peak_amp_pla = peak_max_pla
+                off_peak_amp_bas = peak_max_bas
+                offpeak_loc = peak_max_loc
+                for i in range(offpeak_loc+125, len(psth)):
+                    if psth[i] <= baseline + std:
+                        off_stop = i
+                        determine = True
+                        break
+                
+                if not determine:
+                    for i in range(offpeak_loc+125, len(psth)):
+                        if psth[i] <= plateau + peak_max_pla*0.2:
+                            off_stop = i
+                            determine = True
+                            break
+                
+                if not determine:
+                    off_stop = 32500
+        
+        # Inhibitory Stimulus
+        elif plateau + std < 0:
+            off_peak_amp_pla = peak_max_pla
+            off_peak_amp_bas = peak_max_bas
+            offpeak_loc = peak_max_loc
+            for i in range(offpeak_loc+125, len(psth)):
+                if psth[i] <= baseline + std:
+                    off_stop = i
+                    determine = True
+                    break
+            
+            if not determine:
+                for i in range(offpeak_loc+125, len(psth)):
+                    if psth[i] <= plateau + peak_max_pla*0.2:
+                        off_stop = i
+                        determine = True
+                        break
+            
+            if not determine:
+                off_stop = 32500
+
+        off_latency = (offpeak_loc - 26250)/25000*1000 #unit: ms
+        
+        off_charge = np.sum(psth[off_start:off_stop])/1000
+        
+        sustain = np.mean(psth[16250:26250])
+        
+        import copy
+        early = copy.deepcopy(psth[peak_loc:12500])
+        inhibit_early = np.sum(set_plus2zero(early))
+        
+        late = copy.deepcopy(psth[12500:26250])
+        inhibit_late = np.sum(set_plus2zero(late))
+        
+        off = copy.deepcopy(psth[26250:])
+        inhibit_off = np.sum(set_plus2zero(off))
+    
+        sep_data = [on_peak_amp, on_latency, on_charge, off_peak_amp_pla, 
+                    off_peak_amp_bas, off_latency, off_charge, sustain, 
+                    inhibit_early, inhibit_late, inhibit_off,
+                    para_spec, repeat]
+        
+        data.append(sep_data)
+    
+    labels = ['onP_amp', 'on_latency',
+              'on_charge', 'offP_amp_pla', 'offP_amp_bas', 'off_latency', 'off_charge', 'sustain',
+              'inhibit_early', 'inhibit_late', 'inhibit_off', 'parameter', 'repeat']
+    data_dict = dict(zip(labels, zip(*data)))
+    data_dict['mouseID'] = mouseID
+    data_dict['filename'] = filename
+    data_dict['patch_site'] = site
+    
+    return data_dict
+
+def get_section_cursor(filename, mouseID, site, psth_para_sep, para_sep, para_type: int):
     psths = np.array(psth_para_sep[para_type])
     paras = np.array(para_sep[para_type])
     current_type = ['cf', 'bw', 'mr'][para_type]
@@ -1400,7 +1572,7 @@ def plot_single(filename, bf, psth_sep, psth_section, para_type: int, saveplot=F
         plt.close()
             
             
-def plot_group_category(df, coordinate, parameter_type:int, category:str):
+def plot_group_category(df, coordinate, parameter_type:int, category:str, normalize=False):
     para_type = ['center frequency', 'bandwidth', 'modulation rate'][parameter_type]
     cate = category
     
@@ -1418,16 +1590,23 @@ def plot_group_category(df, coordinate, parameter_type:int, category:str):
         site = list(df[df['filename']==session]['patch_site'])[0]
         ortho_x = coordinate[(coordinate['mouseid']==mouse)&(coordinate['regions']==f'Patch_{site}')].ortho_A12.item()
         
+        if normalize:
+            yy = stats.zscore(yy)
+        
         color = cmap(norm(ortho_x))
         im = ax.plot(xx, yy, c=color, label=mouse)
     
-    if parameter_type == 2:
+    if parameter_type == 1 or parameter_type == 2:
         ax.set_xscale('log')
     
-    if 'peak' in cate or 'potential' in cate:
+    if 'amp' in cate or 'sustain' in cate:
         y_label = 'potential (mV)'
     elif 'charge' in cate:
-        y_label = 'charge (mV*ms)'
+        y_label = 'integrated polarization (mV*s)'
+    elif 'latency' in cate:
+        y_label = 'ms'
+    elif 'inhibit' in cate:
+        y_label = 'integrated hyperpolarization (mV*s)'
     
     x_label = ['frequency from bf (octave)', 'bandwidth (octave)', 'mod rate (Hz)'][parameter_type]
     ax.set_ylabel(y_label, fontsize=20)
@@ -1443,5 +1622,59 @@ def plot_group_category(df, coordinate, parameter_type:int, category:str):
     plt.show()
     
     
+def fit_para_sep(df, use_log_x=False):
+    """
+    Input the para_sep category dataframe, perform linear fit to each category,
+    then return the slope, R-squrea and P-value for each neruon, in each category
+
+    Parameters
+    ----------
+    df : pandas dataframe
+        Dataframe of each parameter
+    use_log_x : boolean, optional
+        For bandwidth and modulation rate, set to True for log space x-axis. The default is False.
+
+    Returns
+    -------
+    slope_df : pandas dataframe
+        DESCRIPTION.
+    r2_df : pandas dataframe
+        DESCRIPTION.
+    pval_df : pandas dataframe
+        DESCRIPTION.
+
+    """
     
+    # Define the labels up to 'inhibit_off'
+    measurement_labels = [
+        'onP_amp', 'on_latency', 'on_charge',
+        'offP_amp_pla', 'offP_amp_bas', 'off_latency',
+        'off_charge', 'sustain',
+        'inhibit_early', 'inhibit_late', 'inhibit_off'
+    ]
+    
+    n_neurons = len(df)
+    slope_df = pd.DataFrame(columns=measurement_labels, index=range(n_neurons))
+    r2_df = pd.DataFrame(columns=measurement_labels, index=range(n_neurons))
+    pval_df = pd.DataFrame(columns=measurement_labels, index=range(n_neurons))
+
+    for i in range(n_neurons):
+        x = df.loc[i, 'parameter']
+        if use_log_x:
+            x = np.log(x)
+        for label in measurement_labels:
+            y = df.loc[i, label]
+            # If y or x is a single value (not iterable), skip
+            if isinstance(y, (int, float)) or np.ndim(y) == 0:
+                slope, intercept, r, pval, _ = stats.linregress([x], [y])
+                r2 = r ** 2
+            else:
+                slope, intercept, r, pval, _ = stats.linregress(x, y)
+                r2 = r ** 2
+
+            slope_df.loc[i, label] = slope
+            r2_df.loc[i, label] = r2
+            pval_df.loc[i, label] = pval
+
+    return slope_df, r2_df, pval_df
     
