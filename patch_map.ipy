@@ -64,6 +64,7 @@ def detect_outliers(arr):
 
     # --- Combined: Only mark as outlier if both methods agree ---
     combined_mask = iqr_mask & mad_mask
+    
     return combined_mask
 
 
@@ -193,7 +194,7 @@ def plot_ortho_xx(ortho_x, arr, fit, saveplot=False, outlier_mask=None, **kwargs
     if vmin is not None and vmax is not None:
         ax.set_ylim(vmin, vmax)
 
-    ax.legend()
+    ax.legend(loc='upper left')
 
     if saveplot:
         plt.savefig(f'{title}_orthoX.png', dpi=500, bbox_inches='tight')
@@ -233,7 +234,7 @@ def plot_ortho_yy(ortho_y, arr, fit, saveplot=False, outlier_mask=None, **kwargs
     if vmin is not None and vmax is not None:
         ax.set_ylim(vmin, vmax)
 
-    ax.legend()
+    ax.legend(loc='upper left')
 
     if saveplot:
         plt.savefig(f'{title}_orthoY.png', dpi=500, bbox_inches='tight')
@@ -541,6 +542,7 @@ if para_sep_fit:
             ids = list(zip(mouseid, sites))
     
             outlier_mask = detect_outliers(values)
+            outlier_mask[:] = False
             
             fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], values[~outlier_mask], degree=1)
             fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], values[~outlier_mask], degree=1)

@@ -374,6 +374,7 @@ for para_type in range(3):
         lsfm_psth.plot_group_category(df_type, coords, para_type, cate, normalize=False)
         
 
+### Linear fit para_sep for each neuron in each dataframe
 def prepare_output_df(df, slope_df, r2_df, pval_df):
     # Keep identifying info
     info_cols = ['mouseID', 'filename', 'patch_site']
@@ -415,4 +416,19 @@ np.savez_compressed(
     df_mr_out=df_mr_out.to_dict(),
     df_bw_out=df_bw_out.to_dict()
 )
+
+
+### Split para_sep result into 2 or 3 groups, low, (mid), high and plot
+cf_low, cf_high = lsfm_psth.para_sep_split2(df_cf, cutoff=0)
+bw_low, bw_high = lsfm_psth.para_sep_split2(df_bw, cutoff=1)
+mr_low, mr_high = lsfm_psth.para_sep_split2(df_mr, cutoff=20)
     
+lsfm_psth.plot_para_sep_split2(cf_low, cf_high, title='CF: Low vs High (Normalized)', saveplot=True)
+lsfm_psth.plot_para_sep_split2(bw_low, bw_high, title='BW: Low vs High (Normalized)', saveplot=True)
+lsfm_psth.plot_para_sep_split2(mr_low, mr_high, title='MR: Low vs High (Normalized)', saveplot=True)
+        
+bw_low, bw_mid, bw_high = lsfm_psth.para_sep_split3(df_bw, norm_factor=1, cutoff1=0.05, cutoff2=1)
+lsfm_psth.plot_para_sep_split3(bw_low, bw_mid, bw_high, title='BW: Low vs Mid vs High', saveplot=True, filename='bw_3groups.png')
+
+mr_low, mr_mid, mr_high = lsfm_psth.para_sep_split3(df_mr, norm_factor=1, cutoff1=10, cutoff2=30)
+lsfm_psth.plot_para_sep_split3(mr_low, mr_mid, mr_high, title='MR: Low vs Mid vs High', saveplot=True, filename='mr_3groups.png')

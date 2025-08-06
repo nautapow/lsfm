@@ -1677,4 +1677,215 @@ def fit_para_sep(df, use_log_x=False):
             pval_df.loc[i, label] = pval
 
     return slope_df, r2_df, pval_df
+
+
+def para_sep_split2(df, cutoff):
+    """
+    After para_sep, for each df_para, each neuron, each category will be split into low and high by setting the cutoff.
+    For example, when input df_bw.
+    The function returns two df bw_low and bw_high, each df has 11 categories (see labels)
+
+    Parameters
+    ----------
+    df : pandas dataframe
+        df after para_sep get_section and appended all neurons.
+    cutoff : TYPE
+        DESCRIPTION.
+
+    Returns
+    -------
+    TYPE
+        DESCRIPTION.
+
+    """
+    measurement_labels = [
+        'onP_amp', 'on_latency', 'on_charge',
+        'offP_amp_pla', 'offP_amp_bas', 'off_latency',
+        'off_charge', 'sustain',
+        'inhibit_early', 'inhibit_late', 'inhibit_off'
+    ]
     
+    low_avg = {label: [] for label in measurement_labels}
+    high_avg = {label: [] for label in measurement_labels}
+    
+    for i in range(len(df)):
+        x = np.array(df.loc[i, 'parameter'], dtype=float)
+        x_norm = x / cutoff if cutoff != 0 else x  # avoid division by 0
+
+        for label in measurement_labels:
+            y = np.array(df.loc[i, label], dtype=float)
+
+            # Use boolean masks to separate
+            low_mask = x_norm < 1
+            high_mask = x_norm > 1
+
+            # Compute means (or np.nan if empty)
+            low_mean = np.mean(y[low_mask]) if np.any(low_mask) else np.nan
+            high_mean = np.mean(y[high_mask]) if np.any(high_mask) else np.nan
+
+            low_avg[label].append(low_mean)
+            high_avg[label].append(high_mean)
+
+    return pd.DataFrame(low_avg), pd.DataFrame(high_avg)
+
+def plot_para_sep_split2(low_df, high_df, title, saveplot=False, filename=None):
+    categories = low_df.columns
+    n = len(categories)
+
+    # Normalize each column (across low+high) to [0, 1]
+    low_norm = pd.DataFrame(index=low_df.index)
+    high_norm = pd.DataFrame(index=high_df.index)
+    for col in categories:
+        all_vals = pd.concat([low_df[col], high_df[col]])
+        min_val = all_vals.min()
+        max_val = all_vals.max()
+        range_val = max_val - min_val if max_val != min_val else 1
+
+        low_norm[col] = (low_df[col] - min_val) / range_val
+        high_norm[col] = (high_df[col] - min_val) / range_val
+
+    # Compute mean ± SEM
+    low_means = low_norm.mean()
+    high_means = high_norm.mean()
+    low_sems = low_norm.sem()
+    high_sems = high_norm.sem()
+
+    # T-test
+    p_values = []
+    for col in categories:
+        try:
+            stat, p = stats.ttest_rel(low_norm[col], high_norm[col], nan_policy='omit')
+        except:
+            p = np.nan
+        p_values.append(p)
+
+    # Plot
+    x = np.arange(n)
+    width = 0.35
+
+    fig, ax = plt.subplots(figsize=(14, 6))
+    ax.bar(x - width/2, low_means, width, yerr=low_sems, label='Low', capsize=5)
+    ax.bar(x + width/2, high_means, width, yerr=high_sems, label='High', capsize=5)
+
+    # Annotate p-values
+    for i, p in enumerate(p_values):
+        if not np.isnan(p):
+            text = f'p={p:.3g}' if p >= 0.001 else 'p<0.001'
+        else:
+            text = 'n/a'
+        max_val = max(low_means[i], high_means[i])
+        ax.text(i, max_val + 0.05, text, ha='center', va='bottom', fontsize=9)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(categories, rotation=45, ha='right')
+    ax.set_ylabel('Normalized Mean (0–1)')
+    ax.set_title(title)
+    ax.legend()
+    plt.tight_layout()
+
+    # Save or show
+    if saveplot:
+        if filename is None:
+            filename = title.replace(" ", "_").replace(":", "").lower() + ".png"
+        plt.savefig(filename, dpi=300)
+    else:
+        plt.show()
+        
+def para_sep_split3(df, norm_factor=1, cutoff1=0.5, cutoff2=1.5):
+    measurement_labels = [
+        'onP_amp', 'on_latency', 'on_charge',
+        'offP_amp_pla', 'offP_amp_bas', 'off_latency',
+        'off_charge', 'sustain',
+        'inhibit_early', 'inhibit_late', 'inhibit_off'
+    ]
+    
+    low_avg = {label: [] for label in measurement_labels}
+    mid_avg = {label: [] for label in measurement_labels}
+    high_avg = {label: [] for label in measurement_labels}
+    
+    for i in range(len(df)):
+        x = np.array(df.loc[i, 'parameter'], dtype=float)
+        x_norm = x / norm_factor if norm_factor != 0 else x
+
+        low_mask = x_norm < cutoff1
+        mid_mask = (x_norm >= cutoff1) & (x_norm <= cutoff2)
+        high_mask = x_norm > cutoff2
+
+        for label in measurement_labels:
+            y = np.array(df.loc[i, label], dtype=float)
+
+            low_mean = np.mean(y[low_mask]) if np.any(low_mask) else np.nan
+            mid_mean = np.mean(y[mid_mask]) if np.any(mid_mask) else np.nan
+            high_mean = np.mean(y[high_mask]) if np.any(high_mask) else np.nan
+
+            low_avg[label].append(low_mean)
+            mid_avg[label].append(mid_mean)
+            high_avg[label].append(high_mean)
+
+    return pd.DataFrame(low_avg), pd.DataFrame(mid_avg), pd.DataFrame(high_avg)
+
+def plot_para_sep_split3(low_df, mid_df, high_df, title, saveplot=False, filename=None):
+    categories = low_df.columns
+    n = len(categories)
+
+    # Normalize to [0, 1] for each category
+    norm_low, norm_mid, norm_high = pd.DataFrame(index=low_df.index), pd.DataFrame(index=mid_df.index), pd.DataFrame(index=high_df.index)
+
+    for col in categories:
+        all_vals = pd.concat([low_df[col], mid_df[col], high_df[col]])
+        min_val = all_vals.min()
+        max_val = all_vals.max()
+        range_val = max_val - min_val if max_val != min_val else 1
+
+        norm_low[col] = (low_df[col] - min_val) / range_val
+        norm_mid[col] = (mid_df[col] - min_val) / range_val
+        norm_high[col] = (high_df[col] - min_val) / range_val
+
+    # Means and SEMs
+    mean_low = norm_low.mean()
+    mean_mid = norm_mid.mean()
+    mean_high = norm_high.mean()
+    sem_low = norm_low.sem()
+    sem_mid = norm_mid.sem()
+    sem_high = norm_high.sem()
+
+    # T-tests
+    p_lm, p_mh, p_lh = [], [], []
+    for col in categories:
+        p_lm.append(stats.ttest_rel(norm_low[col], norm_mid[col], nan_policy='omit').pvalue)
+        p_mh.append(stats.ttest_rel(norm_mid[col], norm_high[col], nan_policy='omit').pvalue)
+        p_lh.append(stats.ttest_rel(norm_low[col], norm_high[col], nan_policy='omit').pvalue)
+
+    # Plot
+    x = np.arange(n)
+    width = 0.25
+
+    fig, ax = plt.subplots(figsize=(16, 6))
+    ax.bar(x - width, mean_low, width, yerr=sem_low, label='Low', capsize=4)
+    ax.bar(x,         mean_mid, width, yerr=sem_mid, label='Mid', capsize=4)
+    ax.bar(x + width, mean_high, width, yerr=sem_high, label='High', capsize=4)
+
+    # Annotate p-values (above highest bar)
+    for i, (plm, pmh, plh) in enumerate(zip(p_lm, p_mh, p_lh)):
+        max_bar = max(mean_low[i], mean_mid[i], mean_high[i])
+        y_base = max_bar + 0.05
+
+        def format_p(p): return f"p={p:.3g}" if p >= 0.001 else "p<0.001"
+
+        ax.text(i, y_base + 0.05, f'L-M: {format_p(plm)}', ha='center', fontsize=8)
+        ax.text(i, y_base + 0.10, f'M-H: {format_p(pmh)}', ha='center', fontsize=8)
+        ax.text(i, y_base + 0.15, f'L-H: {format_p(plh)}', ha='center', fontsize=8)
+
+    ax.set_xticks(x)
+    ax.set_xticklabels(categories, rotation=45, ha='right')
+    ax.set_ylabel('Normalized Mean (0–1)')
+    ax.set_title(title)
+    ax.legend()
+    plt.tight_layout()
+
+    if saveplot:
+        if filename is None:
+            filename = title.replace(" ", "_").replace(":", "").lower() + ".png"
+        plt.savefig(filename, dpi=300)
+    else:
+        plt.show()
