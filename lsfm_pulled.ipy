@@ -427,7 +427,7 @@ lsfm_psth.plot_para_sep_split2(cf_low, cf_high, title='CF: Low vs High (Normaliz
 lsfm_psth.plot_para_sep_split2(bw_low, bw_high, title='BW: Low vs High (Normalized)', saveplot=True)
 lsfm_psth.plot_para_sep_split2(mr_low, mr_high, title='MR: Low vs High (Normalized)', saveplot=True)
         
-bw_low, bw_mid, bw_high = lsfm_psth.para_sep_split3(df_bw, norm_factor=1, cutoff1=0.05, cutoff2=1)
+bw_low, bw_mid, bw_high = lsfm_psth.para_sep_split3(df_bw, norm_factor=1, cutoff1=0.1, cutoff2=1)
 lsfm_psth.plot_para_sep_split3(bw_low, bw_mid, bw_high, title='BW: Low vs Mid vs High', saveplot=True, filename='bw_3groups.png')
 
 mr_low, mr_mid, mr_high = lsfm_psth.para_sep_split3(df_mr, norm_factor=1, cutoff1=10, cutoff2=30)
