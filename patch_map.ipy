@@ -17,7 +17,6 @@ idx_tone = df.index[(df['type']=='Pure Tones') & (df['project']!='Vc') & (df['ha
 idx_tone = [i for i in idx_tone if i > 146]
 idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']!='Vc') & (df['hard_exclude']!='exclude')]
 idx_lsfm = [i for i in idx_lsfm if i > 146]
-jitter = pd.read_csv('jitter.csv')
 
 # =============================================================================
 # #region = [x0:x3], [y0:y3], [x_err1:x_err3], [y_err1:yerr3]
@@ -542,14 +541,14 @@ if para_sep_fit:
             ids = list(zip(mouseid, sites))
     
             outlier_mask = detect_outliers(values)
-            outlier_mask[:] = False
+            #outlier_mask[:] = False
             
             fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], values[~outlier_mask], degree=1)
             fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], values[~outlier_mask], degree=1)
     
             title = f'{name_prefix} - {cat} slope'
             ylabel = f'{cat} Slope'
-            cmap = 'viridis'
+            cmap = 'turbo'
     
             plot_map(patch_x, patch_y, values, ids=ids, saveplot=True,
                      title=title, ylabel=ylabel, cmap=cmap, outlier_mask=outlier_mask)
