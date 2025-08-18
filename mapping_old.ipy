@@ -290,7 +290,6 @@ def plot_individual(mapping, para_map, filename, saveplot=True):
             plt.show()
             plt.clf()
 
-
 def plot_individual_overlay(mapping, filename, wide_field, saveplot=True):
     img_wf = io.imread(wide_field)
         
@@ -298,18 +297,16 @@ def plot_individual_overlay(mapping, filename, wide_field, saveplot=True):
     img_wf = exposure.adjust_gamma(img_wf, 0.5)
     
     m_low = mapping[0]
-    m_mid = mapping[1]
-    m_high = mapping[2]
-    
-    
     mask_low = np.ma.masked_where(m_low == 0, m_low)
+    m_mid = mapping[1]
     mask_mid = np.ma.masked_where(m_mid == 0, m_mid)
+    m_high = mapping[2]
     mask_high = np.ma.masked_where(m_high == 0, m_high)
     
     extent = 0, 450, 0, 450
     overlays = [
         ('mask_low', mask_low, 'Greens_r', 0.7),
-        ('mask_mid', mask_mid, 'Blues_r', 0.7),
+        ('mask_mid', mask_mid, 'Blues_r', 0.5),
         ('mask_high', mask_high, 'Reds_r', 0.7)
     ]
     
@@ -327,284 +324,65 @@ def plot_individual_overlay(mapping, filename, wide_field, saveplot=True):
             plt.clf()
 
 
-# =============================================================================
-# def image_process_old(mapping, deconvolute=True, threshold=None):
-#     import copy
-#     
-#     processed = []
-#     for i,m in enumerate(mapping):
-#         m_work = copy.copy(m)
-#         
-#         if deconvolute:
-#             
-#             def gaussuian_kern(size=10, sigma=1):
-#                 """Returns a 2D Gaussian kernel array."""
-#                 kern1d = scipy.signal.windows.gaussian(size, std=sigma).reshape(size, 1)
-#                 kern2d = np.outer(kern1d, kern1d) /size**2
-#                 
-#                 return kern2d
-#             
-#             psf = gaussuian_kern(size=10, sigma=28)
-#             
-#             m_work = restoration.richardson_lucy(m, psf, num_iter=1, clip=False)
-#         
-#         if threshold:
-# # =============================================================================
-# #             m_flat = m_work.flatten()
-# #             ci = stats.t.interval(0.95, len(m_flat)-1, loc=np.mean(m_flat), 
-# #                                   scale=stats.sem(m_flat))[1]
-# #             m_mask = m_work < ci
-# # =============================================================================
-#             if i in [0,4,8]:
-#                 m_mask = m_work < (np.max(m_work)*threshold[0])
-#             else:
-#                 m_mask = m_work < (np.max(m_work)*threshold[1])
-#             
-#             m_work[m_mask] = 0
-#             
-#         processed.append(m_work)
-#     
-#     return np.array(processed)
-# =============================================================================
-
-
-def image_process(mapping, threshold, method='tv',
-                         gaussian_sigma=2.0,
-                         median_size=3,
-                         bilateral_sigma_color=0.05, bilateral_sigma_spatial=15,
-                         tv_weight=0.1,
-                         nlm_patch_size=5, nlm_patch_distance=6, nlm_h=None, nlm_fast_mode=True,
-                         feather=2.0,
-                         clean_structure_size=0,
-                         preserve_dtype=True):
-    """
-    Smooth (denoise) a batch of 2D images and apply a threshold mask with optional feathering.
-
-    Parameters
-    ----------
-    mapping : iterable of 2D arrays or ndarray
-        Images to process. Shape (N, H, W) or list of (H, W) arrays.
-    threshold : float or iterable of floats (0..1)
-        Per-image multiplier of the image max to use as threshold. If single float given, applied to all images.
-    method : {'gaussian','median','bilateral','tv','nlm'}
-        Smoothing/denoising method. 'tv' (total variation) and 'nlm' (non-local means) are edge-preserving.
-    gaussian_sigma : float
-        Sigma for Gaussian blur (if method == 'gaussian').
-    median_size : int
-        Kernel size for median filter (if method == 'median').
-    bilateral_sigma_color, bilateral_sigma_spatial :
-        Parameters for bilateral filter (if method == 'bilateral').
-    tv_weight : float
-        Weight parameter for total-variation denoising (if method == 'tv').
-    nlm_* : parameters for non-local means (if method == 'nlm'). If nlm_h is None it will be set from image noise estimate.
-    feather : float
-        If >0, softens the mask by applying a gaussian blur (in pixels) to the binary mask before multiplying.
-        Set to 0 for a hard mask (original behaviour).
-    clean_structure_size : int
-        If >0, performs binary opening/closing on the binary mask with a square structure of this size (helps remove tiny islands).
-    preserve_dtype : bool
-        If True, cast output images back to original dtype (with clipping). If False, outputs float32.
-    Returns
-    -------
-    ndarray
-        Array of processed images with shape (N, H, W).
-    """
-    from scipy.ndimage import gaussian_filter, median_filter
-    from scipy.ndimage import binary_opening, binary_closing
-    from skimage.restoration import denoise_bilateral, denoise_tv_chambolle, denoise_nl_means, estimate_sigma
+def image_process(mapping, deconvolute=True, threshold=None):
+    import copy
     
-    # Convert mapping into list of numpy arrays
-    imgs = [np.asarray(im) for im in mapping] if not isinstance(mapping, np.ndarray) or mapping.ndim != 3 else [mapping[i] for i in range(mapping.shape[0])]
-    n = len(imgs)
-
-    # Normalize thresholds into a list
-    if np.isscalar(threshold):
-        thresholds = [float(threshold)] * n
-    else:
-        thresholds = list(threshold)
-        if len(thresholds) != n:
-            raise ValueError("threshold must be scalar or length equal to number of images")
-
     processed = []
-    for i, orig in enumerate(imgs):
-        if orig.ndim != 2:
-            raise ValueError("each image must be 2D (grayscale)")
-
-        original_dtype = orig.dtype
-        img = orig.astype(np.float32)
-
-        # Handle degenerate images
-        max_val = img.max()
-        if max_val == 0:
-            # nothing to do
-            processed_img = img.copy()
-            processed.append(processed_img.astype(original_dtype) if preserve_dtype else processed_img)
-            continue
-
-        # normalize to [0, 1] for skimage denoisers' expectations, keep scale to rescale later
-        img_norm = img / max_val
-
-        # Choose smoothing method (operates on normalized image)
-        if method == 'gaussian':
-            den = gaussian_filter(img_norm, sigma=gaussian_sigma)
-        elif method == 'median':
-            # median_filter expects integer kernel size
-            den = median_filter(img_norm, size=max(1, int(median_size)))
-        elif method == 'bilateral':
-            den = denoise_bilateral(img_norm,
-                                    sigma_color=bilateral_sigma_color,
-                                    sigma_spatial=bilateral_sigma_spatial,
-                                    channel_axis=None)
-        elif method == 'tv':
-            den = denoise_tv_chambolle(img_norm, weight=tv_weight, channel_axis=None)
-        elif method == 'nlm':
-            # estimate sigma from image (works on normalized image)
-            sigma_est = estimate_sigma(img_norm, channel_axis=None)
-            h_param = nlm_h if (nlm_h is not None) else 0.8 * sigma_est
-            den = denoise_nl_means(img_norm,
-                                   h=h_param,
-                                   patch_size=nlm_patch_size,
-                                   patch_distance=nlm_patch_distance,
-                                   fast_mode=nlm_fast_mode,
-                                   channel_axis=None)
-        else:
-            raise ValueError(f"Unknown method: {method}")
-
-        # Rescale denoised image back to original amplitude
-        den_rescaled = den * max_val
-
-        # Build binary mask from denoised image using original-threshold semantics
-        thr_val = max_val * 0.9 * float(thresholds[i])
-        binary_mask = den_rescaled >= thr_val
-
-        # Optional morphological clean-up (opening/closing) on binary mask
-        if clean_structure_size and clean_structure_size > 0:
-            from scipy.ndimage import generate_binary_structure, binary_opening, binary_closing
-            struct = np.ones((clean_structure_size, clean_structure_size), dtype=bool)
-            binary_mask = binary_opening(binary_mask, structure=struct)
-            binary_mask = binary_closing(binary_mask, structure=struct)
-
-        # Feather the mask to avoid abrupt edges (soft multiply)
-        if feather and feather > 0:
-            soft_mask = gaussian_filter(binary_mask.astype(np.float32), sigma=feather)
-            # normalize so max is 1 (safe)
-            if soft_mask.max() > 0:
-                soft_mask = soft_mask / soft_mask.max()
-            processed_img = den_rescaled * soft_mask
-        else:
-            # hard mask
-            processed_img = den_rescaled.copy()
-            processed_img[~binary_mask] = 0.0
-
-        # Cast back to original dtype if requested
-        if preserve_dtype:
-            if np.issubdtype(original_dtype, np.integer):
-                # round and clip
-                info = np.iinfo(original_dtype)
-                processed_img = np.rint(processed_img).astype(original_dtype)
-                processed_img = np.clip(processed_img, info.min, info.max)
+    for i,m in enumerate(mapping):
+        m_work = copy.copy(m)
+        
+        if deconvolute:
+            
+            def gaussuian_kern(size=10, sigma=1):
+                """Returns a 2D Gaussian kernel array."""
+                kern1d = scipy.signal.windows.gaussian(size, std=sigma).reshape(size, 1)
+                kern2d = np.outer(kern1d, kern1d) /size**2
+                
+                return kern2d
+            
+            psf = gaussuian_kern(size=10, sigma=28)
+            
+            m_work = restoration.richardson_lucy(m, psf, num_iter=1, clip=False)
+        
+        if threshold:
+# =============================================================================
+#             m_flat = m_work.flatten()
+#             ci = stats.t.interval(0.95, len(m_flat)-1, loc=np.mean(m_flat), 
+#                                   scale=stats.sem(m_flat))[1]
+#             m_mask = m_work < ci
+# =============================================================================
+            if i in [0,4,8]:
+                m_mask = m_work < (np.max(m_work)*threshold[0])
             else:
-                # float dtype
-                processed_img = processed_img.astype(original_dtype)
-
-        processed.append(processed_img)
-
-    return np.stack(processed, axis=0)
-
-def image_smoothing(mapping, threshold, method='tv', sigma=2.0):
-    """
-    Process a list/array of images with smoothing and thresholding.
-    Smoothing is applied to make maps look like widefield tonotopy maps.
-
-    Parameters
-    ----------
-    mapping : list or ndarray
-        List/array of 2D images to process.
-    threshold : list or ndarray
-        Per-image threshold multipliers (0–1).
-    method : str
-        'gaussian', 'median', 'bilateral', or 'tv' (total variation).
-    sigma : float
-        For Gaussian/bilateral, controls smoothing amount.
-        For TV, controls weight.
-    """
-    import numpy as np
-    from scipy.ndimage import gaussian_filter, median_filter
-    from skimage.restoration import denoise_bilateral, denoise_tv_chambolle
-
-    processed = []
-
-    # Make threshold list
-    if np.isscalar(threshold):
-        thresholds = [threshold] * len(mapping)
-    else:
-        thresholds = threshold
-
-    for i, m in enumerate(mapping):
-        img = np.array(m, dtype=np.float32)
-
-        # Apply smoothing
-        if method == 'gaussian':
-            img_smooth = gaussian_filter(img, sigma=sigma)
-        elif method == 'median':
-            img_smooth = median_filter(img, size=int(sigma))
-        elif method == 'bilateral':
-            img_smooth = denoise_bilateral(img,
-                                           sigma_color=0.05,
-                                           sigma_spatial=int(sigma*5),
-                                           channel_axis=None)
-        elif method == 'tv':
-            img_smooth = denoise_tv_chambolle(img,
-                                              weight=sigma,
-                                              channel_axis=None)
-        else:
-            raise ValueError(f"Unknown smoothing method: {method}")
-
-        # Threshold mask
-        mask = img_smooth >= (img_smooth.max() * thresholds[i])
-        img_smooth[~mask] = 0
-
-        processed.append(img_smooth)
-
+                m_mask = m_work < (np.max(m_work)*threshold[1])
+            
+            m_work[m_mask] = 0
+            
+        processed.append(m_work)
+    
     return np.array(processed)
 
 
-def plot_overlay(mapping, filename, wide_field, saveplot=True):
-    img_wf = io.imread(wide_field)
+def plot_overlay(index, mapping, filename, saveplot=True):
+    img_dir = r'C:\Users\14053\Documents\GitHub\lsfm\#map_patch\mapping\mapping_wf'
+    img_wf = io.imread(f'{img_dir}\{filename}.png')
         
     img_wf = np.moveaxis(img_wf, 2, 0)[0]
     img_wf = exposure.adjust_gamma(img_wf, 0.5)
-    
-    m_low = mapping[0]
-    m_mid = mapping[1]
-    m_high = mapping[2]
-    
-        
-# =============================================================================
-#     from scipy.ndimage import median_filter
-#     m_low = median_filter(m_low, size=1)
-#     m_mid = median_filter(m_mid, size=1)
-#     m_high = median_filter(m_high, size=1)
-#     
-#     from scipy.ndimage import gaussian_filter
-#     import numpy.ma as ma
-#     
-#     # Apply Gaussian smoothing
-#     m_low = gaussian_filter(m_low.astype(float), sigma=1.5)
-#     m_mid = gaussian_filter(m_mid.astype(float), sigma=1.5)
-#     m_high = gaussian_filter(m_high.astype(float), sigma=1.5)
-# =============================================================================
-    
-    mask_low = np.ma.masked_where(m_low == 0, m_low)
-    mask_mid = np.ma.masked_where(m_mid == 0, m_mid)
-    mask_high = np.ma.masked_where(m_high == 0, m_high)
 
     
-    extent = 0,450,0,450
+    m_low = mapping[index[0]]
+    mask_low = np.ma.masked_where(m_low == 0, m_low)
+    m_mid = mapping[index[1]]
+    mask_mid = np.ma.masked_where(m_mid == 0, m_mid)
+    m_high = mapping[index[2]]
+    mask_high = np.ma.masked_where(m_high == 0, m_high)
+    
+    extent = 0,512,0,512
     fig = plt.figure(frameon=False)
     plt.imshow(img_wf, cmap='gray', alpha=.7, extent=extent)
     plt.imshow(mask_low, cmap='Greens_r', alpha=.7, extent=extent)
-    plt.imshow(mask_mid,cmap='Blues_r', alpha=.7, extent=extent)
+    plt.imshow(mask_mid,cmap='Blues_r', alpha=.5, extent=extent)
     plt.imshow(mask_high,cmap='Reds_r', alpha=.7, extent=extent)
     plt.axis('off')
     
@@ -965,42 +743,36 @@ if __name__ == "__main__":
     
     ##plot mapping and overlay, change threshold and colorbar limit in function plot_map
     plot_map(mapping, filename, saveplot=False)
-    threshold = (0.77,0.8,0.77)
-    index = [0,1,7]
+    threshold = (0.65,0.75)
+    map_prosses = image_process(mapping, deconvolute=True, threshold=threshold)
+    index = [9,10,10]
+    plot_overlay(index, map_prosses, filename, saveplot=False)
     
-    wf_file = rf'C:\Users\14053\Documents\GitHub\lsfm\#map_patch\mapping\mapping_wf\{filename}.png'
-    #map_prosses = image_process(mapping[index], threshold=threshold, method='tv', tv_weight=5, feather=1.5)
-    map_prosses = image_smoothing(mapping[index], threshold=threshold)
-    plot_overlay(map_prosses, filename, wf_file, saveplot=True)
-    plot_individual_overlay(map_prosses, filename, wf_file, saveplot=False)
+    def scale(arr, alpha=10.0):
+        vmin = np.min(arr)
+        vmax = np.max(arr)
+        
+        scale = (arr-vmin)/(vmax-vmin)
+        return scale*alpha
     
-# =============================================================================
-#     def scale(arr, alpha=10.0):
-#         vmin = np.min(arr)
-#         vmax = np.max(arr)
-#         
-#         scale = (arr-vmin)/(vmax-vmin)
-#         return scale*alpha
-#     
-#     
-#     map1 = mapping[8]   
-#     m1 = map1<np.max(map1)*0.5
-#     map1[m1]=0
-#     plt.imshow(map1/4)
-#     plt.show()
-#     
-#     map2 = mapping[10]
-#     m2 = map2<np.max(map2)*0.5
-#     map2[m2]=0
-#     plt.imshow(map2/4)
-#     plt.show()
-#     
-#     map3 = mapping[11]
-#     m3 = map3<np.max(map3)*0.5
-#     map3[m3]=0
-#     plt.imshow(map3/4)
-#     plt.show()
-# =============================================================================
+    
+    map1 = mapping[8]   
+    m1 = map1<np.max(map1)*0.5
+    map1[m1]=0
+    plt.imshow(map1/4)
+    plt.show()
+    
+    map2 = mapping[10]
+    m2 = map2<np.max(map2)*0.5
+    map2[m2]=0
+    plt.imshow(map2/4)
+    plt.show()
+    
+    map3 = mapping[11]
+    m3 = map3<np.max(map3)*0.5
+    map3[m3]=0
+    plt.imshow(map3/4)
+    plt.show()
     
     #coords = get_coordinate(filename)
     #trans_coords = transform_coord(coords)

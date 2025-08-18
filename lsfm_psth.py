@@ -1,10 +1,12 @@
 import numpy as np
+import os
 import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 from scipy import stats, optimize
 import TFTool
 import pandas as pd
 import lsfm
+from sklearn.linear_model import LinearRegression
 
 
 class Psth():
@@ -467,14 +469,19 @@ class Psth():
         
         #60-cycle filter
         if filter60:
-            from scipy.signal import iirnotch, filtfilt
-            def filter_60hz(signal, fs, quality=10):
+            from scipy.signal import butter, iirnotch, filtfilt
+            def filter_60hz(signal, fs, quality=30):
                 freq = 59.7  # Hz
                 b, a = iirnotch(freq, quality, fs)
                 return filtfilt(b, a, signal)
+            def lowpass_filter(signal, fs, cutoff=150, order=4):
+                b, a = butter(order, cutoff / (0.5 * fs), btype='low')
+                return filtfilt(b, a, signal)
             
-            y1 = filter_60hz(y1, 25000, quality=20)
-            y2 = filter_60hz(y2, 25000, quality=20)
+            y1 = filter_60hz(y1, 25000, quality=30)
+            y2 = filter_60hz(y2, 25000, quality=30)
+            y1 = lowpass_filter(y1, fs=25000, cutoff=150)
+            y2 = lowpass_filter(y2, fs=25000, cutoff=150)
         
         if self.version == 1:
 
@@ -531,6 +538,134 @@ class Psth():
             plt.show()
             plt.clf()
             plt.close(fig)
+    
+    def plot_psth_feature(self, filename, saveplot=False):
+        data = self.get_psth()
+        x1 = data['x_in']
+        y1 = data['y_in']
+        err1 = data['err_in']
+        x2 = data['x_ex']
+        y2 = data['y_ex']
+        err2 = data['err_ex']
+        
+        df_cursor = pd.read_excel('lsfm_PSTH_cursors.xlsx', sheet_name='in_band')
+        cursor = df_cursor[df_cursor['filename']==filename]
+        cursor = cursor.iloc[0].to_dict()
+        
+        #60-cycle filter
+        from scipy.signal import butter, iirnotch, filtfilt
+        def filter_60hz(signal, fs, quality=30):
+            freq = 59.7  # Hz
+            b, a = iirnotch(freq, quality, fs)
+            return filtfilt(b, a, signal)
+        def lowpass_filter(signal, fs, cutoff=150, order=4):
+            b, a = butter(order, cutoff / (0.5 * fs), btype='low')
+            return filtfilt(b, a, signal)
+        
+        y1 = filter_60hz(y1, 25000, quality=30)
+        y2 = filter_60hz(y2, 25000, quality=30)
+        y1 = lowpass_filter(y1, fs=25000, cutoff=150)
+        y2 = lowpass_filter(y2, fs=25000, cutoff=150)
+        
+        fig, ax = plt.subplots()
+        ax.plot(x1,y1,color='midnightblue', label='In RF')
+        ax.fill_between(x1, y1+err1, y1-err1, color='cornflowerblue', alpha=0.6)
+        ax.plot(x2,y2,color='firebrick', label='Out RF')
+        ax.fill_between(x2, y2+err2, y2-err2, color='salmon', alpha=0.6)
+        ax.legend(loc='best')
+        
+        [ax.axvline(x=_x, color='k', linestyle='--', alpha=0.5) for _x in [1250,26250]]
+        
+        # Horizontal lines
+        ax.hlines(y=cursor['onpeak_y'] + 1, xmin=1250, xmax=cursor['onpeak_x'],
+                  colors='green', linestyles='solid', linewidth=2)
+        ax.hlines(y=cursor['onpeak_y'] + 1, xmin=26250, xmax=cursor['offpeak_x'],
+                  colors='green', linestyles='solid', linewidth=2)
+        ax.axhline(y=0, color='black', linewidth=1.5)
+     
+        ### Shaded areas
+        # First shaded region (above zero only)
+        mask1 = (x1 >= 1250) & (x1 <= cursor['onpeak_stop_x'])
+        ax.fill_between(
+            x1[mask1],
+            0,                      # baseline
+            y1[mask1],
+            where=(y1[mask1] > 0),  # only fill where y1 > 0
+            color='lightgreen',
+            alpha=0.3
+        )
+        
+        # Second shaded region (above zero only)
+        mask2 = (x1 >= 26250) & (x1 <= cursor['offpeak_stop_x'])
+        ax.fill_between(
+            x1[mask2],
+            0,                      
+            y1[mask2],
+            where=(y1[mask2] > 0),
+            color='lightgreen',
+            alpha=0.3
+        )
+     
+        ### horizontal line
+        ## latency
+        ax.hlines(
+            y=cursor['onpeak_y'] + 1,
+            xmin=1250,
+            xmax=cursor['onpeak_x'],
+            colors='green',
+            linestyles='solid',
+            linewidth=3
+        )
+        ax.hlines(
+            y=cursor['onpeak_y'] + 1,
+            xmin=26250,
+            xmax=cursor['offpeak_x'],
+            colors='green',
+            linestyles='solid',
+            linewidth=3
+        )
+        
+        ## sustain
+        #mask for the x-range
+        mask_mean = (x1 >= 16250) & (x1 <= 26250)
+        
+        #compute mean in that range
+        mean_val = np.mean(y1[mask_mean])
+        
+        #plot dashed line
+        ax.hlines(
+            y=mean_val,
+            xmin=16250,
+            xmax=26250,
+            colors='red',
+            linestyles='dashed',
+            linewidth=2
+        )
+        
+        
+        # Vertical lines at onpeak_x and offpeak_x
+        ax.axvline(cursor['onpeak_x'], color='orange', linestyle='--', linewidth=1.5)
+        ax.axvline(cursor['offpeak_x'], color='orange', linestyle='--', linewidth=1.5)
+        
+        
+        ax.set_xlim(0,len(x1))
+        label = list(np.round(np.linspace(0, 1.5, 16), 2))
+        ax.set_xticks(np.linspace(0,37500,16))
+        ax.set_xticklabels(label, rotation = 45)
+        #ax.xticks(rotation = 45)
+        #ax.set_title(f'{filename}_PSTH_BfBand', fontsize=14)
+        ax.set_title(f'PSTH Features', fontsize=18)
+        ax.set_xlabel('time (sec)', fontsize=16)
+        ax.set_ylabel('Membrane Potential (mV)', fontsize=16)
+        ax.tick_params(axis='both', which='major', labelsize=14)
+        
+        if saveplot:
+            plt.savefig(f'lsfm_psth_feature_sample.png', dpi=500, bbox_inches='tight')
+            plt.savefig(f'lsfm_psth_feature_sample.pdf', dpi=500, format='pdf', bbox_inches='tight')
+        
+        plt.show()
+        plt.clf()
+        plt.close(fig)
     
         
     def psth_trend(self, tuning=None, plot=True, saveplot=False, **kwargs) -> None:
@@ -961,18 +1096,52 @@ def psth_wwo_bf(stim, resp, para, bf, version, filename, bandwidth=None, saveplo
         plt.close(fig)
 
 
-def psth_para_sepearte(stim, resp, para, which_parameter, bf, filename, *suffix : str, plot=True, saveplot=False):
-    para_type = {0: 'cf', 1: 'bw', 2: 'mf'}
+def psth_para_separate(stim, resp, para, which_parameter, bf, filename, *suffix : str, plot=True, saveplot=False):
+    """
+    Separate stim, resp, para of each neuron by lsfm parameter.
+    Note that resp is converted to mV when output from this function.
+
+    Parameters
+    ----------
+    stim : TYPE
+        DESCRIPTION.
+    resp : TYPE
+        DESCRIPTION.
+    para : TYPE
+        DESCRIPTION.
+    which_parameter : int
+        0: center frequency; 1: bandwidth; 2: modulation rate
+    bf : TYPE
+        DESCRIPTION.
+    filename : TYPE
+        DESCRIPTION.
+    *suffix : str
+        DESCRIPTION.
+    plot : TYPE, optional
+        DESCRIPTION. The default is True.
+    saveplot : TYPE, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    psth_type : TYPE
+        DESCRIPTION.
+    parameter_type : TYPE
+        DESCRIPTION.
+
+    """
+    
+    para_type = {0: 'cf', 1: 'bw', 2: 'mr'}
     unit = {0: 'kHz', 1: 'octave', 2: 'Hz'}
     
-    data = lsfm.seperate_by_para(stim, resp, para, which_parameter)
+    data = lsfm.separate_by_para(stim, resp, para, which_parameter)
     para_set = list(data['parameter'])
-    para_set.sort()
+    #para_set.sort()
     
     psth_type=[]
     parameter_type=[]
     for i,p in enumerate(para_set):
-        resp_set = np.array([r - np.mean(r[750:1250]) for r in data['resp'][i]])
+        resp_set = np.array([(r - np.mean(r[750:1250]))*100 for r in data['resp'][i]])
         #resp_set = np.array(data['resp'][i])
         psth = np.mean(resp_set, axis=0)
         psth_type.append(psth)
@@ -996,213 +1165,6 @@ def psth_para_sepearte(stim, resp, para, which_parameter, bf, filename, *suffix 
     return psth_type, parameter_type
 
         
-
-def get_section_old(psth_sep, para_sep, para_type: int):
-    """
-    get numbers from interested section of a psth with specific parameter
-    
-    lsfm stimulus period (1250, 26250)
-    section:    1. onset peak - highest potential in (1250,7500)
-                2. onset rise - 10-90% of onset peak
-                3. onset decay - either 1 exponential decay or drop to 37% of peak amplitude
-                4. onset charge - area between (rise10,decay)
-                5. offset peak - highest potential in (26250,35000)
-                6. offset rise - 10-90% of offset peak
-                7. offset decay - either 1 exponential decay or drop to 37% of peak amplitude
-                8. offset charge - area between (rise10,decay)
-                9. sustain potetial - average potential in (15000,25000)
-    
-    Parameters
-    ----------
-    psth_sep : 3d-array
-        array of appending 3 (each parameter) psth from psth_para_sepearte function
-    para_sep : 2d-array
-        array of appending 3 para from psth_para_sepearte function
-    para_type : int
-        0. cf
-        1. bw
-        2. mr
-
-    Returns
-    -------
-    dictionary
-    
-    item structure: (parameters (eg. 3 if bandwidth parameters are 0.3,1.5,3 octave), numbers of each category)
-    numbers of each categories are list of list. On, offset rise is list of tuple. 
-
-    """
-    psths = np.array(psth_sep[para_type])
-    paras = np.array(para_sep[para_type])
-    current_type = ['cf', 'bw', 'mr'][para_type]
-    fs = 25000
-    
-    data = []
-    #loop through individual parameter (e.g. mod = 8Hz)
-    for idx, psth in enumerate(psths):            
-        def exponential_func(x, a, b, c):
-            return a * np.exp(-b * x) + c
-        
-        def alpha_function(t, A, t0, tau, C):
-            return A * (t - t0) * np.exp(-(t - t0) / tau) * (t >= t0) + C
-        
-        def decay37(psth, peak, peak_loc, switch: str):
-            if switch=='on':
-                if all(psth[peak_loc:15000] - 0.37*peak>0):
-                    decay = np.argmin(psth[peak_loc:15000])
-                else:
-                    decay = np.diff(np.sign(psth[peak_loc:15000] - 0.37*peak))<0
-                    decay = [i for i,d in enumerate(decay) if d][0]
-                decay_loc = decay + peak_loc
-                decay_time = decay / (fs/1000)    #change unit to ms
-            
-            elif switch=='off':
-                off_base = np.mean(psth[25250:26250])
-                if all(psth[peak_loc:35000] - 0.37*peak < off_base):
-                    off_base = np.min(psth[25250:peak_loc])
-                    decay = np.diff(np.sign(psth[peak_loc:35000] - off_base - 0.37*peak))<0
-                else:
-                    decay = np.diff(np.sign(psth[peak_loc:35000] - off_base - 0.37*peak))<0
-                
-                if all(decay == False):
-                    decay = 0
-                else:
-                    decay = [i for i,d in enumerate(decay) if d][0]
-                decay_time = decay / (fs/1000)        #change unit to ms
-                decay_loc = decay + peak_loc
-            
-            else:
-                raise ValueError('switch can only be on or off')
-            
-            return decay_time, decay_loc
-        
-        print(f'current: type {current_type}, parameter {paras[idx]}, list index {idx}')
-        
-        para_spec = paras[idx][0]
-        repeat = paras[idx][1]
-        psth = TFTool.butter(psth, 6, 50, 'low', fs)
-        
-        """onset"""
-        on_base = np.mean(psth[250:1250])
-        on_peak_range = psth[1250:7500]
-        
-        #alpha function fit to check if peak polarity
-        charge_plus = sum([i for i in on_peak_range if i-on_base > 0])
-        charge_minus = sum([i for i in on_peak_range if i-on_base < 0])
-        if charge_plus - abs(charge_minus) >= 0:
-            polar = 1
-        else:
-            polar = -1
-        
-        on_peak_range = on_peak_range*polar
-        
-        on_peak = (np.max(on_peak_range) - on_base)*polar
-        onpeak_loc = np.argmax(on_peak_range)+1250
-        if on_peak*polar < 0:
-            on_base = np.min(psth[1250:onpeak_loc]*polar)
-            on_peak = np.max(on_peak_range) - on_base
-        
-        on_rise10 = np.diff(np.sign(psth[1250:onpeak_loc]*polar - on_base - 0.1*on_peak*polar))>0
-        if all(on_rise10==False):
-            on_rise10 = 1251
-        else:
-            on_rise10 = [i for i,r in enumerate(on_rise10) if r][0] + 1250
-        
-        on_rise90 = np.diff(np.sign(psth[1250:onpeak_loc]*polar - on_base - 0.9*on_peak*polar))>0
-        on_rise90 = [i for i,r in enumerate(on_rise90) if r][-1] + 1250
-        on_rise = (on_rise90 - on_rise10) / (fs/1000) #in milisecond
-        
-        pivot = int(np.argmin(psth[onpeak_loc:15000]*polar)+onpeak_loc)
-        if pivot == onpeak_loc:
-            on_decay_loc = onpeak_loc
-            on_decay = 0
-        
-        else:
-            try:
-                popt, pcov = optimize.curve_fit(exponential_func, range(len(psth[onpeak_loc:pivot])), psth[onpeak_loc:pivot])
-                
-                y_pred = exponential_func(range(len(psth[onpeak_loc:15000])), *popt)
-                on_decay_loc = 1/popt[1]+onpeak_loc
-                on_decay = 1/popt[1]/(fs/1000)
-                
-                if (on_decay_loc > 15000):
-                    #if fit location larger than boundary, use 37% drop instead
-                    on_decay, on_decay_loc = decay37(psth*polar, on_peak*polar, onpeak_loc, switch='on')
-            
-            
-            except RuntimeError:
-                #if cannot fit, use 37% drop instead
-                on_decay, on_decay_loc = decay37(psth*polar, on_peak*polar, onpeak_loc, switch='on')
-    
-        onset_charge = np.sum(psth[int(on_rise10):int(on_decay_loc)]-on_base)
-        
-        
-        """offset"""
-        offpeak_loc = np.argmax(psth[26251:35000])+26251
-        off_base = np.mean(psth[25250:26250])
-        off_peak = np.max(psth[26251:35000]) - off_base
-        if off_peak < 0:
-            off_base = np.min(psth[25250:offpeak_loc])
-            off_peak = np.max(psth[26251:35000]) - off_base
-        
-        off_rise10 = np.diff(np.sign(psth[26251:offpeak_loc] - off_base - 0.1*off_peak))>0
-        if all(off_rise10==False) or off_rise10.size==0:
-            off_rise10 = 26251
-        else:
-            off_rise10 = [i for i,r in enumerate(off_rise10) if r][0] + 26251
-        off_rise90 = np.diff(np.sign(psth[26251:offpeak_loc] - off_base - 0.9*off_peak))>0
-        if all(off_rise90==False) or off_rise90.size == 0:
-            off_rise90 = 26251
-        else:
-            off_rise90 = [i for i,r in enumerate(off_rise90) if r][0] + 26251
-        off_rise = (off_rise90 - off_rise10) / (fs/1000) #in milisecond
-        
-        try:
-            pivot = int(np.argmin(psth[offpeak_loc:37500])+offpeak_loc)
-            popt, pcov = optimize.curve_fit(exponential_func, range(len(psth[offpeak_loc:pivot])), psth[offpeak_loc:pivot])
-            y_pred = exponential_func(range(len(psth[offpeak_loc:35000])), *popt)
-            off_decay_loc = 1/popt[1]+offpeak_loc
-            off_decay = 1/popt[1]/(fs/1000)     #change unit to ms
-            
-            if off_decay_loc>35000:
-                #out of boundary, use 37% drop instead
-                off_decay, off_decay_loc = decay37(psth, off_peak, offpeak_loc, switch='off')
-
-        except RuntimeError:
-            #use 37% drop to get decay time instead
-            off_decay, off_decay_loc = decay37(psth, off_peak, offpeak_loc, switch='off')
-        
-        if off_decay_loc == offpeak_loc:
-            offset_charge = 0
-        else:
-            offset_charge = np.sum(psth[int(off_rise10):int(off_decay_loc)]-off_base)
-        
-        
-        """sustain"""
-        sustain_v = np.mean(psth[15000:25000])
-        
-        
-        #change unit
-        on_peak = on_peak*100       #mV
-        off_peak = off_peak*100     #mV
-        onpeak_loc = onpeak_loc/(fs/1000)       #ms
-        offpeak_loc = offpeak_loc/(fs/1000)     #ms
-        sustain_v  = sustain_v*100
-        
-        
-        """save data from individual parameter to list"""
-        data.append([para_spec, repeat, on_peak, onpeak_loc, on_rise, on_rise10, on_rise90, on_decay, on_decay_loc, onset_charge,
-                     off_peak, offpeak_loc, off_rise, off_rise10, off_rise90, off_decay, off_decay_loc, offset_charge, sustain_v])
-    
-    
-    data = np.swapaxes(np.array(data), 0, 1)
-    file = {'parameter':data[0], 'repeat':data[1],
-            'on_peak':data[2], 'on_loc':data[3], 'on_rise':data[4], 'on_rise10_loc':data[5], 
-            'on_rise90_loc':data[6], 'on_decay':data[7], 'on_decay_loc':data[8], 'on_charge':data[9],
-            'off_peak':data[10], 'off_loc':data[11], 'off_rise':data[12], 'off_rise10_loc':data[13], 
-            'off_rise90_loc':data[14], 'off_decay':data[15], 'off_decay_loc':data[16], 'off_charge':data[17],
-            'sustain':data[18]}
-    
-    return file    
 
 def get_section(filename, mouseID, site, psth_para_sep, para_sep, para_type: int):
     def set_plus2zero(arr):
@@ -1617,7 +1579,7 @@ def plot_group_category(df, coordinate, parameter_type:int, category:str, normal
     sm.set_array([])
     cbar = fig.colorbar(sm, ax=ax)
     
-    plt.title(f'Type: {para_type}, Category: {cate}', fontsize=22)
+    plt.title(f'Type: {para_type}, Feature: {cate}', fontsize=22)
     plt.savefig(f'{para_type}_{cate}.png', dpi=500, bbox_inches='tight')
     plt.show()
     
@@ -1679,83 +1641,237 @@ def fit_para_sep(df, use_log_x=False):
     return slope_df, r2_df, pval_df
 
 
-def para_sep_split2(df, cutoff):
+
+measurement_labels = [
+    'onP_amp', 'on_latency', 'on_charge',
+    'offP_amp_pla', 'offP_amp_bas', 'off_latency',
+    'off_charge', 'sustain',
+    'inhibit_early', 'inhibit_late', 'inhibit_off'
+]
+
+# =============================================================================
+# measurement_labels = [
+#     'onP_amp', 'on_latency', 'on_charge',
+#     'offP_amp_pla', 'offP_amp_bas', 'off_latency',
+#     'off_charge', 'sustain'
+# ]
+# =============================================================================
+
+
+def para_sep_split2(df, cutoff, filename=None, sheet_name="Sheet1"):
     """
-    After para_sep, for each df_para, each neuron, each category will be split into low and high by setting the cutoff.
-    For example, when input df_bw.
-    The function returns two df bw_low and bw_high, each df has 11 categories (see labels)
+    Split dataframe into low/high groups by cutoff (normalized by cutoff),
+    calculate high-low difference (ignoring NaN pairs),
+    export to Excel if filename given.
 
     Parameters
     ----------
-    df : pandas dataframe
-        df after para_sep get_section and appended all neurons.
-    cutoff : TYPE
-        DESCRIPTION.
+    df : pd.DataFrame
+        Must include ['MouseID', 'filename', 'patch_site', 'parameter'] plus measurement labels.
+    cutoff : float
+        Cutoff to separate low (< cutoff) and high (> cutoff)
+    filename : str or None
+        If given, export Excel with sheets: low, high, difference
+    sheet_name : str
+        Excel sheet base name
 
     Returns
     -------
-    TYPE
-        DESCRIPTION.
-
+    low_df, high_df, diff_df : pd.DataFrame
+        DataFrames indexed by neurons, columns are measurement labels, plus info columns.
     """
-    measurement_labels = [
-        'onP_amp', 'on_latency', 'on_charge',
-        'offP_amp_pla', 'offP_amp_bas', 'off_latency',
-        'off_charge', 'sustain',
-        'inhibit_early', 'inhibit_late', 'inhibit_off'
-    ]
-    
-    low_avg = {label: [] for label in measurement_labels}
-    high_avg = {label: [] for label in measurement_labels}
-    
+
+    # Collect neuron info columns
+    neuron_info = df[['mouseID', 'filename', 'patch_site']].reset_index(drop=True)
+
+    low_data = {label: [] for label in measurement_labels}
+    high_data = {label: [] for label in measurement_labels}
+
     for i in range(len(df)):
         x = np.array(df.loc[i, 'parameter'], dtype=float)
-        x_norm = x / cutoff if cutoff != 0 else x  # avoid division by 0
-
+        if cutoff != 0:
+            x_norm = x / cutoff
+        else:
+            x_norm = x
         for label in measurement_labels:
             y = np.array(df.loc[i, label], dtype=float)
-
-            # Use boolean masks to separate
             low_mask = x_norm < 1
             high_mask = x_norm > 1
 
-            # Compute means (or np.nan if empty)
-            low_mean = np.mean(y[low_mask]) if np.any(low_mask) else np.nan
-            high_mean = np.mean(y[high_mask]) if np.any(high_mask) else np.nan
+            low_val = np.nanmean(y[low_mask]) if np.any(low_mask) else np.nan
+            high_val = np.nanmean(y[high_mask]) if np.any(high_mask) else np.nan
 
-            low_avg[label].append(low_mean)
-            high_avg[label].append(high_mean)
+            low_data[label].append(low_val)
+            high_data[label].append(high_val)
 
-    return pd.DataFrame(low_avg), pd.DataFrame(high_avg)
+    low_df = pd.DataFrame(low_data)
+    high_df = pd.DataFrame(high_data)
 
-def plot_para_sep_split2(low_df, high_df, title, saveplot=False, filename=None):
-    categories = low_df.columns
+    # Attach info columns
+    low_df = pd.concat([neuron_info, low_df], axis=1)
+    high_df = pd.concat([neuron_info, high_df], axis=1)
+
+    # Calculate diff: high - low, only where both are not NaN; else NaN
+    diff_df = pd.DataFrame()
+    diff_df[['mouseID', 'filename', 'patch_site']] = neuron_info
+
+    for label in measurement_labels:
+        low_vals = low_df[label].values
+        high_vals = high_df[label].values
+        diff = np.where(np.logical_and(~np.isnan(low_vals), ~np.isnan(high_vals)),
+                        high_vals - low_vals,
+                        np.nan)
+        diff_df[label] = diff
+
+    # Export Excel if requested
+    if os.path.exists(filename):
+        mode = 'a'
+        if_sheet_exists = 'replace'
+    else:
+        mode = 'w'
+        if_sheet_exists = None
+    with pd.ExcelWriter(filename, mode=mode, engine='openpyxl', if_sheet_exists=if_sheet_exists) as writer:
+        low_df.to_excel(writer, sheet_name=f"{sheet_name}_low", index=False)
+        high_df.to_excel(writer, sheet_name=f"{sheet_name}_high", index=False)
+        diff_df.to_excel(writer, sheet_name=f"{sheet_name}_diff", index=False)
+
+    return low_df, high_df, diff_df
+
+
+def para_sep_split3(df, cutoff1, cutoff2, filename=None, sheet_name="Sheet1"):
+    """
+    Split dataframe into low/mid/high groups by two cutoffs (normalized),
+    calculate high-low difference (ignoring NaN pairs),
+    export to Excel if filename given.
+
+    Parameters
+    ----------
+    df : pd.DataFrame
+        Must include ['MouseID', 'filename', 'patch_site', 'parameter'] plus measurement labels.
+    cutoff1, cutoff2 : float
+        Cutoffs for groups: low < cutoff1, mid between cutoff1 and cutoff2, high > cutoff2
+    filename : str or None
+        If given, export Excel with sheets: low, mid, high, difference (high - low)
+    sheet_name : str
+        Excel sheet base name
+
+    Returns
+    -------
+    low_df, mid_df, high_df, diff_df : pd.DataFrame
+        DataFrames indexed by neurons, columns are measurement labels, plus info columns.
+    """
+
+    neuron_info = df[['mouseID', 'filename', 'patch_site']].reset_index(drop=True)
+
+    low_data = {label: [] for label in measurement_labels}
+    mid_data = {label: [] for label in measurement_labels}
+    high_data = {label: [] for label in measurement_labels}
+
+    for i in range(len(df)):
+        x = np.array(df.loc[i, 'parameter'], dtype=float)
+        norm_factor = cutoff2  # normalize by cutoff2 or 1
+        if norm_factor != 0:
+            x_norm = x / norm_factor
+        else:
+            x_norm = x
+
+        for label in measurement_labels:
+            y = np.array(df.loc[i, label], dtype=float)
+            low_mask = x_norm < cutoff1 / norm_factor
+            mid_mask = (x_norm >= cutoff1 / norm_factor) & (x_norm <= cutoff2 / norm_factor)
+            high_mask = x_norm > cutoff2 / norm_factor
+
+            low_val = np.nanmean(y[low_mask]) if np.any(low_mask) else np.nan
+            mid_val = np.nanmean(y[mid_mask]) if np.any(mid_mask) else np.nan
+            high_val = np.nanmean(y[high_mask]) if np.any(high_mask) else np.nan
+
+            low_data[label].append(low_val)
+            mid_data[label].append(mid_val)
+            high_data[label].append(high_val)
+
+    low_df = pd.DataFrame(low_data)
+    mid_df = pd.DataFrame(mid_data)
+    high_df = pd.DataFrame(high_data)
+
+    # Attach info columns
+    low_df = pd.concat([neuron_info, low_df], axis=1)
+    mid_df = pd.concat([neuron_info, mid_df], axis=1)
+    high_df = pd.concat([neuron_info, high_df], axis=1)
+
+    # Calculate difference high - low where both not NaN, else NaN
+    diff_df = pd.DataFrame()
+    diff_df[['mouseID', 'filename', 'patch_site']] = neuron_info
+
+    for label in measurement_labels:
+        low_vals = low_df[label].values
+        high_vals = high_df[label].values
+        diff = np.where(np.logical_and(~np.isnan(low_vals), ~np.isnan(high_vals)),
+                        high_vals - low_vals,
+                        np.nan)
+        diff_df[label] = diff
+
+    # Export Excel if requested
+    if os.path.exists(filename):
+        mode = 'a'
+        if_sheet_exists = 'replace'
+    else:
+        mode = 'w'
+        if_sheet_exists = None
+    with pd.ExcelWriter(filename, mode=mode, engine='openpyxl', if_sheet_exists=if_sheet_exists) as writer:
+        low_df.to_excel(writer, sheet_name=f"{sheet_name}_low", index=False)
+        mid_df.to_excel(writer, sheet_name=f"{sheet_name}_mid", index=False)
+        high_df.to_excel(writer, sheet_name=f"{sheet_name}_high", index=False)
+        diff_df.to_excel(writer, sheet_name=f"{sheet_name}_diff", index=False)
+
+    return low_df, mid_df, high_df, diff_df
+
+
+def plot_para_sep_split2(low_df, high_df, title="", saveplot=False, filename=None):
+    """
+    Plot paired low vs high normalized mean ± SEM bars with paired t-test p-values.
+
+    Parameters
+    ----------
+    low_df, high_df : pd.DataFrame
+        DataFrames from para_sep_split2 (must contain measurement_labels columns)
+    title : str
+        Plot title
+    saveplot : bool
+        If True save figure to filename
+    filename : str or None
+        Filename to save if saveplot=True
+    """
+
+    categories = measurement_labels
     n = len(categories)
 
-    # Normalize each column (across low+high) to [0, 1]
+    # Normalize columns (combine low & high to get min/max)
     low_norm = pd.DataFrame(index=low_df.index)
     high_norm = pd.DataFrame(index=high_df.index)
+    
     for col in categories:
         all_vals = pd.concat([low_df[col], high_df[col]])
         min_val = all_vals.min()
         max_val = all_vals.max()
         range_val = max_val - min_val if max_val != min_val else 1
-
         low_norm[col] = (low_df[col] - min_val) / range_val
         high_norm[col] = (high_df[col] - min_val) / range_val
 
-    # Compute mean ± SEM
+    # Means and SEMs
     low_means = low_norm.mean()
     high_means = high_norm.mean()
     low_sems = low_norm.sem()
     high_sems = high_norm.sem()
 
-    # T-test
+    # Paired t-tests on pairs without NaNs
     p_values = []
     for col in categories:
-        try:
-            stat, p = stats.ttest_rel(low_norm[col], high_norm[col], nan_policy='omit')
-        except:
+        low_vals = low_norm[col]
+        high_vals = high_norm[col]
+        mask = (~low_vals.isna()) & (~high_vals.isna())
+        if mask.sum() > 1:
+            stat, p = stats.ttest_rel(low_vals[mask], high_vals[mask])
+        else:
             p = np.nan
         p_values.append(p)
 
@@ -1773,63 +1889,50 @@ def plot_para_sep_split2(low_df, high_df, title, saveplot=False, filename=None):
             text = f'p={p:.3g}' if p >= 0.001 else 'p<0.001'
         else:
             text = 'n/a'
-        max_val = max(low_means[i], high_means[i])
+        max_val = max(low_means.iloc[i], high_means.iloc[i])
         ax.text(i, max_val + 0.05, text, ha='center', va='bottom', fontsize=9)
 
     ax.set_xticks(x)
     ax.set_xticklabels(categories, rotation=45, ha='right')
     ax.set_ylabel('Normalized Mean (0–1)')
+# =============================================================================
+#     ymax = max(low_means.max(), high_means.max())
+#     ax.set_ylim(0, ymax * 1.3)
+# =============================================================================
     ax.set_title(title)
     ax.legend()
     plt.tight_layout()
 
-    # Save or show
     if saveplot:
         if filename is None:
             filename = title.replace(" ", "_").replace(":", "").lower() + ".png"
         plt.savefig(filename, dpi=300)
     else:
         plt.show()
-        
-def para_sep_split3(df, norm_factor=1, cutoff1=0.5, cutoff2=1.5):
-    measurement_labels = [
-        'onP_amp', 'on_latency', 'on_charge',
-        'offP_amp_pla', 'offP_amp_bas', 'off_latency',
-        'off_charge', 'sustain',
-        'inhibit_early', 'inhibit_late', 'inhibit_off'
-    ]
-    
-    low_avg = {label: [] for label in measurement_labels}
-    mid_avg = {label: [] for label in measurement_labels}
-    high_avg = {label: [] for label in measurement_labels}
-    
-    for i in range(len(df)):
-        x = np.array(df.loc[i, 'parameter'], dtype=float)
-        x_norm = x / norm_factor if norm_factor != 0 else x
 
-        low_mask = x_norm < cutoff1
-        mid_mask = (x_norm >= cutoff1) & (x_norm <= cutoff2)
-        high_mask = x_norm > cutoff2
 
-        for label in measurement_labels:
-            y = np.array(df.loc[i, label], dtype=float)
+def plot_para_sep_split3(low_df, mid_df, high_df, title="", saveplot=False, filename=None):
+    """
+    Plot normalized mean ± SEM bars for low/mid/high groups with paired t-tests annotated.
 
-            low_mean = np.mean(y[low_mask]) if np.any(low_mask) else np.nan
-            mid_mean = np.mean(y[mid_mask]) if np.any(mid_mask) else np.nan
-            high_mean = np.mean(y[high_mask]) if np.any(high_mask) else np.nan
+    Parameters
+    ----------
+    low_df, mid_df, high_df : pd.DataFrame
+        DataFrames from para_sep_split3 (must contain measurement_labels columns)
+    title : str
+        Plot title
+    saveplot : bool
+        If True save figure to filename
+    filename : str or None
+        Filename to save if saveplot=True
+    """
 
-            low_avg[label].append(low_mean)
-            mid_avg[label].append(mid_mean)
-            high_avg[label].append(high_mean)
-
-    return pd.DataFrame(low_avg), pd.DataFrame(mid_avg), pd.DataFrame(high_avg)
-
-def plot_para_sep_split3(low_df, mid_df, high_df, title, saveplot=False, filename=None):
-    categories = low_df.columns
+    categories = measurement_labels
     n = len(categories)
 
-    # Normalize to [0, 1] for each category
-    norm_low, norm_mid, norm_high = pd.DataFrame(index=low_df.index), pd.DataFrame(index=mid_df.index), pd.DataFrame(index=high_df.index)
+    norm_low = pd.DataFrame(index=low_df.index)
+    norm_mid = pd.DataFrame(index=mid_df.index)
+    norm_high = pd.DataFrame(index=high_df.index)
 
     for col in categories:
         all_vals = pd.concat([low_df[col], mid_df[col], high_df[col]])
@@ -1841,7 +1944,6 @@ def plot_para_sep_split3(low_df, mid_df, high_df, title, saveplot=False, filenam
         norm_mid[col] = (mid_df[col] - min_val) / range_val
         norm_high[col] = (high_df[col] - min_val) / range_val
 
-    # Means and SEMs
     mean_low = norm_low.mean()
     mean_mid = norm_mid.mean()
     mean_high = norm_high.mean()
@@ -1849,26 +1951,30 @@ def plot_para_sep_split3(low_df, mid_df, high_df, title, saveplot=False, filenam
     sem_mid = norm_mid.sem()
     sem_high = norm_high.sem()
 
-    # T-tests
+    # Paired t-tests: low-mid, mid-high, low-high ignoring NaNs
     p_lm, p_mh, p_lh = [], [], []
     for col in categories:
-        p_lm.append(stats.ttest_rel(norm_low[col], norm_mid[col], nan_policy='omit').pvalue)
-        p_mh.append(stats.ttest_rel(norm_mid[col], norm_high[col], nan_policy='omit').pvalue)
-        p_lh.append(stats.ttest_rel(norm_low[col], norm_high[col], nan_policy='omit').pvalue)
+        mask_lm = (~norm_low[col].isna()) & (~norm_mid[col].isna())
+        mask_mh = (~norm_mid[col].isna()) & (~norm_high[col].isna())
+        mask_lh = (~norm_low[col].isna()) & (~norm_high[col].isna())
 
-    # Plot
+        p_lm.append(stats.ttest_rel(norm_low[col][mask_lm], norm_mid[col][mask_lm]).pvalue if mask_lm.sum() > 1 else np.nan)
+        p_mh.append(stats.ttest_rel(norm_mid[col][mask_mh], norm_high[col][mask_mh]).pvalue if mask_mh.sum() > 1 else np.nan)
+        p_lh.append(stats.ttest_rel(norm_low[col][mask_lh], norm_high[col][mask_lh]).pvalue if mask_lh.sum() > 1 else np.nan)
+
     x = np.arange(n)
     width = 0.25
-
+    
+    colors = ["#0072B2", "#009E73", "#D55E00"]
+    
     fig, ax = plt.subplots(figsize=(16, 6))
-    ax.bar(x - width, mean_low, width, yerr=sem_low, label='Low', capsize=4)
-    ax.bar(x,         mean_mid, width, yerr=sem_mid, label='Mid', capsize=4)
-    ax.bar(x + width, mean_high, width, yerr=sem_high, label='High', capsize=4)
+    ax.bar(x - width, mean_low, width, yerr=sem_low, label='Low', capsize=4, color=colors[0])
+    ax.bar(x, mean_mid, width, yerr=sem_mid, label='Mid', capsize=4, color=colors[1])
+    ax.bar(x + width, mean_high, width, yerr=sem_high, label='High', capsize=4, color=colors[2])
 
-    # Annotate p-values (above highest bar)
+    # Annotate p-values (stacked above bars)
     for i, (plm, pmh, plh) in enumerate(zip(p_lm, p_mh, p_lh)):
-        max_bar = max(mean_low[i], mean_mid[i], mean_high[i])
-        y_base = max_bar + 0.05
+        y_base = max(mean_low.iloc[i], mean_mid.iloc[i], mean_high.iloc[i]) + 0.05
 
         def format_p(p): return f"p={p:.3g}" if p >= 0.001 else "p<0.001"
 
@@ -1879,6 +1985,10 @@ def plot_para_sep_split3(low_df, mid_df, high_df, title, saveplot=False, filenam
     ax.set_xticks(x)
     ax.set_xticklabels(categories, rotation=45, ha='right')
     ax.set_ylabel('Normalized Mean (0–1)')
+# =============================================================================
+#     ymax = max(mean_low.max(), mean_mid.max(), mean_high.max())
+#     ax.set_ylim(0, ymax * 1.5)
+# =============================================================================
     ax.set_title(title)
     ax.legend()
     plt.tight_layout()
@@ -1889,3 +1999,208 @@ def plot_para_sep_split3(low_df, mid_df, high_df, title, saveplot=False, filenam
         plt.savefig(filename, dpi=300)
     else:
         plt.show()
+
+def get_section_group(resp):
+    def set_plus2zero(arr):
+        mask = arr>0
+        arr[mask] = 0
+        
+        return arr
+    
+    psth = resp
+    fs = 25000
+    psth = TFTool.butter(psth, 6, 50, 'low', fs)
+    
+    baseline = np.mean(psth[1000:1250])
+    plateau = np.mean(psth[26000:26250])
+    std = np.std(psth[1250:26250])
+    
+    #on_peak, range 200 ms
+    peak_max = np.max(psth[1250:6250])
+    peak_min = np.min(psth[1250:6250])
+    on_start = 1250
+    on_stop = 13750
+    
+    if peak_min < 0 and abs(peak_min) > peak_max:
+        on_peak_amp = peak_min - baseline
+        peak_loc = np.argmin(psth[1250:6250])+1250
+        
+        for i in range(peak_loc+125, 26250):
+            if (on_peak_amp*0.2 < plateau and psth[i] >= on_peak_amp*0.2) or (on_peak_amp*0.2 > plateau*0.8 and psth[i] >= plateau*0.8):
+                on_stop = i
+                break
+    else:
+        on_peak_amp = peak_max - baseline
+        peak_loc = np.argmax(psth[1250:6250])+1250
+        
+        for i in range(peak_loc+125, 26250):
+            if (on_peak_amp*0.2 > plateau and psth[i] <= on_peak_amp*0.2) or (on_peak_amp*0.2 < plateau*1.2 and psth[i] <= plateau*1.2):
+                on_stop = i
+                break
+    
+    on_latency = (peak_loc - 1250)/25000*1000    #unit: ms
+    on_charge = np.sum(psth[on_start:on_stop])/1000
+    
+    #off_peak, range 250ms
+    peak_max_pla = np.max(psth[26250:32500]) - plateau
+    peak_max_bas = np.max(psth[26250:32500]) - baseline
+    peak_min_pla = np.min(psth[26250:32500]) - plateau
+    peak_min_bas = np.min(psth[26250:32500]) - baseline
+    peak_max_loc = np.argmax(psth[26250:32500])+26250
+    peak_min_loc = np.argmin(psth[26250:32500])+26250
+    off_start = 26250
+    determine = False
+    
+    # Exitotory Stimulus
+    if plateau + std >= 0:
+        if peak_min_pla > 0 and peak_min_loc > peak_max_loc:
+            off_peak_amp_pla = peak_max_pla
+            off_peak_amp_bas = peak_max_bas
+            offpeak_loc = peak_max_loc
+            for i in range(offpeak_loc+125, len(psth)):
+                if psth[i] <= baseline + std:
+                    off_stop = i
+                    determine = True
+                    break
+            
+            if not determine:
+                for i in range(offpeak_loc+125, len(psth)):
+                    if psth[i] <= plateau + peak_max_pla*0.2:
+                        off_stop = i
+                        determine = True
+                        break
+            
+            if not determine:
+                off_stop = 32500
+            
+        elif peak_max_pla < std and peak_min_pla > peak_max_pla:
+            off_peak_amp_pla = peak_min_pla
+            off_peak_amp_bas = peak_min_bas
+            offpeak_loc = peak_min_loc
+            off_stop = peak_min_loc
+            
+        else:
+            off_peak_amp_pla = peak_max_pla
+            off_peak_amp_bas = peak_max_bas
+            offpeak_loc = peak_max_loc
+            for i in range(offpeak_loc+125, len(psth)):
+                if psth[i] <= baseline + std:
+                    off_stop = i
+                    determine = True
+                    break
+            
+            if not determine:
+                for i in range(offpeak_loc+125, len(psth)):
+                    if psth[i] <= plateau + peak_max_pla*0.2:
+                        off_stop = i
+                        determine = True
+                        break
+            
+            if not determine:
+                off_stop = 32500
+    
+    # Inhibitory Stimulus
+    elif plateau + std < 0:
+        off_peak_amp_pla = peak_max_pla
+        off_peak_amp_bas = peak_max_bas
+        offpeak_loc = peak_max_loc
+        for i in range(offpeak_loc+125, len(psth)):
+            if psth[i] <= baseline + std:
+                off_stop = i
+                determine = True
+                break
+        
+        if not determine:
+            for i in range(offpeak_loc+125, len(psth)):
+                if psth[i] <= plateau + peak_max_pla*0.2:
+                    off_stop = i
+                    determine = True
+                    break
+        
+        if not determine:
+            off_stop = 32500
+
+    off_latency = (offpeak_loc - 26250)/25000*1000 #unit: ms
+    
+    off_charge = np.sum(psth[off_start:off_stop])/1000
+    
+    sustain = np.mean(psth[16250:26250])
+    
+    import copy
+    early = copy.deepcopy(psth[peak_loc:12500])
+    inhibit_early = np.sum(set_plus2zero(early))
+    
+    late = copy.deepcopy(psth[12500:26250])
+    inhibit_late = np.sum(set_plus2zero(late))
+    
+    off = copy.deepcopy(psth[26250:])
+    inhibit_off = np.sum(set_plus2zero(off))
+
+    data = [on_peak_amp, on_latency, on_charge, off_peak_amp_pla, 
+                off_peak_amp_bas, off_latency, off_charge, sustain, 
+                inhibit_early, inhibit_late, inhibit_off]
+    
+    labels = ['onP_amp', 'on_latency',
+              'on_charge', 'offP_amp_pla', 'offP_amp_bas', 'off_latency', 'off_charge', 'sustain',
+              'inhibit_early', 'inhibit_late', 'inhibit_off', 'parameter', 'repeat']
+    
+    data_dict = dict(zip(labels, data))
+    
+    return data_dict
+
+
+        
+def group_and_slope(parameter_index, stim, resp, para, bf, filename, mouseID, site):
+    """
+    Groups trials by all parameters except the chosen one (parameter_index) and the 4th column,
+    then calculates slope of PSTH features vs the chosen parameter.
+    """
+    from collections import defaultdict
+    labels = [
+        'onP_amp', 'on_latency', 'on_charge',
+        'offP_amp_pla', 'offP_amp_bas', 'off_latency', 'off_charge', 'sustain',
+        'inhibit_early', 'inhibit_late', 'inhibit_off'
+    ]
+
+    # Step 1: Make groups
+    groups = defaultdict(list)
+    for s, r, p in zip(stim, resp, para):
+        # Group key excludes the varying parameter and the 4th param (index 3)
+        key = tuple(v for i, v in enumerate(p) if i != parameter_index and i != 3)
+        groups[key].append((p[parameter_index], r))
+
+    # Step 2: Compute slopes
+    slope_rows = []
+    for key, vals in groups.items():
+        # Sort by parameter value
+        vals.sort(key=lambda x: x[0])
+        params_array = np.array([v[0] for v in vals]).reshape(-1, 1)
+        feats_array = [get_section_group(v[1]) for v in vals]  # one resp per param
+
+        if len(params_array) < 2:
+            continue  # need at least 2 points for slope
+
+        slopes = []
+        for feat_name in labels:
+            yy = np.array([f[feat_name] for f in feats_array])
+            if np.allclose(yy, yy[0]):  # constant → slope = 0
+                slope = 0.0
+            else:
+                slope = LinearRegression().fit(params_array, yy).coef_[0]
+            slopes.append(slope)
+
+        slope_rows.append([mouseID, filename, site] + slopes)
+    
+    # Step 2b: Average slopes across all groups for this neuron
+    if len(slope_rows) == 0:
+        # no data, return empty row
+        avg_row = [mouseID, filename, site] + [np.nan] * len(labels)
+    else:
+        slopes_array = np.array([row[3:] for row in slope_rows])  # only slope columns
+        avg_slopes = np.mean(slopes_array, axis=0)               # average per feature
+        avg_row = [mouseID, filename, site] + list(avg_slopes)
+    
+    # Step 3: Make DataFrame
+    columns = ['mouseID', 'filename', 'patch_site'] + labels
+    
+    return pd.DataFrame([avg_row], columns=columns)

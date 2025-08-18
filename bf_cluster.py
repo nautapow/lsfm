@@ -342,7 +342,7 @@ if __name__ == '__main__':
     
     """Compare Map from Literatures"""
     # 1. Load image
-    image_path = r'C:\Users\McGinley3\Documents\GitHub\lsfm\sample_map\TG171_crop.jpg'
+    image_path = r'C:\Users\14053\Documents\GitHub\lsfm\sample_map\polley.jpg'
     image = imread(image_path)
     
     # 2. Display image and allow user to click 4 points

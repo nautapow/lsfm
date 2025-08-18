@@ -68,8 +68,8 @@ if  __name__ == "__main__":
     
     neurons = []
     data_cf, data_bw, data_mr = [],[],[]
-    df_loc = 241
-    if df_loc == 241:
+    df_loc = 152
+    if df_loc == 152:
     #for idx, df_loc in enumerate(idx_lsfm):
         filename = df['filename'][df_loc]
         df_info = pd.read_excel('lsfm_cell_note.xlsx')
@@ -108,8 +108,10 @@ if  __name__ == "__main__":
         ##psth_para_analysis
         lsfm1 = Psth(stim, resp, para, titlename, version, bf, band_left, band_right, use_band=True)
         _ = lsfm1.plot_psth(saveplot=False)
-        lsfm1.plot_psth_wwobf(filter60=False, saveplot=False)
+        lsfm1.plot_psth_wwobf(filter60=True, saveplot=False)
         stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])
+        lsfm1.plot_psth_feature(filename, saveplot=True)
+        
         
 # =============================================================================
 #         cursors_in = lsfm1.get_psth_cat()

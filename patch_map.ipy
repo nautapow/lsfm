@@ -38,6 +38,8 @@ tone_analysis = False
 lsfm_analysis = False
 intrisic_analysis = False
 para_sep_fit = True
+para_sep_diff = False
+para_sep_group_slope = False
 spike_analysis = False
 
 
@@ -541,14 +543,14 @@ if para_sep_fit:
             ids = list(zip(mouseid, sites))
     
             outlier_mask = detect_outliers(values)
-            #outlier_mask[:] = False
+            outlier_mask[:] = False
             
             fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], values[~outlier_mask], degree=1)
             fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], values[~outlier_mask], degree=1)
     
-            title = f'{name_prefix} - {cat} slope'
-            ylabel = f'{cat} Slope'
-            cmap = 'turbo'
+            title = f'{name_prefix}_{cat}_slope'
+            ylabel = f'{name_prefix} {cat} Slope'
+            cmap = 'inferno'
     
             plot_map(patch_x, patch_y, values, ids=ids, saveplot=True,
                      title=title, ylabel=ylabel, cmap=cmap, outlier_mask=outlier_mask)
@@ -575,6 +577,138 @@ if para_sep_fit:
     plot_slope_maps(df_mr_out, coords, name_prefix='MR')
     plot_slope_maps(df_bw_out, coords, name_prefix='BW')
     
+
+if para_sep_diff:
+    # Load coordinates
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+
+    for file, para in zip(['split2', 'split2', 'split2', 'split3', 'split3'], ['cf', 'bw', 'mr', 'bw', 'mr']):
+        # Load the diff sheet
+        diff_df = pd.read_excel(f'{file}.xlsx', sheet_name=f'{para}_diff')
+        # Drop neurons where all parameter diff values are NaN
+        diff_values = diff_df.drop(columns=['mouseID', 'patch_site'])
+        non_nan_mask = ~diff_values.isna().all(axis=1)
+        diff_df = diff_df.loc[non_nan_mask].reset_index(drop=True)
+    
+        # Extract updated lists of mouseID and patch_site
+        mouseIDs = diff_df['mouseID'].tolist()
+        sites = diff_df['patch_site'].tolist()
+    
+        # Get coordinates for these neurons
+        patch_x, patch_y, ortho_x, ortho_y = [], [], [], []
+        for m, site in zip(mouseIDs, sites):
+            region = f'Patch_{site}'
+            cond = (coords['mouseid'] == m) & (coords['regions'] == region)
+            patch_x.append(coords.loc[cond, 'x_A12'].item())
+            patch_y.append(coords.loc[cond, 'y_A12'].item())
+            ortho_x.append(coords.loc[cond, 'ortho_A12'].item())
+            ortho_y.append(coords.loc[cond, 'ortho_A12m'].item())
+    
+        ids = list(zip(mouseIDs, sites))
+    
+        # Loop over each parameter in diff_df except ID columns
+        parameters = [col for col in diff_df.columns if col not in ['mouseID', 'patch_site']]
+    
+        for param in parameters:
+            values = pd.to_numeric(diff_df[param], errors='coerce').to_numpy()
+    
+            # Ignore neurons with NaN for this parameter
+            mask = ~np.isnan(values)
+            if mask.sum() == 0:
+                continue  # Skip if no valid data points
+    
+            values = values[mask]
+            patch_x_masked = np.array(patch_x)[mask]
+            patch_y_masked = np.array(patch_y)[mask]
+            ortho_x_masked = np.array(ortho_x)[mask]
+            ortho_y_masked = np.array(ortho_y)[mask]
+            ids_masked = [ids[i] for i, valid in enumerate(mask) if valid]
+    
+            # Detect outliers - you should have your own function
+            outlier_mask = detect_outliers(values)
+            outlier_mask[:] = False
+    
+            # Fit regression for ortho_x and ortho_y (only inliers)
+            test = regression.regression_test(ortho_x_masked[~outlier_mask], values[~outlier_mask])
+            print(test)
+            fit_x = regression.regression_poly(ortho_x_masked[~outlier_mask], values[~outlier_mask], degree=1)
+            fit_y = regression.regression_poly(ortho_y_masked[~outlier_mask], values[~outlier_mask], degree=1)
+    
+            # Plotting
+            plot_map(patch_x_masked, patch_y_masked, values, ids=ids_masked,
+                     saveplot=True, title=f'{file}_{para}_{param}_diff', ylabel=f'{para.upper()}_diff: {param}',
+                     outlier_mask=outlier_mask)
+    
+            plot_ortho_xx(ortho_x_masked, values, fit_x, saveplot=True,
+                          title=f'{file}_{para}_{param}_diff', ylabel=f'{para.upper()}_diff: {param}', outlier_mask=outlier_mask)
+    
+            plot_ortho_yy(ortho_y_masked, values, fit_y, saveplot=True,
+                          title=f'{file}_{para}_{param}_diff', ylabel=f'{para.upper()}_diff: {param}', outlier_mask=outlier_mask)
+
+
+if para_sep_group_slope:
+    def plot_slope_maps(result_df, coords, name_prefix=''):
+        measurement_labels = [
+            'onP_amp', 'on_latency', 'on_charge',
+            'offP_amp_pla', 'offP_amp_bas', 'off_latency',
+            'off_charge', 'sustain',
+            'inhibit_early', 'inhibit_late', 'inhibit_off'
+        ]
+        
+        # Collect coordinates
+        mouseid = list(result_df['mouseID'])
+        filename = list(result_df['filename'])
+        sites = list(result_df['patch_site'])
+    
+        patch_x, patch_y, ortho_x, ortho_y = [],[],[],[]
+        for m, s in zip(mouseid, sites):
+            site = f'Patch_{s}'
+            row = coords[(coords['mouseid'] == m) & (coords['regions'] == site)]
+            if row.empty:
+                patch_x.append(np.nan)
+                patch_y.append(np.nan)
+            else:
+                patch_x.append(row['x_A12'].item())
+                patch_y.append(row['y_A12'].item())
+                ortho_x.append(row['ortho_A12'].item())
+                ortho_y.append(row['ortho_A12m'].item())
+    
+        patch_x = np.array(patch_x)
+        patch_y = np.array(patch_y)
+        ortho_x = np.array(ortho_x)
+        ortho_y = np.array(ortho_y)
+    
+        # Plot each slope map
+        for cat in measurement_labels:
+            values = np.array(result_df[f'{cat}'], dtype=np.float64)
+            ids = list(zip(mouseid, sites))
+    
+            outlier_mask = detect_outliers(values)
+            #outlier_mask[:] = False
+            
+            fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], values[~outlier_mask], degree=1)
+            fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], values[~outlier_mask], degree=1)
+    
+            title = f'{name_prefix} - {cat} slope'
+            ylabel = f'{name_prefix} {cat} Slope'
+            cmap = 'turbo'
+    
+            plot_map(patch_x, patch_y, values, ids=ids, saveplot=True,
+                     title=title, ylabel=ylabel, cmap=cmap, outlier_mask=outlier_mask)
+            
+            plot_ortho_xx(ortho_x, values, fit_x, saveplot=True,
+                          title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+
+            plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
+                          title=title, ylabel=ylabel, outlier_mask=outlier_mask)
+
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    
+    for para in ['cf', 'bw', 'mr']:
+        # Load the sheet
+        df_slope = pd.read_excel(f'lsfm_PSTH_slopes.xlsx', sheet_name=para)
+        
+        plot_slope_maps(df_slope, coords, name_prefix=para)
 
 
 if spike_analysis:

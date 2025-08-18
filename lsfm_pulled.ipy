@@ -25,6 +25,8 @@ idx_lsfm = df.index[(df['type']=='Log sFM') & (df['project']=='Ic_map') & (df['h
 
 neurons = []
 data_cf, data_bw, data_mr=[],[],[]
+cf_slope_all, bw_slope_all, mr_slope_all = [],[],[]
+
 #df_loc = 148
 #if df_loc == 148:
 #for idx, df_loc in enumerate(idx_lsfm):
@@ -148,6 +150,7 @@ for i in range(len(infos)):
         peak_max = np.max(psth[1250:6250])
         peak_min = np.min(psth[1250:6250])
         on_start = 1250
+        on_stop = 13750
         
         if peak_min < 0 and abs(peak_min) > peak_max:
             on_peak_amp = peak_min - baseline
@@ -316,7 +319,7 @@ for i in range(len(infos)):
     para_sep=[] #structure = (seperate para type, tuple (parameter, # of repeats))
     for i in range(3):
         which_parameter=i
-        psth_para_bf, para_bf = lsfm_psth.psth_para_sepearte(stim_in, resp_in, para_in, 
+        psth_para_bf, para_bf = lsfm_psth.psth_para_separate(stim_in, resp_in, para_in, 
                                          which_parameter, bf, filename, 'inBF', plot=False, saveplot=False)
         psth_para_sep.append(psth_para_bf)
         para_sep.append(para_bf)
@@ -338,6 +341,14 @@ for i in range(len(infos)):
     data_cf.append(category_cf)
     data_bw.append(category_bw)
     data_mr.append(category_mr)
+    
+    df_cf_slope = lsfm_psth.group_and_slope(0, stim_in, resp_in, para_in, bf, filename, mouseID, site)
+    df_bw_slope = lsfm_psth.group_and_slope(1, stim_in, resp_in, para_in, bf, filename, mouseID, site)
+    df_mr_slope = lsfm_psth.group_and_slope(2, stim_in, resp_in, para_in, bf, filename, mouseID, site)
+    
+    cf_slope_all.append(df_cf_slope)
+    bw_slope_all.append(df_bw_slope)
+    mr_slope_all.append(df_mr_slope)
     
     
 ### Neuron PSTH output    
@@ -367,11 +378,13 @@ df_cf = pd.DataFrame(data_cf)
 df_bw = pd.DataFrame(data_bw)
 df_mr = pd.DataFrame(data_mr)
 
-categories = list(df_cf.keys())
-for para_type in range(3):
-    df_type = [df_cf, df_bw, df_mr][para_type]
-    for cate in categories[:-5]:
-        lsfm_psth.plot_group_category(df_type, coords, para_type, cate, normalize=False)
+# =============================================================================
+# categories = list(df_cf.keys())
+# for para_type in range(3):
+#     df_type = [df_cf, df_bw, df_mr][para_type]
+#     for cate in categories[:-5]:
+#         lsfm_psth.plot_group_category(df_type, coords, para_type, cate, normalize=False)
+# =============================================================================
         
 
 ### Linear fit para_sep for each neuron in each dataframe
@@ -403,32 +416,50 @@ df_cf_out = prepare_output_df(df_cf, slope_cf, r2_cf, pval_cf)
 df_mr_out = prepare_output_df(df_mr, slope_mr, r2_mr, pval_mr)
 df_bw_out = prepare_output_df(df_bw, slope_bw, r2_bw, pval_bw)
 
-# Save to Excel
-with pd.ExcelWriter("para_sep_fit.xlsx") as writer:
-    df_cf_out.to_excel(writer, sheet_name='df_cf', index=False)
-    df_mr_out.to_excel(writer, sheet_name='df_mr', index=False)
-    df_bw_out.to_excel(writer, sheet_name='df_bw', index=False)
-    
-# Save to compressed .npz file
-np.savez_compressed(
-    'para_sep_fit.npz',
-    df_cf_out=df_cf_out.to_dict(),
-    df_mr_out=df_mr_out.to_dict(),
-    df_bw_out=df_bw_out.to_dict()
-)
+# =============================================================================
+# # Save to Excel
+# with pd.ExcelWriter("para_sep_fit.xlsx") as writer:
+#     df_cf_out.to_excel(writer, sheet_name='df_cf', index=False)
+#     df_mr_out.to_excel(writer, sheet_name='df_mr', index=False)
+#     df_bw_out.to_excel(writer, sheet_name='df_bw', index=False)
+#     
+# # Save to compressed .npz file
+# np.savez_compressed(
+#     'para_sep_fit.npz',
+#     df_cf_out=df_cf_out.to_dict(),
+#     df_mr_out=df_mr_out.to_dict(),
+#     df_bw_out=df_bw_out.to_dict()
+# )
+# =============================================================================
 
 
 ### Split para_sep result into 2 or 3 groups, low, (mid), high and plot
-cf_low, cf_high = lsfm_psth.para_sep_split2(df_cf, cutoff=0)
-bw_low, bw_high = lsfm_psth.para_sep_split2(df_bw, cutoff=1)
-mr_low, mr_high = lsfm_psth.para_sep_split2(df_mr, cutoff=20)
+cf_low, cf_high, cf_diff = lsfm_psth.para_sep_split2(df_cf, cutoff=0, filename='split2.xlsx', sheet_name='cf')
+bw_low, bw_high, bw_diff = lsfm_psth.para_sep_split2(df_bw, cutoff=1, filename='split2.xlsx', sheet_name='bw')
+mr_low, mr_high, mr_diff = lsfm_psth.para_sep_split2(df_mr, cutoff=20, filename='split2.xlsx', sheet_name='mr')
     
-lsfm_psth.plot_para_sep_split2(cf_low, cf_high, title='CF: Low vs High (Normalized)', saveplot=True)
-lsfm_psth.plot_para_sep_split2(bw_low, bw_high, title='BW: Low vs High (Normalized)', saveplot=True)
-lsfm_psth.plot_para_sep_split2(mr_low, mr_high, title='MR: Low vs High (Normalized)', saveplot=True)
+lsfm_psth.plot_para_sep_split2(cf_low, cf_high, title='CF: Low vs High (Normalized)', saveplot=True, filename='cf_2groups.png')
+lsfm_psth.plot_para_sep_split2(bw_low, bw_high, title='BW: Low vs High (Normalized)', saveplot=True, filename='bw_2groups.png')
+lsfm_psth.plot_para_sep_split2(mr_low, mr_high, title='MR: Low vs High (Normalized)', saveplot=True, filename='mr_2groups.png')
         
-bw_low, bw_mid, bw_high = lsfm_psth.para_sep_split3(df_bw, norm_factor=1, cutoff1=0.1, cutoff2=1)
+bw_low, bw_mid, bw_high, bw_diff = lsfm_psth.para_sep_split3(df_bw, cutoff1=0.1, cutoff2=1, filename='split3.xlsx', sheet_name='bw')
 lsfm_psth.plot_para_sep_split3(bw_low, bw_mid, bw_high, title='BW: Low vs Mid vs High', saveplot=True, filename='bw_3groups.png')
 
-mr_low, mr_mid, mr_high = lsfm_psth.para_sep_split3(df_mr, norm_factor=1, cutoff1=10, cutoff2=30)
+mr_low, mr_mid, mr_high, mr_diff = lsfm_psth.para_sep_split3(df_mr, cutoff1=10, cutoff2=30, filename='split3.xlsx', sheet_name='mr')
 lsfm_psth.plot_para_sep_split3(mr_low, mr_mid, mr_high, title='MR: Low vs Mid vs High', saveplot=True, filename='mr_3groups.png')
+
+
+feature_names = [
+    'onpeak', 'on_latency', 'on_charge', 'offpeak', 'offpeak_base',
+    'off_latency', 'off_charge', 'sustain', 'inhibit_early', 'inhibit_late',
+    'inhibit_off'
+]
+
+cf_slope_full = pd.concat(cf_slope_all, ignore_index=True)
+bw_slope_full = pd.concat(bw_slope_all, ignore_index=True)
+mr_slope_full = pd.concat(mr_slope_all, ignore_index=True)
+
+with pd.ExcelWriter("lsfm_PSTH_slopes_new.xlsx", engine="openpyxl") as writer:
+    cf_slope_full.to_excel(writer, sheet_name="cf")
+    bw_slope_full.to_excel(writer, sheet_name="bw")
+    mr_slope_full.to_excel(writer, sheet_name="mr")

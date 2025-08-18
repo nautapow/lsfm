@@ -1165,7 +1165,7 @@ def best_lags():
     plt.close(fig)
     
 
-def seperate_by_para(stim, resp, para, which_parameter=0):
+def separate_by_para(stim, resp, para, which_parameter=0):
     """
     sepearte stim, resp, para base on lsfm parameter
 
@@ -1195,7 +1195,7 @@ def seperate_by_para(stim, resp, para, which_parameter=0):
     """
     
     para_idx = which_parameter
-    parameters = set([p[para_idx] for p in para])
+    parameters = sorted(set(p[para_idx] for p in para))
     stim_paraSep, resp_paraSep, para_paraSep = [],[],[]
     
     for param in parameters:
