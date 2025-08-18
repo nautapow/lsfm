@@ -34,10 +34,11 @@ saveplot=False
 
 get_region = False
 map_patch = False
+map_coordinate = True
 tone_analysis = False
 lsfm_analysis = False
 intrisic_analysis = False
-para_sep_fit = True
+para_sep_fit = False
 para_sep_diff = False
 para_sep_group_slope = False
 spike_analysis = False
@@ -338,6 +339,53 @@ if map_patch:
 #         plot_ortho_xx(ortho_x, bandwidth, fit_orthox, saveplot=True, title=f'Bandwidth {level}', ylabel=f'Bandwidth {level} (octave)')
 #         plot_ortho_yy(ortho_y, bandwidth, fit_orthoy, saveplot=True, title=f'Bandwidth {level}', ylabel=f'Bandwidth {level} (octave)')
 # =============================================================================
+
+
+if map_coordinate:
+    # --- Load data ---
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    tone_psth = pd.read_excel('tone_PSTH_category.xlsx', sheet_name='inband')
+    
+    mouseid = list(tone_psth['mouseID'])
+    sites = list(tone_psth['patch_site'])
+    
+    # Collect coordinates
+    coord_list = []
+    for m, s in zip(mouseid, sites):
+        site = f'Patch_{s}'
+        x = coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x_A12.item()
+        y = coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y_A12.item()
+        coord_list.append((x, y))
+    
+    # Deduplicate
+    unique_coords = list(set(coord_list))
+    unique_x, unique_y = zip(*unique_coords)
+    
+    # --- Plotting function ---
+    def plot_coords(x_vals, y_vals, annotate=True, saveplot=False, title="coordinates_map"):
+        fig, ax = plt.subplots()
+    
+        # Scatter points
+        ax.scatter(x_vals, y_vals, s=120, color="steelblue", alpha=0.8, edgecolor="black")
+    
+        # Annotate with coordinates
+        if annotate:
+            for x, y in zip(x_vals, y_vals):
+                ax.text(x + 0.01, y + 0.01, f"({x:.2f}, {y:.2f})", fontsize=10)
+    
+        ax.set_xlabel("x_A12", fontsize=14)
+        ax.set_ylabel("y_A12", fontsize=14)
+        ax.set_title("Unique Scatter Coordinates", fontsize=16)
+        ax.tick_params(axis="both", which="major", labelsize=12)
+    
+        if saveplot:
+            plt.savefig(f"{title}.png", dpi=300, bbox_inches="tight")
+        plt.show()
+        plt.close(fig)
+    
+    # --- Call plotting ---
+    plot_coords(unique_x, unique_y, annotate=True, saveplot=True)
+
 
 
 if tone_analysis:
