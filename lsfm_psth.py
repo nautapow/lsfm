@@ -2000,7 +2000,124 @@ def plot_para_sep_split3(low_df, mid_df, high_df, title="", saveplot=False, file
     else:
         plt.show()
 
-def get_section_group(resp):
+def get_cursor(resp_all):
+    psth = np.mean(resp_all, axis=0)
+    fs = 25000
+    psth = TFTool.prefilter(psth, fs)
+    
+    baseline = np.mean(psth[1000:1250])
+    plateau = np.mean(psth[26000:26250])
+    std = np.std(psth[1250:26250])
+    
+    #on_peak, range 200 ms
+    peak_max = np.max(psth[1250:6250])
+    peak_min = np.min(psth[1250:6250])
+    on_start = 1250
+    on_stop = 13750
+    
+    if peak_min < 0 and abs(peak_min) > peak_max:
+        on_peak_amp = peak_min - baseline
+        peak_loc = np.argmin(psth[1250:6250])+1250
+        
+        for i in range(peak_loc+125, 26250):
+            if (on_peak_amp*0.2 < plateau and psth[i] >= on_peak_amp*0.2) or (on_peak_amp*0.2 > plateau*0.8 and psth[i] >= plateau*0.8):
+                on_stop = i
+                break
+    else:
+        on_peak_amp = peak_max - baseline
+        peak_loc = np.argmax(psth[1250:6250])+1250
+        
+        for i in range(peak_loc+125, 26250):
+            if (on_peak_amp*0.2 > plateau and psth[i] <= on_peak_amp*0.2) or (on_peak_amp*0.2 < plateau*1.2 and psth[i] <= plateau*1.2):
+                on_stop = i
+                break
+    
+    on_latency = (peak_loc - 1250)/25000*1000    #unit: ms
+    on_charge = np.sum(psth[on_start:on_stop])/1000
+    
+    #off_peak, range 250ms
+    peak_max_pla = np.max(psth[26250:32500]) - plateau
+    peak_max_bas = np.max(psth[26250:32500]) - baseline
+    peak_min_pla = np.min(psth[26250:32500]) - plateau
+    peak_min_bas = np.min(psth[26250:32500]) - baseline
+    peak_max_loc = np.argmax(psth[26250:32500])+26250
+    peak_min_loc = np.argmin(psth[26250:32500])+26250
+    off_start = 26250
+    determine = False
+    
+    # Exitotory Stimulus
+    if plateau + std >= 0:
+        if peak_min_pla > 0 and peak_min_loc > peak_max_loc:
+            off_peak_amp_pla = peak_max_pla
+            off_peak_amp_bas = peak_max_bas
+            offpeak_loc = peak_max_loc
+            for i in range(offpeak_loc+125, len(psth)):
+                if psth[i] <= baseline + std:
+                    off_stop = i
+                    determine = True
+                    break
+            
+            if not determine:
+                for i in range(offpeak_loc+125, len(psth)):
+                    if psth[i] <= plateau + peak_max_pla*0.2:
+                        off_stop = i
+                        determine = True
+                        break
+            
+            if not determine:
+                off_stop = 32500
+            
+        elif peak_max_pla < std and peak_min_pla > peak_max_pla:
+            off_peak_amp_pla = peak_min_pla
+            off_peak_amp_bas = peak_min_bas
+            offpeak_loc = peak_min_loc
+            off_stop = peak_min_loc
+            
+        else:
+            off_peak_amp_pla = peak_max_pla
+            off_peak_amp_bas = peak_max_bas
+            offpeak_loc = peak_max_loc
+            for i in range(offpeak_loc+125, len(psth)):
+                if psth[i] <= baseline + std:
+                    off_stop = i
+                    determine = True
+                    break
+            
+            if not determine:
+                for i in range(offpeak_loc+125, len(psth)):
+                    if psth[i] <= plateau + peak_max_pla*0.2:
+                        off_stop = i
+                        determine = True
+                        break
+            
+            if not determine:
+                off_stop = 32500
+    
+    # Inhibitory Stimulus
+    elif plateau + std < 0:
+        off_peak_amp_pla = peak_max_pla
+        off_peak_amp_bas = peak_max_bas
+        offpeak_loc = peak_max_loc
+        for i in range(offpeak_loc+125, len(psth)):
+            if psth[i] <= baseline + std:
+                off_stop = i
+                determine = True
+                break
+        
+        if not determine:
+            for i in range(offpeak_loc+125, len(psth)):
+                if psth[i] <= plateau + peak_max_pla*0.2:
+                    off_stop = i
+                    determine = True
+                    break
+        
+        if not determine:
+            off_stop = 32500
+            
+            
+    return {'onpeak_loc':peak_loc, 'on_stop':on_stop, 'offpeak_loc':offpeak_loc, 'off_stop':off_stop}
+
+def get_section_single(resp):
     def set_plus2zero(arr):
         mask = arr>0
         arr[mask] = 0
@@ -2175,7 +2292,7 @@ def group_and_slope(parameter_index, stim, resp, para, bf, filename, mouseID, si
         # Sort by parameter value
         vals.sort(key=lambda x: x[0])
         params_array = np.array([v[0] for v in vals]).reshape(-1, 1)
-        feats_array = [get_section_group(v[1]) for v in vals]  # one resp per param
+        feats_array = [get_section_single(v[1]) for v in vals]  # one resp per param
 
         if len(params_array) < 2:
             continue  # need at least 2 points for slope

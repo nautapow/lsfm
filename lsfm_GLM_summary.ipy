@@ -1,0 +1,148 @@
+import numpy as np
+import os
+import matplotlib.pyplot as plt
+from scipy import signal
+from scipy import stats as scipy_stats
+from scipy import interpolate
+import scipy.io
+import TFTool
+import pandas as pd
+import lsfm
+import lsfm_psth
+from lsfm_psth import Psth
+import math
+import lsfm_strf
+%matplotlib inline
+
+# Groups and fixed feature order (used for BOTH plots)
+groups = ['linear', 'quadratic', 'interaction']
+FEATURES_ORDER = [
+    'onP_amp', 'on_latency', 'on_charge',
+    'offP_amp_pla', 'offP_amp_bas', 'off_latency', 'off_charge',
+    'sustain', 'inhibit_early', 'inhibit_late', 'inhibit_off'
+]
+
+# Excel writer for summary
+excel_path = "glm_r2_summary.xlsx"
+writer = pd.ExcelWriter(excel_path, engine="openpyxl")
+
+# Store CV R² for all groups for combined plot
+cv_r2_all = pd.DataFrame(index=FEATURES_ORDER, columns=groups)
+
+for group in groups:
+    df = pd.read_csv(f'neuron_glm_{group}_summary.csv')
+
+    # Keep only known features, set a consistent ordered category, and sort by that
+    df = df[df['feature'].isin(FEATURES_ORDER)].copy()
+    df['feature'] = pd.Categorical(df['feature'], categories=FEATURES_ORDER, ordered=True)
+    df.sort_values('feature', inplace=True)
+
+    # Features actually present in this group (preserves the fixed order)
+    features = [f for f in FEATURES_ORDER if (df['feature'] == f).any()]
+
+    # Compute mean per feature (and write to Excel) in the same order
+    mean_stats = (
+        df.groupby("feature")[["train_r2", "loo_r2", "overfitting"]]
+          .mean()
+          .reindex(features)
+    )
+    mean_stats.to_excel(writer, sheet_name=group)
+
+    # ── Scatter plot ──────────────────────────────────────────────────────────────
+    plt.figure(figsize=(12, 6))
+    x = np.arange(len(features))
+
+    for i, feature in enumerate(features):
+        subdf = df[df["feature"] == feature]
+        # Scatter dots
+        plt.scatter(np.full(len(subdf), x[i] - 0.1), subdf["train_r2"], color="blue",
+                    marker="o", alpha=0.6, label="Train R²" if i == 0 else "")
+        plt.scatter(np.full(len(subdf), x[i] + 0.1), subdf["loo_r2"], color="green",
+                    marker="o", alpha=0.6, label="CV R²" if i == 0 else "")
+        # Connect each neuron’s train vs CV
+        for _, row in subdf.iterrows():
+            plt.plot([x[i] - 0.1, x[i] + 0.1],
+                     [row["train_r2"], row["loo_r2"]],
+                     color="gray", alpha=0.5)
+        # Mean lines (per feature)
+        plt.hlines(mean_stats.loc[feature, "train_r2"], x[i] - 0.2, x[i], color="red", linewidth=2)
+        plt.hlines(mean_stats.loc[feature, "loo_r2"],   x[i], x[i] + 0.2, color="red", linewidth=2)
+
+    # Baseline at 0
+    plt.axhline(0, color="black", linestyle="--", linewidth=1)
+
+    plt.xticks(x, features, rotation=45, ha="right")
+    plt.ylim(-0.6, 0.6)  # keep your current limits; set to (-2, 1) if you prefer
+    plt.ylabel("R²")
+    plt.title(f"Train vs CV R² per Feature ({group.capitalize()} Model)")
+    plt.legend()
+    plt.tight_layout()
+
+    # Save & show
+    plot_path = f"glm_r2_{group}.png"
+    plt.savefig(plot_path, dpi=300)
+    plt.show()
+    plt.close()
+
+    # ── Bar graph with error bars (same feature order as scatter) ────────────────
+    stats_df = (
+        df.groupby("feature")[["train_r2", "loo_r2"]]
+          .agg(["mean", "std"])
+          .reindex(features)
+    )
+    train_mean, train_std = stats_df[("train_r2", "mean")], stats_df[("train_r2", "std")]
+    test_mean,  test_std  = stats_df[("loo_r2",   "mean")], stats_df[("loo_r2",   "std")]
+
+    plt.figure(figsize=(12, 6))
+    x = np.arange(len(features))
+    width = 0.35
+
+    plt.bar(x - width/2, train_mean.values, width, yerr=train_std.values, capsize=5, alpha=0.7, label="Train R²")
+    plt.bar(x + width/2, test_mean.values,  width, yerr=test_std.values,  capsize=5, alpha=0.7, label="CV R²")
+
+    plt.axhline(0, color="black", linestyle="--", linewidth=1)
+
+    plt.xticks(x, features, rotation=45, ha="right")
+    plt.ylabel("Mean R² ± SD")
+    plt.ylim(-0.3, 0.5)  # keep your current limits; set to (-2, 1) if you prefer
+    plt.title(f"Mean Train vs CV R² per Feature ({group.capitalize()} Model)")
+    plt.legend()
+    plt.tight_layout()
+
+    bar_path = f"glm_r2_mean_{group}.png"
+    plt.savefig(bar_path, dpi=300)
+    plt.show()
+    plt.close()
+    
+    # Store mean CV R² for combined bar graph
+    cv_r2_all[group] = test_mean.reindex(FEATURES_ORDER)
+    
+
+# ── Combined CV R² bar graph ───────────────
+x = np.arange(len(FEATURES_ORDER))
+width = 0.25
+
+plt.figure(figsize=(14, 6))
+for i, group in enumerate(groups):
+    mean_vals = cv_r2_all[group].values
+    # Compute SDs for error bars
+    df_group = pd.read_csv(f'neuron_glm_{group}_summary.csv')
+    df_group = df_group[df_group['feature'].isin(FEATURES_ORDER)]
+    stats = df_group.groupby('feature')['loo_r2'].agg(['mean', 'std']).reindex(FEATURES_ORDER)
+    std_vals = stats['std'].values
+    plt.bar(x + (i-1)*width, mean_vals, width, yerr=std_vals, capsize=5, alpha=0.7, label=group.capitalize())
+
+plt.axhline(0, color='black', linestyle='--', linewidth=1)
+plt.xticks(x, FEATURES_ORDER, rotation=45, ha='right')
+plt.ylabel("Mean CV R² ± SD")
+plt.title("CV R² per Feature Across All Models")
+plt.legend()
+plt.tight_layout()
+plt.savefig("cv_r2_all_models.png", dpi=300)
+plt.show()
+plt.close()
+
+
+# Save Excel
+writer.close()
+print(f"Excel summary saved to: {excel_path}")

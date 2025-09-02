@@ -1,0 +1,292 @@
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import LeaveOneOut
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.preprocessing import StandardScaler
+import warnings
+warnings.filterwarnings('ignore')
+
+def perform_glm_interaction_analysis(df, random_state=42):
+    """
+    Perform GLM analysis for each neuron with INTERACTION TERMS using Leave-One-Out Cross-Validation.
+    
+    Parameters:
+    df: DataFrame with columns [filename, x, y, para1, para2, para3, features...]
+    random_state: Random seed for reproducibility
+    
+    Returns:
+    results_summary: DataFrame with results for each neuron-feature combination
+    detailed_results: Dictionary with detailed results for each neuron
+    """
+    
+    # Identify parameter and feature columns
+    param_cols = ['para1', 'para2', 'para3']
+    feature_cols = [
+        'onP_amp', 'on_latency', 'on_charge', 'offP_amp_pla', 'offP_amp_bas',
+        'off_latency', 'off_charge', 'sustain', 'inhibit_early',
+        'inhibit_late', 'inhibit_off'
+    ]
+    
+    print(f"Found {len(feature_cols)} features: {feature_cols}")
+    print(f"Using interaction model: {param_cols} + interaction terms")
+    
+    # Get unique neurons
+    neurons = df['filename'].unique()
+    print(f"Found {len(neurons)} unique neurons")
+    
+    # Initialize results storage
+    results_list = []
+    detailed_results = {}
+    
+    # Process each neuron
+    for neuron_id in neurons:
+        print(f"\nProcessing neuron: {neuron_id}")
+        
+        # Get data for this neuron
+        neuron_data = df[df['filename'] == neuron_id].copy()
+        n_samples = len(neuron_data)
+        print(f"  Samples for this neuron: {n_samples}")
+        
+        if n_samples < 10:  # Skip if too few samples
+            print(f"  Skipping {neuron_id}: insufficient samples ({n_samples})")
+            continue
+        
+        # Prepare features and parameters WITH INTERACTION TERMS
+        X_linear = neuron_data[param_cols].values
+        # Create interaction terms: para1*para2, para2*para3, para1*para3
+        interaction_12 = X_linear[:, 0] * X_linear[:, 1]  # para1 * para2
+        interaction_23 = X_linear[:, 1] * X_linear[:, 2]  # para2 * para3
+        interaction_13 = X_linear[:, 0] * X_linear[:, 2]  # para1 * para3
+        
+        X_interactions = np.column_stack([interaction_12, interaction_23, interaction_13])
+        X = np.hstack([X_linear, X_interactions])  # Combine linear and interaction terms
+        
+        # Feature names for interpretability
+        feature_names = param_cols + ['para1×para2', 'para2×para3', 'para1×para3']
+        
+        # Initialize neuron results
+        neuron_results = {
+            'neuron_id': neuron_id,
+            'n_samples': n_samples,
+            'feature_results': {}
+        }
+        
+        # Perform GLM for each feature
+        for feature in feature_cols:
+            y = neuron_data[feature].values
+            
+            # Skip if feature has no variation or contains NaN
+            if np.isnan(y).all() or np.var(y) == 0:
+                print(f"    Skipping {feature}: no variation or all NaN")
+                continue
+            
+            # Handle NaN values
+            valid_mask = ~(np.isnan(X).any(axis=1) | np.isnan(y))
+            if valid_mask.sum() < 10:
+                print(f"    Skipping {feature}: insufficient valid samples")
+                continue
+            
+            X_clean = X[valid_mask]
+            y_clean = y[valid_mask]
+            
+            # Use Leave-One-Out Cross-Validation
+            loo = LeaveOneOut()
+            n_samples = len(y_clean)
+            
+            if n_samples < 10:
+                print(f"    Skipping {feature}: insufficient valid samples for LOO CV")
+                continue
+            
+            # Initialize arrays to store predictions
+            y_pred_loo = np.zeros(n_samples)
+            y_true_loo = np.zeros(n_samples)
+            
+            # Perform Leave-One-Out CV
+            for train_idx, test_idx in loo.split(X_clean):
+                X_train_loo, X_test_loo = X_clean[train_idx], X_clean[test_idx]
+                y_train_loo, y_test_loo = y_clean[train_idx], y_clean[test_idx]
+                
+                # Standardize features
+                scaler = StandardScaler()
+                X_train_scaled = scaler.fit_transform(X_train_loo)
+                X_test_scaled = scaler.transform(X_test_loo)
+                
+                # Fit model
+                model_loo = LinearRegression()
+                model_loo.fit(X_train_scaled, y_train_loo)
+                
+                # Predict
+                y_pred_loo[test_idx] = model_loo.predict(X_test_scaled)
+                y_true_loo[test_idx] = y_test_loo
+            
+            # Fit final model on all data for coefficient interpretation
+            scaler_final = StandardScaler()
+            X_scaled_final = scaler_final.fit_transform(X_clean)
+            model_final = LinearRegression()
+            model_final.fit(X_scaled_final, y_clean)
+            y_pred_final = model_final.predict(X_scaled_final)
+            
+            # Calculate metrics
+            loo_r2 = r2_score(y_true_loo, y_pred_loo)
+            loo_rmse = np.sqrt(mean_squared_error(y_true_loo, y_pred_loo))
+            loo_mae = mean_absolute_error(y_true_loo, y_pred_loo)
+            
+            # Training metrics (fit on full data)
+            train_r2 = r2_score(y_clean, y_pred_final)
+            train_rmse = np.sqrt(mean_squared_error(y_clean, y_pred_final))
+            train_mae = mean_absolute_error(y_clean, y_pred_final)
+            
+            # Store detailed results
+            feature_result = {
+                'model': model_final,
+                'scaler': scaler_final,
+                'train_r2': train_r2,
+                'loo_r2': loo_r2,
+                'train_rmse': train_rmse,
+                'loo_rmse': loo_rmse,
+                'train_mae': train_mae,
+                'loo_mae': loo_mae,
+                'coefficients': model_final.coef_,
+                'intercept': model_final.intercept_,
+                'feature_names': feature_names,
+                'n_samples': n_samples,
+                'y_true_loo': y_true_loo,
+                'y_pred_loo': y_pred_loo
+            }
+            
+            neuron_results['feature_results'][feature] = feature_result
+            
+            # Add to summary results
+            results_list.append({
+                'neuron_id': neuron_id,
+                'feature': feature,
+                'n_samples': n_samples,
+                'train_r2': train_r2,
+                'loo_r2': loo_r2,
+                'train_rmse': train_rmse,
+                'loo_rmse': loo_rmse,
+                'train_mae': train_mae,
+                'loo_mae': loo_mae,
+                'para1_coef': model_final.coef_[0],
+                'para2_coef': model_final.coef_[1],
+                'para3_coef': model_final.coef_[2],
+                'para1_para2_coef': model_final.coef_[3],
+                'para2_para3_coef': model_final.coef_[4],
+                'para1_para3_coef': model_final.coef_[5],
+                'intercept': model_final.intercept_,
+                'overfitting': train_r2 - loo_r2  # Positive values indicate overfitting
+            })
+            
+            print(f"    {feature}: Train R² = {train_r2:.3f}, LOO R² = {loo_r2:.3f}")
+        
+        detailed_results[neuron_id] = neuron_results
+    
+    # Create summary DataFrame
+    results_summary = pd.DataFrame(results_list)
+    
+    return results_summary, detailed_results
+
+def analyze_interaction_results(results_summary):
+    """
+    Provide summary statistics and insights from the interaction GLM results.
+    """
+    print("\n" + "="*60)
+    print("INTERACTION GLM ANALYSIS SUMMARY")
+    print("="*60)
+    
+    print(f"Total models fitted: {len(results_summary)}")
+    print(f"Unique neurons analyzed: {results_summary['neuron_id'].nunique()}")
+    print(f"Features analyzed: {results_summary['feature'].nunique()}")
+    
+    print(f"\nOverall Performance Statistics:")
+    print(f"Mean LOO R²: {results_summary['loo_r2'].mean():.3f} ± {results_summary['loo_r2'].std():.3f}")
+    print(f"Median LOO R²: {results_summary['loo_r2'].median():.3f}")
+    print(f"Best LOO R²: {results_summary['loo_r2'].max():.3f}")
+    
+    # Count good models (R² > 0.1)
+    good_models = results_summary[results_summary['loo_r2'] > 0.1]
+    print(f"\nModels with LOO R² > 0.1: {len(good_models)} ({100*len(good_models)/len(results_summary):.1f}%)")
+    
+    # Check for overfitting
+    overfitting = results_summary['overfitting'] > 0.2
+    print(f"Models showing overfitting (Train-LOO R² > 0.2): {overfitting.sum()} ({100*overfitting.sum()/len(results_summary):.1f}%)")
+    
+    # Best performing feature-neuron combinations
+    print(f"\nTop 10 Best Performing Models:")
+    top_models = results_summary.nlargest(10, 'loo_r2')[['neuron_id', 'feature', 'loo_r2', 'train_r2']]
+    print(top_models.to_string(index=False))
+    
+    # Parameter importance (average absolute coefficients)
+    linear_importance = pd.DataFrame({
+        'para1_importance': results_summary['para1_coef'].abs(),
+        'para2_importance': results_summary['para2_coef'].abs(),
+        'para3_importance': results_summary['para3_coef'].abs()
+    })
+    
+    interaction_importance = pd.DataFrame({
+        'para1_para2_importance': results_summary['para1_para2_coef'].abs(),
+        'para2_para3_importance': results_summary['para2_para3_coef'].abs(),
+        'para1_para3_importance': results_summary['para1_para3_coef'].abs()
+    })
+    
+    print(f"\nLinear Term Importance (Mean Absolute Coefficients):")
+    for param in ['para1_importance', 'para2_importance', 'para3_importance']:
+        print(f"{param.replace('_importance', '')}: {linear_importance[param].mean():.3f} ± {linear_importance[param].std():.3f}")
+    
+    print(f"\nInteraction Term Importance (Mean Absolute Coefficients):")
+    for param in ['para1_para2_importance', 'para2_para3_importance', 'para1_para3_importance']:
+        param_name = param.replace('_importance', '').replace('_', '×')
+        print(f"{param_name}: {interaction_importance[param].mean():.3f} ± {interaction_importance[param].std():.3f}")
+    
+    # Feature-wise performance
+    print(f"\nPerformance by Feature:")
+    feature_performance = results_summary.groupby('feature')['loo_r2'].agg(['count', 'mean', 'std', 'max']).round(3)
+    print(feature_performance)
+    
+    return results_summary
+
+def save_interaction_results(results_summary, detailed_results, output_prefix='neuron_glm_interaction'):
+    """
+    Save interaction GLM results to CSV files.
+    """
+    # Save summary results
+    results_summary.to_csv(f'{output_prefix}_summary.csv', index=False)
+    print(f"\nSummary results saved to {output_prefix}_summary.csv")
+    
+    # Save detailed coefficients for each neuron-feature combination
+    coef_data = []
+    for neuron_id, neuron_data in detailed_results.items():
+        for feature, feature_data in neuron_data['feature_results'].items():
+            row = {
+                'neuron_id': neuron_id,
+                'feature': feature,
+                'intercept': feature_data['intercept'],
+                'para1_coef': feature_data['coefficients'][0],
+                'para2_coef': feature_data['coefficients'][1],
+                'para3_coef': feature_data['coefficients'][2],
+                'para1_para2_coef': feature_data['coefficients'][3],
+                'para2_para3_coef': feature_data['coefficients'][4],
+                'para1_para3_coef': feature_data['coefficients'][5],
+                'loo_r2': feature_data['loo_r2'],
+                'train_r2': feature_data['train_r2']
+            }
+            coef_data.append(row)
+    
+    coef_df = pd.DataFrame(coef_data)
+    coef_df.to_csv(f'{output_prefix}_coefficients.csv', index=False)
+    print(f"Detailed coefficients saved to {output_prefix}_coefficients.csv")
+
+# Example usage:
+if __name__ == "__main__":
+    # Load your data
+    # df = pd.read_csv('your_neuron_data.csv')  # Replace with your file path
+    
+    print("INTERACTION GLM Analysis - Ready to run with your data.")
+    print("This version includes interaction terms: para1×para2, para2×para3, para1×para3")
+    print("\nTo run the analysis:")
+    print("1. Load your data: df = pd.read_csv('your_file.csv')")
+    print("2. Run analysis: results_summary, detailed_results = perform_glm_interaction_analysis(df)")
+    print("3. Analyze results: analyze_interaction_results(results_summary)")
+    print("4. Save results: save_interaction_results(results_summary, detailed_results)")
+    print("\nNote: Using Leave-One-Out Cross-Validation for robust model evaluation.")

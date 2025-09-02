@@ -327,11 +327,27 @@ def prefilter(resp, fs=25000):
         filtered response.
 
     """
-    filt = []
-    for r in resp:
-        filt.append(butter(sixtyHz(r, fs), 2, 500, 'low', fs))
-        
-    return np.array(filt)
+    from scipy.signal import butter, iirnotch, filtfilt
+    def filter_60hz(signal, fs, quality=30):
+        freq = 59.7  # Hz
+        b, a = iirnotch(freq, quality, fs)
+        return filtfilt(b, a, signal)
+    def lowpass_filter(signal, fs, cutoff=150, order=4):
+        b, a = butter(order, cutoff / (0.5 * fs), btype='low')
+        return filtfilt(b, a, signal)
+    
+    resp = filter_60hz(resp, fs, quality=30)
+    resp = lowpass_filter(resp, fs, cutoff=150)
+    
+    return resp
+    
+# =============================================================================
+#     filt = []
+#     for r in resp:
+#         filt.append(butter(sixtyHz(r, fs), 2, 500, 'low', fs))
+#         
+#     return np.array(filt)
+# =============================================================================
 
 def puretone_resp_merge(resp, para, repeats):
     resp_merge = []

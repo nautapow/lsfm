@@ -1,0 +1,378 @@
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.preprocessing import StandardScaler
+from sklearn.linear_model import LinearRegression
+from sklearn.metrics import r2_score, mean_squared_error, mean_absolute_error
+from sklearn.model_selection import cross_val_score, KFold, cross_validate
+from scipy import stats
+import statsmodels.api as sm
+import warnings
+warnings.filterwarnings('ignore')
+
+# Read the data
+df = pd.read_csv('neurons4GLM.csv')
+
+print("Dataset shape:", df.shape)
+print("\nFirst few rows:")
+print(df.head())
+
+print("\nColumn names:")
+print(df.columns.tolist())
+
+# Define the features to analyze (starting from onP_amp)
+features = ['onP_amp', 'on_latency', 'on_charge', 'offP_amp_pla', 'offP_amp_bas', 
+           'off_latency', 'off_charge', 'sustain', 'inhibit_early', 'inhibit_late', 'inhibit_off']
+
+# Parameters to test against
+parameters = ['para1', 'para2', 'para3']
+spatial_coords = ['x', 'y']
+
+print(f"\nAnalyzing {len(features)} features against {len(parameters)} parameters and {len(spatial_coords)} spatial coordinates")
+
+def perform_glm_analysis(data, feature, base_predictors, analysis_type, cv_folds=5, with_interactions=True):
+    """
+    Perform GLM analysis for a given feature against predictors with cross-validation
+    """
+    # Remove any rows with missing values for current analysis
+    analysis_data = data[base_predictors + [feature]].dropna()
+    
+    if len(analysis_data) < cv_folds:
+        return None
+    
+    X = analysis_data[base_predictors]
+    y = analysis_data[feature]
+    
+    # Add interactions if requested
+    if with_interactions:
+        df_int = analysis_data.copy()
+        for para in ["para1", "para2", "para3"]:
+            df_int[f"{para}:x"] = df_int[para] * df_int["x"]
+            df_int[f"{para}:y"] = df_int[para] * df_int["y"]
+        predictors = base_predictors + [f"{p}:{c}" for p in ["para1", "para2", "para3"] for c in ["x", "y"]]
+    else:
+        df_int = analysis_data.copy()
+        predictors = base_predictors
+    
+    
+    # Add constant for intercept
+    X_with_const = sm.add_constant(X)
+    
+    try:
+        # Fit GLM model
+        model = sm.GLM(y, X_with_const, family=sm.families.Gaussian()).fit()
+        
+        # Calculate overall model p-value using F-test approach
+        try:
+            # For GLM, we can use the likelihood ratio test
+            llr = model.null_deviance - model.deviance
+            df = len(predictors)  # degrees of freedom for the test
+            p_value_overall = 1 - stats.chi2.cdf(llr, df) if df > 0 else 1.0
+        except:
+            # Fallback: use the minimum p-value of predictors
+            p_value_overall = 1.0
+        
+        # Perform cross-validation using sklearn for consistency
+        from sklearn.linear_model import LinearRegression
+        lr_model = LinearRegression()
+        
+        # Set up cross-validation
+        kf = KFold(n_splits=cv_folds, shuffle=True, random_state=42)
+        
+        # Perform cross-validation
+        cv_scores = cross_val_score(lr_model, X, y, cv=kf, scoring='r2')
+        cv_mse_scores = -cross_val_score(lr_model, X, y, cv=kf, scoring='neg_mean_squared_error')
+        cv_mae_scores = -cross_val_score(lr_model, X, y, cv=kf, scoring='neg_mean_absolute_error')
+        
+        # Calculate additional cross-validation metrics
+        cv_results = cross_validate(lr_model, X, y, cv=kf, 
+                                   scoring=['r2', 'neg_mean_squared_error', 'neg_mean_absolute_error'],
+                                   return_train_score=True)
+        
+        # Extract results
+        results = {
+            'feature': feature,
+            'analysis_type': analysis_type,
+            'predictors': predictors,
+            'n_observations': len(analysis_data),
+            'aic': model.aic,
+            'bic': model.bic,
+            'deviance': model.deviance,
+            'null_deviance': model.null_deviance,
+            'pseudo_r2': 1 - (model.deviance / model.null_deviance),
+            'p_value_overall': p_value_overall,
+            'coefficients': {},
+            'p_values': {},
+            'conf_intervals': {},
+            # Cross-validation results
+            'cv_folds': cv_folds,
+            'cv_r2_mean': cv_scores.mean(),
+            'cv_r2_std': cv_scores.std(),
+            'cv_mse_mean': cv_mse_scores.mean(),
+            'cv_mse_std': cv_mse_scores.std(),
+            'cv_mae_mean': cv_mae_scores.mean(),
+            'cv_mae_std': cv_mae_scores.std(),
+            'cv_train_r2_mean': cv_results['train_r2'].mean(),
+            'cv_train_r2_std': cv_results['train_r2'].std(),
+            'overfitting_score': cv_results['train_r2'].mean() - cv_results['test_r2'].mean()
+        }
+        
+        # Extract coefficient information
+        for i, pred in enumerate(['intercept'] + predictors):
+            results['coefficients'][pred] = model.params.iloc[i]
+            results['p_values'][pred] = model.pvalues.iloc[i]
+            conf_int = model.conf_int().iloc[i]
+            results['conf_intervals'][pred] = (conf_int[0], conf_int[1])
+        
+        return results
+    
+    except Exception as e:
+        print(f"Error in GLM analysis for {feature} vs {predictors}: {str(e)}")
+        return None
+
+
+
+
+
+# Initialize results storage
+all_results = []
+
+print("\nPerforming GLM analyses...")
+print("="*50)
+
+# For each feature, test against parameters and spatial coordinates
+for feature in features:
+    print(f"\nAnalyzing feature: {feature}")
+    
+    # Check if feature has sufficient non-missing data
+    feature_data = df[feature].dropna()
+    if len(feature_data) < 10:
+        print(f"  Skipping {feature} - insufficient data ({len(feature_data)} observations)")
+        continue
+    
+    print(f"  Available observations: {len(feature_data)}")
+    
+    # Test against each individual parameter
+    for param in parameters:
+        result = perform_glm_analysis(df, feature, [param], f'{param}_dependency')
+        if result:
+            all_results.append(result)
+            print(f"    {param}: p={result['p_values'][param]:.4f}, pseudo-R²={result['pseudo_r2']:.4f}, "
+                  f"CV-R²={result['cv_r2_mean']:.4f}±{result['cv_r2_std']:.3f}")
+    
+    # Test against spatial coordinates individually
+    for coord in spatial_coords:
+        result = perform_glm_analysis(df, feature, [coord], f'{coord}_dependency')
+        if result:
+            all_results.append(result)
+            print(f"    {coord}: p={result['p_values'][coord]:.4f}, pseudo-R²={result['pseudo_r2']:.4f}, "
+                  f"CV-R²={result['cv_r2_mean']:.4f}±{result['cv_r2_std']:.3f}")
+    
+    # Test against all parameters together
+    result = perform_glm_analysis(df, feature, parameters, 'all_parameters')
+    if result:
+        all_results.append(result)
+        print(f"    All parameters: overall p={result['p_value_overall']:.4f}, pseudo-R²={result['pseudo_r2']:.4f}, "
+              f"CV-R²={result['cv_r2_mean']:.4f}±{result['cv_r2_std']:.3f}")
+    
+    # Test against spatial coordinates together
+    result = perform_glm_analysis(df, feature, spatial_coords, 'spatial_coordinates')
+    if result:
+        all_results.append(result)
+        print(f"    Spatial coords: overall p={result['p_value_overall']:.4f}, pseudo-R²={result['pseudo_r2']:.4f}, "
+              f"CV-R²={result['cv_r2_mean']:.4f}±{result['cv_r2_std']:.3f}")
+
+# Convert results to DataFrame for easier analysis
+results_df = pd.DataFrame(all_results)
+
+if len(results_df) > 0:
+    print(f"\nCompleted analysis of {len(results_df)} model comparisons")
+    
+    # Create summary tables
+    print("\n" + "="*80)
+    print("SUMMARY OF SIGNIFICANT RELATIONSHIPS (p < 0.05)")
+    print("="*80)
+    
+    # Filter for significant results
+    significant_results = []
+    for _, row in results_df.iterrows():
+        for pred in row['predictors']:
+            if pred != 'intercept' and row['p_values'][pred] < 0.05:
+                significant_results.append({
+                    'feature': row['feature'],
+                    'predictor': pred,
+                    'analysis_type': row['analysis_type'],
+                    'coefficient': row['coefficients'][pred],
+                    'p_value': row['p_values'][pred],
+                    'pseudo_r2': row['pseudo_r2'],
+                    'cv_r2_mean': row['cv_r2_mean'],
+                    'cv_r2_std': row['cv_r2_std'],
+                    'overfitting_score': row['overfitting_score'],
+                    'n_obs': row['n_observations']
+                })
+    
+    if significant_results:
+        sig_df = pd.DataFrame(significant_results)
+        
+        print(f"\nFound {len(significant_results)} significant relationships:")
+        print("\nBy Feature:")
+        for feature in features:
+            feature_sigs = sig_df[sig_df['feature'] == feature]
+            if len(feature_sigs) > 0:
+                print(f"\n{feature}:")
+                for _, row in feature_sigs.iterrows():
+                    direction = "positive" if row['coefficient'] > 0 else "negative"
+                    print(f"  - {direction} relationship with {row['predictor']} "
+                          f"(p={row['p_value']:.4f}, R²={row['pseudo_r2']:.3f}, "
+                          f"CV-R²={row['cv_r2_mean']:.3f}±{row['cv_r2_std']:.3f})")
+                    if row['overfitting_score'] > 0.1:
+                        print(f"    ⚠️  Potential overfitting detected (train-test gap: {row['overfitting_score']:.3f})")
+        
+        print("\nBy Predictor Type:")
+        for pred_type in ['para1', 'para2', 'para3', 'x', 'y']:
+            pred_sigs = sig_df[sig_df['predictor'] == pred_type]
+            if len(pred_sigs) > 0:
+                print(f"\n{pred_type} ({len(pred_sigs)} significant relationships):")
+                for _, row in pred_sigs.iterrows():
+                    direction = "positive" if row['coefficient'] > 0 else "negative"
+                    print(f"  - {row['feature']}: {direction} (p={row['p_value']:.4f}, CV-R²={row['cv_r2_mean']:.3f})")
+    
+    else:
+        print("No statistically significant relationships found (p < 0.05)")
+    
+    # Create visualization
+    print("\nGenerating visualization...")
+    
+    # Prepare data for heatmap
+    heatmap_data = pd.DataFrame(index=features, 
+                               columns=parameters + spatial_coords)
+    
+    cv_heatmap_data = pd.DataFrame(index=features, 
+                                  columns=parameters + spatial_coords)
+    
+    # Fill heatmap with p-values and CV R² values
+    for _, row in results_df.iterrows():
+        if len(row['predictors']) == 1:  # Only individual predictor analyses
+            feature = row['feature']
+            predictor = row['predictors'][0]
+            p_value = row['p_values'][predictor]
+            cv_r2 = row['cv_r2_mean']
+            # Use negative log p-value for better visualization (higher = more significant)
+            heatmap_data.loc[feature, predictor] = -np.log10(max(p_value, 1e-10))
+            cv_heatmap_data.loc[feature, predictor] = cv_r2
+    
+    # Convert to numeric
+    heatmap_data = heatmap_data.astype(float)
+    cv_heatmap_data = cv_heatmap_data.astype(float)
+    
+    # Create the plot
+    fig, axes = plt.subplots(2, 3, figsize=(20, 12))
+    
+    # P-value heatmap
+    ax1 = axes[0, 0]
+    sns.heatmap(heatmap_data, annot=True, fmt='.2f', cmap='viridis', 
+                ax=ax1, cbar_kws={'label': '-log10(p-value)'})
+    ax1.set_title('Statistical Significance\n(-log10(p-value), higher = more significant)')
+    ax1.set_xlabel('Predictors')
+    ax1.set_ylabel('Features')
+    
+    # Cross-validation R² heatmap
+    ax2 = axes[0, 1]
+    sns.heatmap(cv_heatmap_data, annot=True, fmt='.3f', cmap='RdYlBu_r', 
+                ax=ax2, cbar_kws={'label': 'CV R²'})
+    ax2.set_title('Cross-Validation R²\n(Model Generalization Performance)')
+    ax2.set_xlabel('Predictors')
+    ax2.set_ylabel('Features')
+    
+    # Coefficient heatmap for significant results
+    coeff_data = pd.DataFrame(index=features, columns=parameters + spatial_coords)
+    for _, row in results_df.iterrows():
+        if len(row['predictors']) == 1:
+            feature = row['feature']
+            predictor = row['predictors'][0]
+            p_value = row['p_values'][predictor]
+            if p_value < 0.05:  # Only show significant coefficients
+                coeff_data.loc[feature, predictor] = row['coefficients'][predictor]
+    
+    coeff_data = coeff_data.astype(float)
+    ax3 = axes[0, 2]
+    sns.heatmap(coeff_data, annot=True, fmt='.3f', cmap='RdBu_r', center=0,
+                ax=ax3, cbar_kws={'label': 'Coefficient'})
+    ax3.set_title('Significant Coefficients\n(p < 0.05, red=positive, blue=negative)')
+    ax3.set_xlabel('Predictors')
+    ax3.set_ylabel('Features')
+    
+    # Distribution of p-values
+    ax4 = axes[1, 0]
+    all_pvals = []
+    for _, row in results_df.iterrows():
+        for pred in row['predictors']:
+            if pred != 'intercept':
+                all_pvals.append(row['p_values'][pred])
+    
+    ax4.hist(all_pvals, bins=30, alpha=0.7, edgecolor='black')
+    ax4.axvline(0.05, color='red', linestyle='--', label='p=0.05')
+    ax4.set_xlabel('P-value')
+    ax4.set_ylabel('Frequency')
+    ax4.set_title('Distribution of P-values')
+    ax4.legend()
+    
+    # Model quality comparison: Pseudo R² vs CV R²
+    ax5 = axes[1, 1]
+    pseudo_r2_values = [row['pseudo_r2'] for _, row in results_df.iterrows() 
+                        if row['pseudo_r2'] is not None]
+    cv_r2_values = [row['cv_r2_mean'] for _, row in results_df.iterrows() 
+                    if row['cv_r2_mean'] is not None]
+    
+    ax5.scatter(pseudo_r2_values, cv_r2_values, alpha=0.6)
+    ax5.plot([-1, 1], [-1, 1], 'r--', alpha=0.8, label='Perfect Agreement')
+    ax5.set_xlabel('Pseudo R² (Training)')
+    ax5.set_ylabel('Cross-Validation R²')
+    ax5.set_title('Model Fit: Training vs Cross-Validation\n(Points below line indicate overfitting)')
+    ax5.legend()
+    
+    # Overfitting detection
+    ax6 = axes[1, 2]
+    overfitting_scores = [row['overfitting_score'] for _, row in results_df.iterrows() 
+                         if row['overfitting_score'] is not None]
+    ax6.hist(overfitting_scores, bins=30, alpha=0.7, edgecolor='black')
+    ax6.axvline(0.1, color='red', linestyle='--', label='Overfitting Threshold (0.1)')
+    ax6.set_xlabel('Train R² - Test R² (Overfitting Score)')
+    ax6.set_ylabel('Frequency')
+    ax6.set_title('Overfitting Detection\n(Higher values indicate overfitting)')
+    ax6.legend()
+    
+    plt.tight_layout()
+    plt.show()
+    
+    # Print final summary
+    print("\n" + "="*80)
+    print("FINAL SUMMARY")
+    print("="*80)
+    
+    total_tests = len([p for _, row in results_df.iterrows() for p in row['predictors'] if p != 'intercept'])
+    significant_tests = len([p for _, row in results_df.iterrows() for p in row['predictors'] 
+                           if p != 'intercept' and row['p_values'][p] < 0.05])
+    
+    print(f"Total statistical tests performed: {total_tests}")
+    print(f"Significant results (p < 0.05): {significant_tests} ({100*significant_tests/total_tests:.1f}%)")
+    
+    # Summary by predictor type
+    pred_summary = {}
+    for pred_type in parameters + spatial_coords:
+        pred_results = [row for _, row in results_df.iterrows() 
+                       if len(row['predictors']) == 1 and row['predictors'][0] == pred_type]
+        sig_count = sum(1 for row in pred_results if row['p_values'][pred_type] < 0.05)
+        pred_summary[pred_type] = {'total': len(pred_results), 'significant': sig_count}
+    
+    print(f"\nDependency Summary:")
+    for pred_type, counts in pred_summary.items():
+        if counts['total'] > 0:
+            pct = 100 * counts['significant'] / counts['total']
+            print(f"  {pred_type}: {counts['significant']}/{counts['total']} features dependent ({pct:.1f}%)")
+
+else:
+    print("No results generated - please check data quality and format")
+
+print("\nAnalysis complete!")

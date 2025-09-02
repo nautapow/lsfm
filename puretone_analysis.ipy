@@ -43,9 +43,9 @@ if  __name__ == "__main__":
     bf_levels, band_levels, left_levels, right_levels = [],[],[],[]
     psth_neurons=[]
     
-    #df_loc = 200       
-    #if df_loc == 200:
-    for df_loc in idx_puretone:
+    df_loc = 200       
+    if df_loc == 200:
+    #for df_loc in idx_puretone:
         #i = int([i for i,a in enumerate(idx_tone) if a == df_loc][0])
         filename = df['filename'][df_loc]
         version = df['Py_version'][df_loc]

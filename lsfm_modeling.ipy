@@ -13,5 +13,176 @@ import pandas as pd
 import lsfm
 import lsfm_psth
 from lsfm_psth import Psth
+from sklearn.model_selection import KFold, GroupKFold, cross_val_score
+from sklearn.linear_model import LinearRegression
+from sklearn.preprocessing import PolynomialFeatures
+from sklearn.pipeline import Pipeline
+import statsmodels.formula.api as smf
 
 
+### construct df for GLM
+# df structure: mouseID - filename - parch_site - x - y - para#1 - para#2 - para#3 - feature#1 - feature#1 - .... - feature#11
+neurons = pd.read_excel('lsfm_cell_note.xlsx')
+coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+
+# =============================================================================
+# all_rows = []
+# 
+# for i in range(len(neurons)):
+#     neuron = neurons.iloc[i]
+#     # Load individual neuron data
+#     filename = neuron.filename
+#     mouseID = neuron.mouseID
+#     patch_site = neuron.patch_site
+#     bf = neuron.best_frequency
+#     bandwidth = neuron.bandwidth
+#     band_left = neuron.band_left
+#     band_right = neuron.band_right
+#     
+#     if filename == '20230628_003':
+#         filename = '20230630_008'
+#     
+#     cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
+#     para = cell_data.item().get('para')
+#     stim = cell_data.item().get('stim')
+#     resp = cell_data.item().get('resp')
+#     
+#     site = f'Patch_{patch_site}'
+#     xx = coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].x_A12.item()
+#     yy = coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].y_A12.item()
+#     
+#     stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])    
+#     cursors = lsfm_psth.get_cursor(resp_in)
+#     for ss, rr, pp in zip(stim_in, resp_in, para_in):
+#         feat_dict_full = lsfm_psth.get_section_single(rr)
+#         
+#         # Keep only the first 11 keys
+#         feat_keys = list(feat_dict_full.keys())[:11]
+#         feat_dict = {k: feat_dict_full[k] for k in feat_keys}
+#         
+#         row = {
+#             'mouseID': mouseID,
+#             'filename': filename,
+#             'patch_site': patch_site,
+#             'x': xx,
+#             'y': yy,
+#             'para1': pp[0],
+#             'para2': pp[1],
+#             'para3': pp[2],
+#         }
+#         row.update(feat_dict)
+#         all_rows.append(row)
+# 
+# # Make dataframe
+# df = pd.DataFrame(all_rows)
+# df.to_excel("neurons4GLM_new.xlsx", index=False)
+# =============================================================================
+
+df = pd.read_excel("neurons4GLM.xlsx")
+features = ['onP_amp', 'on_latency', 'on_charge', 'offP_amp_pla', 'offP_amp_bas', 'off_latency', 'off_charge', 'sustain',
+          'inhibit_early', 'inhibit_late', 'inhibit_off']
+
+### GLM comparing how much parameter or location explain the variance
+results = []
+for feature in features:
+    X_stim = df[['para1', 'para2', 'para3']].values
+    X_loc = df[['x','y']].values
+    y = df[feature].values
+    
+    # Optionally add polynomial expansion for location (to allow nonlinear gradients)
+    poly = PolynomialFeatures(degree=2, include_bias=False)
+    X_loc_poly = poly.fit_transform(X_loc)
+    
+    # Define models
+    stim_model = LinearRegression()
+    loc_model = LinearRegression()
+    full_model = LinearRegression()
+    
+    # Cross-validation
+    cv = KFold(n_splits=10, shuffle=True, random_state=0)
+    
+    def cv_r2(X, y, model, cv):
+        return np.mean(cross_val_score(model, X, y, cv=cv, scoring='r2'))
+    
+    # Evaluate models
+    r2_stim = cv_r2(X_stim, y, stim_model, cv)
+    r2_loc = cv_r2(X_loc_poly, y, loc_model, cv)
+    r2_full = cv_r2(np.hstack([X_stim, X_loc_poly]), y, full_model, cv)
+    
+    print(f"feature: {feature}")
+    print("Stimulus-only CV R²:", r2_stim)
+    print("Location-only CV R²:", r2_loc)
+    print("Full model CV R²:", r2_full)
+    
+    results.append({
+        "feature": feature,
+        "Stimulus-only CV R²": r2_stim,
+        "Location-only CV R²": r2_loc,
+        "Full model CV R²": r2_full
+    })
+
+results_df = pd.DataFrame(results)
+with pd.ExcelWriter("lsfm_GLM.xlsx", mode="w", engine="openpyxl") as writer:
+    results_df.to_excel(writer, sheet_name="stim-loc", index=False)
+    
+# =============================================================================
+# feature = features[8]
+# if feature == features[8]:
+# #for feature in features[0]:   
+#     ### GLM comparing how much each parameter are affected by location
+#     formula = f"{feature} ~ para1 + para2 + para3 + x + y + \
+#                para1:x + para1:y + para2:x + para2:y + para3:x + para3:y"
+#     model = smf.ols(formula, data=df).fit()
+#     print(f"==== {feature} ====")
+#     print(model.summary())
+# 
+#     y = df[feature].values
+#     X_base = df[['para1','para2','para3','x','y']].values
+#     groups = df['mouseID'].values
+#     
+#     def cv_r2(X, y, groups, cv=5):
+#         gkf = GroupKFold(n_splits=cv)
+#         return np.mean(cross_val_score(
+#             LinearRegression(), X, y,
+#             cv=gkf.split(X, y, groups), scoring='r2'
+#         ))
+#     
+#     # --- Base model
+#     r2_base = cv_r2(X_base, y, groups)
+#     
+#     # --- Stim1 interactions
+#     X_s1 = np.hstack([X_base,
+#         (df['para1'] * df['x']).values[:,None],
+#         (df['para1'] * df['y']).values[:,None]
+#     ])
+#     r2_s1 = cv_r2(X_s1, y, groups)
+#     
+#     # --- Stim2 interactions
+#     X_s2 = np.hstack([X_base,
+#         (df['para2'] * df['x']).values[:,None],
+#         (df['para2'] * df['y']).values[:,None]
+#     ])
+#     r2_s2 = cv_r2(X_s2, y, groups)
+#     
+#     # --- Stim3 interactions
+#     X_s3 = np.hstack([X_base,
+#         (df['para3'] * df['x']).values[:,None],
+#         (df['para3'] * df['y']).values[:,None]
+#     ])
+#     r2_s3 = cv_r2(X_s3, y, groups)
+#     
+#     # --- All interactions
+#     X_all = np.hstack([X_base,
+#         (df['para1'] * df['x']).values[:,None], (df['para1'] * df['y']).values[:,None],
+#         (df['para2'] * df['x']).values[:,None], (df['para2'] * df['y']).values[:,None],
+#         (df['para3'] * df['x']).values[:,None], (df['para3'] * df['y']).values[:,None]
+#     ])
+#     r2_all = cv_r2(X_all, y, groups)
+#     
+#     # --- Report ΔR²
+#     print("Base model CV R²:", r2_base)
+#     print("Stim1 interaction ΔR²:", r2_s1 - r2_base)
+#     print("Stim2 interaction ΔR²:", r2_s2 - r2_base)
+#     print("Stim3 interaction ΔR²:", r2_s3 - r2_base)
+#     print("All interactions CV R²:", r2_all)
+# =============================================================================
