@@ -34,13 +34,14 @@ saveplot=False
 
 get_region = False
 map_patch = False
-map_coordinate = True
+map_coordinate = False
 tone_analysis = False
 lsfm_analysis = False
 intrisic_analysis = False
 para_sep_fit = False
 para_sep_diff = False
 para_sep_group_slope = False
+glm_summary = True
 spike_analysis = False
 
 
@@ -757,6 +758,60 @@ if para_sep_group_slope:
         df_slope = pd.read_excel(f'lsfm_PSTH_slopes.xlsx', sheet_name=para)
         
         plot_slope_maps(df_slope, coords, name_prefix=para)
+
+if glm_summary:
+    coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
+    info = pd.read_excel('lsfm_cell_note.xlsx')
+    df_glm = pd.read_csv('neuron_glm_linear_summary.csv')
+    features = ['onP_amp', 'offP_amp_pla', 'sustain', 'inhibit_late']
+
+    
+    for feature in features:
+        data = df_glm[df_glm['feature']==feature]
+        
+        glm_merged = data.merge(info[['filename', 'mouseID', 'patch_site']],
+                              left_on='neuron_id', right_on='filename', how='inner')
+        mouseIDs = list(glm_merged['mouseID'])
+        filename = list(glm_merged['filename'])
+        sites = list(glm_merged['patch_site'])
+        
+        patch_x, patch_y, ortho_x, ortho_y = [],[],[],[]
+        for i,m in enumerate(mouseIDs):
+            site = f'Patch_{sites[i]}'
+            patch_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].x_A12.item())
+            patch_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].y_A12.item())
+            ortho_x.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].ortho_A12.item())
+            ortho_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].ortho_A12m.item())
+        
+        parameters = {
+        'para1_coef': ('center_frequency', f'{feature} beta1', None, None),
+        'para2_coef': ('bandwidth', f'{feature} beta2', None, None),
+        'para3_coef': ('modulation_rate', f'{feature} beta3', None, None),
+        }
+
+            
+        for param_key, (title_base, ylabel, vmin, vmax) in parameters.items():
+            values = np.array(glm_merged[param_key])
+            ids = list(zip(mouseIDs, sites))  # use tuple as unique key
+            
+            # 1. Detect outliers
+            outlier_mask = detect_outliers(values)
+            
+            # 2. Filter for regression (only inliers)
+            fit_x = regression.regression_poly(np.array(ortho_x)[~outlier_mask], values[~outlier_mask], degree=1)
+            fit_y = regression.regression_poly(np.array(ortho_y)[~outlier_mask], values[~outlier_mask], degree=1)
+            
+            # 3. Plot with highlighting
+            plot_map(patch_x, patch_y, values, ids=ids, saveplot=True,
+                     title=f'linearGLM_{feature}_{title_base}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
+            
+            plot_ortho_xx(ortho_x, values, fit_x, saveplot=True,
+                          title=f'linearGLM_{feature}_{title_base}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
+            
+            plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
+                          title=f'linearGLM_{feature}_{title_base}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
+
+
 
 
 if spike_analysis:
