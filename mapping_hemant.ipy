@@ -163,12 +163,12 @@ def plot_map_3x3(mapping, filename, saveplot=False):
             ax[x,y].set_xticks([0,256,450])
             ax[x,y].set_yticks([0,256,450])
     cols = ['4k', '10k', '30k']
-    rows = ['50dB', '60dB', '70dB']
+    rows = ['60dB', '70dB', '80dB']
     
-    for axes, col in zip(ax[0], cols):
+    for axes, col in zip(ax[0], rows):
         axes.set_title(col, fontsize=16)
         
-    for axes, row in zip(ax[:,0], rows):
+    for axes, row in zip(ax[:,0], cols):
         axes.set_ylabel(row, rotation=90, fontsize=16)
     
     
@@ -347,7 +347,7 @@ def image_process(mapping, threshold, method='tv',
     return np.stack(processed, axis=0)
 
 
-def image_smoothing(mapping, threshold, method='tv', sigma=2.0):
+def image_smoothing(mapping, threshold, method='tv', sigma=1.0):
     """
     Process a list/array of images with smoothing and thresholding.
     Smoothing is applied to make maps look like widefield tonotopy maps.
@@ -475,13 +475,13 @@ def plot_individual_overlay(mapping, filename, wide_field, saveplot=True):
 if __name__ == "__main__":
     %matplotlib inline
     ### Load and process from tiff file
-    directory = r'Z:\Users\hsrivastava\WideField\WFI\TG72\123022'
-    filename = 'TG72'
+    directory = r'Z:\Users\hsrivastava\WideField\WFI\TG73\011023'
+    filename = 'TG73'
     tdms_dir = glob.glob(os.path.join(directory, '*[!Sound].tdms'))
     data_freq = []
     
-    order = ['low', 'mid', 'bmh', 'high']
-    #order = ['low', 'mid', 'high']
+    #order = ['low', 'mid', 'bmh', 'high']
+    order = ['low', 'mid', 'high']
     label_map = {label: i for i, label in enumerate(order)}
     tdms_dir_sort = sorted(tdms_dir, key=lambda f: next(label_map[l] for l in order if l in f))
     
@@ -515,19 +515,20 @@ if __name__ == "__main__":
     
     
     ### Load from npy
-    filename = 'TG72'
+    filename = 'TG73'
     data = np.load(f'{filename}_mapping.npy', allow_pickle=True).item()
     mapping = data['map']
     
     
-    plot_map(mapping, filename, saveplot=True)
-    threshold = (0.32,0.37,0.35)
-    index = [4,6,11]
+    #plot_map(mapping, filename, saveplot=True)
+    plot_map_3x3(mapping, filename, saveplot=True)
+    threshold = (0.6,0.65,0.5)
+    index = [2,5,8]
     #map_prosses = image_process_smooth(mapping[index], threshold=threshold, method='nlm', nlm_patch_size=15, nlm_patch_distance=7)
     map_prosses = image_smoothing(mapping[index], threshold=threshold)
     
     wf_file = r'Z:\Users\hsrivastava\WideField\WFI\tg171\1\tg171_MEAN_2023-09-04T17-37-37.261.png'
     plot_overlay(map_prosses, filename, wf_file, saveplot=True)
-    plot_individual_overlay(map_prosses, filename, wf_file, saveplot=False)
+    plot_individual_overlay(map_prosses, filename, wf_file, saveplot=True)
     
 

@@ -762,8 +762,11 @@ if para_sep_group_slope:
 if glm_summary:
     coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
     info = pd.read_excel('lsfm_cell_note.xlsx')
-    df_glm = pd.read_csv('neuron_glm_linear_summary.csv')
-    features = ['onP_amp', 'offP_amp_pla', 'sustain', 'inhibit_late']
+    
+    model = 'interaction'
+    df_glm = pd.read_csv(f'neuron_glm_{model}_summary.csv')
+    features = ['onP_amp', 'on_latency', 'on_charge', 'offP_amp_pla', 'offP_amp_bas', 'off_latency', 'off_charge', 'sustain',
+              'inhibit_early', 'inhibit_late', 'inhibit_off']
 
     
     for feature in features:
@@ -784,9 +787,16 @@ if glm_summary:
             ortho_y.append(coords[(coords['mouseid'] == m) & (coords['regions'] == site)].ortho_A12m.item())
         
         parameters = {
+        'loo_r2': ('CV_R2', f'{feature} CV-R2', None, None),
         'para1_coef': ('center_frequency', f'{feature} beta1', None, None),
         'para2_coef': ('bandwidth', f'{feature} beta2', None, None),
         'para3_coef': ('modulation_rate', f'{feature} beta3', None, None),
+        'para1_sq_coef': ('cf-square', f'{feature} beta4', None, None),
+        'para2_sq_coef': ('bw-square', f'{feature} beta5', None, None),
+        'para3_sq_coef': ('mr-square', f'{feature} beta6', None, None),
+        'para1_para2_coef': ('cf-bw', f'{feature} beta7', None, None),
+        'para2_para3_coef': ('bw-mr', f'{feature} beta8', None, None),
+        'para1_para3_coef': ('cf-mr', f'{feature} beta9', None, None),
         }
 
             
@@ -803,13 +813,13 @@ if glm_summary:
             
             # 3. Plot with highlighting
             plot_map(patch_x, patch_y, values, ids=ids, saveplot=True,
-                     title=f'linearGLM_{feature}_{title_base}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
+                     title=f'{model}GLM_{ylabel}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
             
             plot_ortho_xx(ortho_x, values, fit_x, saveplot=True,
-                          title=f'linearGLM_{feature}_{title_base}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
+                          title=f'{model}GLM_{ylabel}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
             
             plot_ortho_yy(ortho_y, values, fit_y, saveplot=True,
-                          title=f'linearGLM_{feature}_{title_base}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
+                          title=f'{model}GLM_{ylabel}', ylabel=ylabel, vmin=vmin, vmax=vmax, outlier_mask=outlier_mask)
 
 
 

@@ -9,7 +9,7 @@ warnings.filterwarnings('ignore')
 
 def perform_glm_interaction_analysis(df, random_state=42):
     """
-    Perform GLM analysis for each neuron with INTERACTION TERMS using Leave-One-Out Cross-Validation.
+    Perform GLM analysis for each neuron with QUADRATIC + INTERACTION TERMS using Leave-One-Out Cross-Validation.
     
     Parameters:
     df: DataFrame with columns [filename, x, y, para1, para2, para3, features...]
@@ -29,7 +29,7 @@ def perform_glm_interaction_analysis(df, random_state=42):
     ]
     
     print(f"Found {len(feature_cols)} features: {feature_cols}")
-    print(f"Using interaction model: {param_cols} + interaction terms")
+    print(f"Using full model: {param_cols} + quadratic terms + interaction terms")
     
     # Get unique neurons
     neurons = df['filename'].unique()
@@ -52,18 +52,20 @@ def perform_glm_interaction_analysis(df, random_state=42):
             print(f"  Skipping {neuron_id}: insufficient samples ({n_samples})")
             continue
         
-        # Prepare features and parameters WITH INTERACTION TERMS
+        # Prepare features and parameters WITH INTERACTION AND QUADRATIC TERMS
         X_linear = neuron_data[param_cols].values
+        # Create quadratic terms: para1², para2², para3²
+        X_quadratic = X_linear ** 2
         # Create interaction terms: para1*para2, para2*para3, para1*para3
         interaction_12 = X_linear[:, 0] * X_linear[:, 1]  # para1 * para2
         interaction_23 = X_linear[:, 1] * X_linear[:, 2]  # para2 * para3
         interaction_13 = X_linear[:, 0] * X_linear[:, 2]  # para1 * para3
         
         X_interactions = np.column_stack([interaction_12, interaction_23, interaction_13])
-        X = np.hstack([X_linear, X_interactions])  # Combine linear and interaction terms
+        X = np.hstack([X_linear, X_quadratic, X_interactions])  # Combine linear, quadratic, and interaction terms
         
         # Feature names for interpretability
-        feature_names = param_cols + ['para1×para2', 'para2×para3', 'para1×para3']
+        feature_names = param_cols + [f'{param}²' for param in param_cols] + ['para1×para2', 'para2×para3', 'para1×para3']
         
         # Initialize neuron results
         neuron_results = {
@@ -171,9 +173,12 @@ def perform_glm_interaction_analysis(df, random_state=42):
                 'para1_coef': model_final.coef_[0],
                 'para2_coef': model_final.coef_[1],
                 'para3_coef': model_final.coef_[2],
-                'para1_para2_coef': model_final.coef_[3],
-                'para2_para3_coef': model_final.coef_[4],
-                'para1_para3_coef': model_final.coef_[5],
+                'para1_sq_coef': model_final.coef_[3],
+                'para2_sq_coef': model_final.coef_[4],
+                'para3_sq_coef': model_final.coef_[5],
+                'para1_para2_coef': model_final.coef_[6],
+                'para2_para3_coef': model_final.coef_[7],
+                'para1_para3_coef': model_final.coef_[8],
                 'intercept': model_final.intercept_,
                 'overfitting': train_r2 - loo_r2  # Positive values indicate overfitting
             })
@@ -192,7 +197,7 @@ def analyze_interaction_results(results_summary):
     Provide summary statistics and insights from the interaction GLM results.
     """
     print("\n" + "="*60)
-    print("INTERACTION GLM ANALYSIS SUMMARY")
+    print("FULL GLM ANALYSIS SUMMARY (QUADRATIC + INTERACTION)")
     print("="*60)
     
     print(f"Total models fitted: {len(results_summary)}")
@@ -224,6 +229,12 @@ def analyze_interaction_results(results_summary):
         'para3_importance': results_summary['para3_coef'].abs()
     })
     
+    quadratic_importance = pd.DataFrame({
+        'para1_sq_importance': results_summary['para1_sq_coef'].abs(),
+        'para2_sq_importance': results_summary['para2_sq_coef'].abs(),
+        'para3_sq_importance': results_summary['para3_sq_coef'].abs()
+    })
+    
     interaction_importance = pd.DataFrame({
         'para1_para2_importance': results_summary['para1_para2_coef'].abs(),
         'para2_para3_importance': results_summary['para2_para3_coef'].abs(),
@@ -233,6 +244,10 @@ def analyze_interaction_results(results_summary):
     print(f"\nLinear Term Importance (Mean Absolute Coefficients):")
     for param in ['para1_importance', 'para2_importance', 'para3_importance']:
         print(f"{param.replace('_importance', '')}: {linear_importance[param].mean():.3f} ± {linear_importance[param].std():.3f}")
+    
+    print(f"\nQuadratic Term Importance (Mean Absolute Coefficients):")
+    for param in ['para1_sq_importance', 'para2_sq_importance', 'para3_sq_importance']:
+        print(f"{param.replace('_importance', '')}: {quadratic_importance[param].mean():.3f} ± {quadratic_importance[param].std():.3f}")
     
     print(f"\nInteraction Term Importance (Mean Absolute Coefficients):")
     for param in ['para1_para2_importance', 'para2_para3_importance', 'para1_para3_importance']:
@@ -248,7 +263,7 @@ def analyze_interaction_results(results_summary):
 
 def save_interaction_results(results_summary, detailed_results, output_prefix='neuron_glm_interaction'):
     """
-    Save interaction GLM results to CSV files.
+    Save full GLM results (quadratic + interaction) to CSV files.
     """
     # Save summary results
     results_summary.to_csv(f'{output_prefix}_summary.csv', index=False)
@@ -265,9 +280,12 @@ def save_interaction_results(results_summary, detailed_results, output_prefix='n
                 'para1_coef': feature_data['coefficients'][0],
                 'para2_coef': feature_data['coefficients'][1],
                 'para3_coef': feature_data['coefficients'][2],
-                'para1_para2_coef': feature_data['coefficients'][3],
-                'para2_para3_coef': feature_data['coefficients'][4],
-                'para1_para3_coef': feature_data['coefficients'][5],
+                'para1_sq_coef': feature_data['coefficients'][3],
+                'para2_sq_coef': feature_data['coefficients'][4],
+                'para3_sq_coef': feature_data['coefficients'][5],
+                'para1_para2_coef': feature_data['coefficients'][6],
+                'para2_para3_coef': feature_data['coefficients'][7],
+                'para1_para3_coef': feature_data['coefficients'][8],
                 'loo_r2': feature_data['loo_r2'],
                 'train_r2': feature_data['train_r2']
             }
@@ -282,10 +300,13 @@ if __name__ == "__main__":
     # Load your data
     # df = pd.read_csv('your_neuron_data.csv')  # Replace with your file path
     
-    print("INTERACTION GLM Analysis - Ready to run with your data.")
-    print("This version includes interaction terms: para1×para2, para2×para3, para1×para3")
+    print("FULL GLM Analysis - Ready to run with your data.")
+    print("This version includes BOTH quadratic AND interaction terms:")
+    print("Linear: para1, para2, para3")
+    print("Quadratic: para1², para2², para3²") 
+    print("Interaction: para1×para2, para2×para3, para1×para3")
     print("\nTo run the analysis:")
-    print("1. Load your data: df = pd.read_csv('your_file.csv')")
+    print("1. Load your data: df = pd.read_excel('neurons4GLM.xlsx')")
     print("2. Run analysis: results_summary, detailed_results = perform_glm_interaction_analysis(df)")
     print("3. Analyze results: analyze_interaction_results(results_summary)")
     print("4. Save results: save_interaction_results(results_summary, detailed_results)")

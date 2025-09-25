@@ -7,7 +7,7 @@ from sklearn.preprocessing import StandardScaler
 import warnings
 warnings.filterwarnings('ignore')
 
-def perform_glm_analysis(df, random_state=42):
+def perform_glm_linear_analysis(df, random_state=42):
     """
     Perform GLM analysis for each neuron using Leave-One-Out Cross-Validation, predicting each feature using parameters.
     
@@ -174,7 +174,7 @@ def perform_glm_analysis(df, random_state=42):
     
     return results_summary, detailed_results
 
-def analyze_results(results_summary):
+def analyze_linear_results(results_summary):
     """
     Provide summary statistics and insights from the GLM results.
     """
@@ -222,7 +222,7 @@ def analyze_results(results_summary):
     
     return results_summary
 
-def save_results(results_summary, detailed_results, output_prefix='neuron_glm_linear'):
+def save_linear_results(results_summary, detailed_results, output_prefix='neuron_glm_linear'):
     """
     Save results to CSV files.
     """
@@ -269,7 +269,7 @@ if __name__ == "__main__":
         print(f"  - {col}")
     
     print(f"\nTo run the analysis:")
-    print("1. Load your data: df = pd.read_csv('your_file.csv')")
-    print("2. Run analysis: results_summary, detailed_results = perform_glm_analysis(df)")
-    print("3. Analyze results: analyze_results(results_summary)")
-    print("4. Save results: save_results(results_summary, detailed_results)")
+    print("1. Load your data: df = pd.read_excel('neurons4GLM.xlsx')")
+    print("2. Run analysis: results_summary, detailed_results = perform_glm_linear_analysis(df)")
+    print("3. Analyze results: analyze_linear_results(results_summary)")
+    print("4. Save results: save_linear_results(results_summary, detailed_results)")

@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import math
 import matplotlib.pyplot as plt
 import matplotlib as mpl
 %matplotlib inline
@@ -17,7 +18,7 @@ from sklearn.model_selection import KFold, GroupKFold, cross_val_score
 from sklearn.linear_model import LinearRegression
 from sklearn.preprocessing import PolynomialFeatures
 from sklearn.pipeline import Pipeline
-import statsmodels.formula.api as smf
+#import statsmodels.formula.api as smf
 
 
 ### construct df for GLM
@@ -25,105 +26,108 @@ import statsmodels.formula.api as smf
 neurons = pd.read_excel('lsfm_cell_note.xlsx')
 coords = pd.read_excel('mapping_coordinate.xlsx', sheet_name='coords')
 
+all_rows = []
+
+for i in range(len(neurons)):
+    neuron = neurons.iloc[i]
+    # Load individual neuron data
+    filename = neuron.filename
+    mouseID = neuron.mouseID
+    patch_site = neuron.patch_site
+    bf = neuron.best_frequency
+    bandwidth = neuron.bandwidth
+    band_left = neuron.band_left
+    band_right = neuron.band_right
+    
+    if filename == '20230628_003':
+        filename = '20230630_008'
+    
+    cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
+    para = cell_data.item().get('para')
+    stim = cell_data.item().get('stim')
+    resp = cell_data.item().get('resp')
+    
+    site = f'Patch_{patch_site}'
+    xx = coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].x_A12.item()
+    yy = coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].y_A12.item()
+    
+    stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])    
+    cursors = lsfm_psth.get_cursor(resp_in)
+    for ss, rr, pp in zip(stim, resp, para):
+        feat_dict_full = lsfm_psth.get_section_single(rr)
+        
+        # Keep only the first 11 keys
+        feat_keys = list(feat_dict_full.keys())[:11]
+        feat_dict = {k: feat_dict_full[k] for k in feat_keys}
+        
+        diff_bf = (pp[0]*1000)/int(bf)
+        diff_bf = abs(math.log2(diff_bf))
+        
+        row = {
+            'mouseID': mouseID,
+            'filename': filename,
+            'patch_site': patch_site,
+            'x': xx,
+            'y': yy,
+            'para1': diff_bf,
+            'para2': pp[1],
+            'para3': pp[2],
+        }
+        row.update(feat_dict)
+        all_rows.append(row)
+
+# Make dataframe
+df = pd.DataFrame(all_rows)
+df.to_excel("neurons4GLM_full.xlsx", index=False)
+
 # =============================================================================
-# all_rows = []
+# df = pd.read_excel("neurons4GLM.xlsx")
+# features = ['onP_amp', 'on_latency', 'on_charge', 'offP_amp_pla', 'offP_amp_bas', 'off_latency', 'off_charge', 'sustain',
+#           'inhibit_early', 'inhibit_late', 'inhibit_off']
 # 
-# for i in range(len(neurons)):
-#     neuron = neurons.iloc[i]
-#     # Load individual neuron data
-#     filename = neuron.filename
-#     mouseID = neuron.mouseID
-#     patch_site = neuron.patch_site
-#     bf = neuron.best_frequency
-#     bandwidth = neuron.bandwidth
-#     band_left = neuron.band_left
-#     band_right = neuron.band_right
+# ### GLM comparing how much parameter or location explain the variance
+# results = []
+# for feature in features:
+#     X_stim = df[['para1', 'para2', 'para3']].values
+#     X_loc = df[['x','y']].values
+#     y = df[feature].values
 #     
-#     if filename == '20230628_003':
-#         filename = '20230630_008'
+#     # Optionally add polynomial expansion for location (to allow nonlinear gradients)
+#     poly = PolynomialFeatures(degree=2, include_bias=False)
+#     X_loc_poly = poly.fit_transform(X_loc)
 #     
-#     cell_data = np.load(f'{filename}_lsfm.npy', allow_pickle=True)
-#     para = cell_data.item().get('para')
-#     stim = cell_data.item().get('stim')
-#     resp = cell_data.item().get('resp')
+#     # Define models
+#     stim_model = LinearRegression()
+#     loc_model = LinearRegression()
+#     full_model = LinearRegression()
 #     
-#     site = f'Patch_{patch_site}'
-#     xx = coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].x_A12.item()
-#     yy = coords[(coords['mouseid'] == mouseID) & (coords['regions'] == site)].y_A12.item()
+#     # Cross-validation
+#     cv = KFold(n_splits=10, shuffle=True, random_state=0)
 #     
-#     stim_in, stim_ex, resp_in, resp_ex, para_in, para_ex, _, _ = lsfm.resp_bf_or_not(stim, resp, para, bf, [band_left, band_right])    
-#     cursors = lsfm_psth.get_cursor(resp_in)
-#     for ss, rr, pp in zip(stim_in, resp_in, para_in):
-#         feat_dict_full = lsfm_psth.get_section_single(rr)
-#         
-#         # Keep only the first 11 keys
-#         feat_keys = list(feat_dict_full.keys())[:11]
-#         feat_dict = {k: feat_dict_full[k] for k in feat_keys}
-#         
-#         row = {
-#             'mouseID': mouseID,
-#             'filename': filename,
-#             'patch_site': patch_site,
-#             'x': xx,
-#             'y': yy,
-#             'para1': pp[0],
-#             'para2': pp[1],
-#             'para3': pp[2],
-#         }
-#         row.update(feat_dict)
-#         all_rows.append(row)
+#     def cv_r2(X, y, model, cv):
+#         return np.mean(cross_val_score(model, X, y, cv=cv, scoring='r2'))
+#     
+#     # Evaluate models
+#     r2_stim = cv_r2(X_stim, y, stim_model, cv)
+#     r2_loc = cv_r2(X_loc_poly, y, loc_model, cv)
+#     r2_full = cv_r2(np.hstack([X_stim, X_loc_poly]), y, full_model, cv)
+#     
+#     print(f"feature: {feature}")
+#     print("Stimulus-only CV R²:", r2_stim)
+#     print("Location-only CV R²:", r2_loc)
+#     print("Full model CV R²:", r2_full)
+#     
+#     results.append({
+#         "feature": feature,
+#         "Stimulus-only CV R²": r2_stim,
+#         "Location-only CV R²": r2_loc,
+#         "Full model CV R²": r2_full
+#     })
 # 
-# # Make dataframe
-# df = pd.DataFrame(all_rows)
-# df.to_excel("neurons4GLM_new.xlsx", index=False)
+# results_df = pd.DataFrame(results)
+# with pd.ExcelWriter("lsfm_GLM.xlsx", mode="w", engine="openpyxl") as writer:
+#     results_df.to_excel(writer, sheet_name="stim-loc", index=False)
 # =============================================================================
-
-df = pd.read_excel("neurons4GLM.xlsx")
-features = ['onP_amp', 'on_latency', 'on_charge', 'offP_amp_pla', 'offP_amp_bas', 'off_latency', 'off_charge', 'sustain',
-          'inhibit_early', 'inhibit_late', 'inhibit_off']
-
-### GLM comparing how much parameter or location explain the variance
-results = []
-for feature in features:
-    X_stim = df[['para1', 'para2', 'para3']].values
-    X_loc = df[['x','y']].values
-    y = df[feature].values
-    
-    # Optionally add polynomial expansion for location (to allow nonlinear gradients)
-    poly = PolynomialFeatures(degree=2, include_bias=False)
-    X_loc_poly = poly.fit_transform(X_loc)
-    
-    # Define models
-    stim_model = LinearRegression()
-    loc_model = LinearRegression()
-    full_model = LinearRegression()
-    
-    # Cross-validation
-    cv = KFold(n_splits=10, shuffle=True, random_state=0)
-    
-    def cv_r2(X, y, model, cv):
-        return np.mean(cross_val_score(model, X, y, cv=cv, scoring='r2'))
-    
-    # Evaluate models
-    r2_stim = cv_r2(X_stim, y, stim_model, cv)
-    r2_loc = cv_r2(X_loc_poly, y, loc_model, cv)
-    r2_full = cv_r2(np.hstack([X_stim, X_loc_poly]), y, full_model, cv)
-    
-    print(f"feature: {feature}")
-    print("Stimulus-only CV R²:", r2_stim)
-    print("Location-only CV R²:", r2_loc)
-    print("Full model CV R²:", r2_full)
-    
-    results.append({
-        "feature": feature,
-        "Stimulus-only CV R²": r2_stim,
-        "Location-only CV R²": r2_loc,
-        "Full model CV R²": r2_full
-    })
-
-results_df = pd.DataFrame(results)
-with pd.ExcelWriter("lsfm_GLM.xlsx", mode="w", engine="openpyxl") as writer:
-    results_df.to_excel(writer, sheet_name="stim-loc", index=False)
     
 # =============================================================================
 # feature = features[8]

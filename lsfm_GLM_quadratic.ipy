@@ -279,7 +279,7 @@ if __name__ == "__main__":
     print("QUADRATIC GLM Analysis - Ready to run with your data.")
     print("This version includes quadratic terms: para1², para2², para3²")
     print("\nTo run the analysis:")
-    print("1. Load your data: df = pd.read_csv('your_file.csv')")
+    print("1. Load your data: df = pd.read_excel('neurons4GLM.xlsx')")
     print("2. Run analysis: results_summary, detailed_results = perform_glm_quadratic_analysis(df)")
     print("3. Analyze results: analyze_quadratic_results(results_summary)")
     print("4. Save results: save_quadratic_results(results_summary, detailed_results)")
